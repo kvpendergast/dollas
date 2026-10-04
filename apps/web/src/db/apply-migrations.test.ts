@@ -3,38 +3,37 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import {
+  APP_ROLE_SQL,
   applyMigrations,
-  loadMigrationFiles,
+  legacyBaselineAt,
+  migrationsFolder,
   migrateOnStartup,
-  migrationsDirectory,
-  splitSqlStatements,
+  pendingMigrationTags,
+  readJournal,
   startupDatabaseUrl,
-  type MigrationClient,
-  type MigrationFile,
+  type JournalEntry,
+  type MigrationSession,
 } from "./apply-migrations";
 
-class MemoryMigrationClient implements MigrationClient {
-  readonly executed: string[] = [];
-  private readonly applied = new Set<string>();
-  private readonly forbidDdl: boolean;
-  private readonly readableBookkeeping: boolean;
-  private readonly schemaPresent: boolean;
-  private readonly executeDelayMs: number;
+class MemorySession implements MigrationSession {
+  migrateCalls = 0;
+  baselinedAt: number | null = null;
+  ensuredRole = false;
   private locked = false;
   private readonly waiters: Array<() => void> = [];
+  private lastCreatedAt: number | null;
 
-  constructor(options?: {
-    applied?: string[];
-    forbidDdl?: boolean;
-    readableBookkeeping?: boolean;
-    schemaPresent?: boolean;
-    executeDelayMs?: number;
-  }) {
-    for (const id of options?.applied ?? []) this.applied.add(id);
-    this.forbidDdl = options?.forbidDdl ?? false;
-    this.readableBookkeeping = options?.readableBookkeeping ?? !this.forbidDdl;
-    this.schemaPresent = options?.schemaPresent ?? false;
-    this.executeDelayMs = options?.executeDelayMs ?? 0;
+  constructor(
+    private readonly options?: {
+      canCreate?: boolean;
+      booksPresent?: boolean;
+      journalUnreadable?: boolean;
+      lastCreatedAt?: number | null;
+      delayMs?: number;
+      afterMigrateAt?: number;
+    },
+  ) {
+    this.lastCreatedAt = options?.lastCreatedAt ?? null;
   }
 
   async lock(): Promise<void> {
@@ -56,58 +55,64 @@ class MemoryMigrationClient implements MigrationClient {
     this.locked = false;
   }
 
-  async ensureMigrationTable(): Promise<"ok" | "forbidden"> {
-    if (this.forbidDdl) return "forbidden";
-    return "ok";
-  }
+  async end(): Promise<void> {}
 
-  async appliedIds(): Promise<string[] | "forbidden"> {
-    if (!this.readableBookkeeping) return "forbidden";
-    return [...this.applied];
-  }
-
-  async execute(statement: string): Promise<void> {
-    if (this.forbidDdl) throw Object.assign(new Error("permission denied"), { code: "42501" });
-    this.executed.push(statement);
-    if (this.executeDelayMs > 0) {
-      await new Promise((resolve) => setTimeout(resolve, this.executeDelayMs));
-    }
-  }
-
-  async record(id: string): Promise<"inserted" | "exists"> {
-    if (this.forbidDdl) throw Object.assign(new Error("permission denied"), { code: "42501" });
-    if (this.applied.has(id)) return "exists";
-    this.applied.add(id);
-    return "inserted";
+  async canCreateSchema(): Promise<boolean> {
+    return this.options?.canCreate ?? true;
   }
 
   async booksSchemaPresent(): Promise<boolean> {
-    return this.schemaPresent;
+    return this.options?.booksPresent ?? false;
   }
 
-  async grantBookkeepingRead(): Promise<void> {}
+  async latestJournalAt(): Promise<number | null | "unreadable"> {
+    if (this.options?.journalUnreadable) return "unreadable";
+    return this.lastCreatedAt;
+  }
 
-  async end(): Promise<void> {}
+  async ensureAppRole(): Promise<void> {
+    this.ensuredRole = true;
+  }
+
+  async baselineLegacy(createdAt: number): Promise<void> {
+    this.baselinedAt = createdAt;
+    this.lastCreatedAt = createdAt;
+  }
+
+  async migrate(): Promise<void> {
+    this.migrateCalls += 1;
+    if ((this.options?.delayMs ?? 0) > 0) {
+      await new Promise((resolve) => setTimeout(resolve, this.options?.delayMs));
+    }
+    this.lastCreatedAt = this.options?.afterMigrateAt ?? this.lastCreatedAt;
+  }
+
+  async grantJournalRead(): Promise<void> {}
 }
 
-const sampleFile: MigrationFile = { id: "001_books.sql", sql: "select 1;" };
+const sampleJournal: JournalEntry[] = [
+  { tag: "0000_books", when: 10 },
+  { tag: "0001_household_access", when: 20 },
+  { tag: "0002_household_rls", when: 30 },
+];
 
 describe("startup database URL", () => {
   it("does not require DATABASE_MIGRATE_URL when a database URL is present", async () => {
     const env = { DATABASE_URL: "postgres://db.internal/dollas" };
     assert.equal("DATABASE_MIGRATE_URL" in env, false);
     const urls: string[] = [];
-    const client = new MemoryMigrationClient();
+    const session = new MemorySession({ afterMigrateAt: 30 });
     const result = await migrateOnStartup({
       env,
-      files: [sampleFile],
+      journal: sampleJournal,
       connect(url) {
         urls.push(url);
-        return client;
+        return session;
       },
     });
     assert.deepEqual(urls, ["postgres://db.internal/dollas"]);
-    assert.deepEqual(result.applied, ["001_books.sql"]);
+    assert.deepEqual(result.applied, ["0000_books", "0001_household_access", "0002_household_rls"]);
+    assert.equal(session.ensuredRole, true);
   });
 
   it("prefers DATABASE_URL_UNPOOLED over DATABASE_URL and ignores DATABASE_MIGRATE_URL", () => {
@@ -129,91 +134,116 @@ describe("startup database URL", () => {
   });
 });
 
-describe("applyMigrations", () => {
-  it("already migrated is a no-op", async () => {
-    const files = await loadMigrationFiles();
-    const client = new MemoryMigrationClient({ applied: files.map((file) => file.id) });
-    const result = await applyMigrations(client, files);
-    assert.deepEqual(result.applied, []);
-    assert.deepEqual(result.skipped, files.map((file) => file.id));
-    assert.equal(client.executed.length, 0);
+describe("pendingMigrationTags", () => {
+  it("already migrated is a no-op", () => {
+    const journal = readJournal(migrationsFolder());
+    const current = legacyBaselineAt(journal);
+    assert.deepEqual(pendingMigrationTags(journal, current), []);
+    assert.deepEqual(pendingMigrationTags(sampleJournal, 30), []);
   });
 
-  it("a second start does not execute the migration again", async () => {
-    const files = await loadMigrationFiles();
-    const client = new MemoryMigrationClient();
-    const first = await applyMigrations(client, files);
-    assert.ok(first.applied.includes("001_books.sql"));
-    const executed = client.executed.length;
-    assert.ok(executed > 1);
-    const second = await applyMigrations(client, files);
-    assert.deepEqual(second.applied, []);
-    assert.ok(second.skipped.includes("001_books.sql"));
-    assert.equal(client.executed.length, executed);
-  });
-
-  it("applies a migration once when two startups overlap", async () => {
-    const client = new MemoryMigrationClient({ executeDelayMs: 30 });
-    const [first, second] = await Promise.all([
-      applyMigrations(client, [sampleFile]),
-      applyMigrations(client, [sampleFile]),
+  it("applies only migrations newer than the latest journal timestamp", () => {
+    assert.deepEqual(pendingMigrationTags(sampleJournal, null), [
+      "0000_books",
+      "0001_household_access",
+      "0002_household_rls",
     ]);
-    assert.equal(client.executed.length, 1);
-    assert.deepEqual([...first.applied, ...second.applied], ["001_books.sql"]);
-  });
-
-  it("skips startup for the local app role when the books schema is already present", async () => {
-    const client = new MemoryMigrationClient({ forbidDdl: true, schemaPresent: true });
-    const result = await applyMigrations(client, [sampleFile]);
-    assert.deepEqual(result.applied, []);
-    assert.deepEqual(result.skipped, ["001_books.sql"]);
-    assert.equal(client.executed.length, 0);
-  });
-
-  it("fails when the role cannot migrate and the schema is missing", async () => {
-    const client = new MemoryMigrationClient({ forbidDdl: true, schemaPresent: false });
-    await assert.rejects(() => applyMigrations(client, [sampleFile]), /books schema is missing/);
-  });
-
-  it("fails when bookkeeping shows a pending migration the role cannot apply", async () => {
-    const client = new MemoryMigrationClient({
-      forbidDdl: true,
-      readableBookkeeping: true,
-      applied: [],
-    });
-    await assert.rejects(() => applyMigrations(client, [sampleFile]), /Pending migrations \(001_books.sql\)/);
+    assert.deepEqual(pendingMigrationTags(sampleJournal, 20), ["0002_household_rls"]);
   });
 });
 
-describe("splitSqlStatements", () => {
-  it("keeps household access rules inside the function body", async () => {
-    const sql = await readFile(path.join(migrationsDirectory(), "001_books.sql"), "utf8");
-    const statements = splitSqlStatements(sql);
-    const access = statements.find((statement) =>
-      statement.includes("CREATE OR REPLACE FUNCTION app_can_access_household"),
-    );
-    assert.ok(access);
-    assert.match(access, /u\.email_verified/);
-    assert.match(access, /a\.provider_id = 'google'/);
-    assert.equal(access.includes("CREATE TABLE"), false);
-
-    const role = statements.find((statement) => statement.includes("CREATE ROLE dollas_app"));
-    assert.ok(role);
-    assert.equal(role.includes("CREATE TABLE"), false);
-    assert.equal(
-      statements.some((statement) => statement.includes("opening_balance_cents integer")),
-      true,
-    );
+describe("applyMigrations", () => {
+  it("already migrated is a no-op", async () => {
+    const journal = readJournal(migrationsFolder());
+    const session = new MemorySession({ lastCreatedAt: legacyBaselineAt(journal), booksPresent: true });
+    const result = await applyMigrations(session, journal, migrationsFolder());
+    assert.deepEqual(result.applied, []);
+    assert.deepEqual(result.skipped, journal.map((entry) => entry.tag));
+    assert.equal(session.migrateCalls, 0);
   });
 
-  it("does not split on semicolons inside strings or dollar quotes", () => {
-    assert.deepEqual(
-      splitSqlStatements("select 'a;b'; select 2;").map((statement) => statement.replace(/\s+/g, " ")),
-      ["select 'a;b';", "select 2;"],
+  it("a second start does not apply the migration again", async () => {
+    const session = new MemorySession({ afterMigrateAt: 30 });
+    const first = await applyMigrations(session, sampleJournal, "drizzle");
+    assert.deepEqual(first.applied, ["0000_books", "0001_household_access", "0002_household_rls"]);
+    assert.equal(session.migrateCalls, 1);
+    const second = await applyMigrations(session, sampleJournal, "drizzle");
+    assert.deepEqual(second.applied, []);
+    assert.equal(session.migrateCalls, 1);
+  });
+
+  it("applies a migration once when two startups overlap", async () => {
+    const session = new MemorySession({ delayMs: 30, afterMigrateAt: 30 });
+    const [first, second] = await Promise.all([
+      applyMigrations(session, sampleJournal, "drizzle"),
+      applyMigrations(session, sampleJournal, "drizzle"),
+    ]);
+    assert.equal(session.migrateCalls, 1);
+    const applied = [...first.applied, ...second.applied];
+    assert.deepEqual(applied, ["0000_books", "0001_household_access", "0002_household_rls"]);
+  });
+
+  it("baselines an existing books schema instead of replaying generated SQL", async () => {
+    const session = new MemorySession({ booksPresent: true });
+    const result = await applyMigrations(session, sampleJournal, "drizzle");
+    assert.equal(session.baselinedAt, 30);
+    assert.equal(session.migrateCalls, 0);
+    assert.deepEqual(result.applied, []);
+  });
+
+  it("is a no-op for the local app role when the Drizzle journal is current", async () => {
+    const session = new MemorySession({ canCreate: false, booksPresent: true, lastCreatedAt: 30 });
+    const result = await applyMigrations(session, sampleJournal, "drizzle");
+    assert.deepEqual(result.applied, []);
+    assert.equal(session.migrateCalls, 0);
+  });
+
+  it("skips startup for the local app role when the books schema is already present", async () => {
+    const session = new MemorySession({ canCreate: false, booksPresent: true, journalUnreadable: true });
+    const result = await applyMigrations(session, sampleJournal, "drizzle");
+    assert.deepEqual(result.applied, []);
+    assert.deepEqual(result.skipped, sampleJournal.map((entry) => entry.tag));
+    assert.equal(session.migrateCalls, 0);
+    assert.equal(session.ensuredRole, false);
+  });
+
+  it("fails when the role cannot migrate and the schema is missing", async () => {
+    const session = new MemorySession({ canCreate: false, booksPresent: false });
+    await assert.rejects(() => applyMigrations(session, sampleJournal, "drizzle"), /books schema is missing/);
+  });
+
+  it("fails when the journal shows a pending migration the role cannot apply", async () => {
+    const session = new MemorySession({ canCreate: false, booksPresent: true, lastCreatedAt: 10 });
+    await assert.rejects(
+      () => applyMigrations(session, sampleJournal, "drizzle"),
+      /Pending migrations \(0001_household_access, 0002_household_rls\)/,
     );
-    const parts = splitSqlStatements("DO $$\nBEGIN\n  PERFORM 1;\nEND\n$$;\nSELECT 1;");
-    assert.equal(parts.length, 2);
-    assert.match(parts[0], /PERFORM 1;/);
-    assert.equal(parts[1], "SELECT 1;");
+  });
+});
+
+describe("generated schema", () => {
+  it("keeps household access, integer cents, and the non-owner grants", async () => {
+    const folder = migrationsFolder();
+    const books = await readFile(path.join(folder, "0000_books.sql"), "utf8");
+    const access = await readFile(path.join(folder, "0001_household_access.sql"), "utf8");
+    const rls = await readFile(path.join(folder, "0002_household_rls.sql"), "utf8");
+
+    assert.match(books, /"amount_cents" integer/);
+    assert.match(books, /"opening_balance_cents" integer/);
+    assert.match(access, /u\.email_verified/);
+    assert.match(access, /a\.provider_id = 'google'/);
+    assert.match(access, /GRANT SELECT, UPDATE ON household TO dollas_app/);
+    assert.match(access, /GRANT SELECT ON household_member TO dollas_app/);
+    assert.match(access, /GRANT SELECT ON household_invite TO dollas_app/);
+    assert.equal(/GRANT [^;]*INSERT[^;]*ON household TO dollas_app/.test(access), false);
+    assert.equal(/GRANT [^;]*INSERT[^;]*ON household_member TO dollas_app/.test(access), false);
+    assert.equal(/GRANT [^;]*INSERT[^;]*ON household_invite TO dollas_app/.test(access), false);
+    assert.match(rls, /ENABLE ROW LEVEL SECURITY/);
+    assert.match(rls, /app_can_access_household/);
+    assert.equal(rls.includes('ALTER TABLE "user"'), false);
+    assert.equal(rls.includes('ALTER TABLE "session"'), false);
+    assert.equal(rls.includes('ALTER TABLE "account"'), false);
+    assert.equal(rls.includes('ALTER TABLE "verification"'), false);
+    assert.match(APP_ROLE_SQL, /NOSUPERUSER NOBYPASSRLS/);
   });
 });

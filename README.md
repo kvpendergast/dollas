@@ -15,7 +15,7 @@ A self-hosted household budgeting app. One shared set of books, separate logins.
 
 ## Local development
 
-You need Node.js 22, pnpm, and Postgres 16. Docker Compose is the usual way to get the database. Migrations run through the `postgres` driver, so the host does not need `psql`.
+You need Node.js 22, pnpm, and Postgres 16. Docker Compose is the usual way to get the database. Migrations run through Drizzle and the `postgres` driver, so the host does not need `psql`.
 
 ```bash
 docker compose up -d
@@ -25,6 +25,14 @@ pnpm db:migrate
 pnpm db:seed
 pnpm dev
 ```
+
+Schema changes start in `apps/web/src/db/schema.ts`. Generate a migration and commit the files Drizzle writes:
+
+```bash
+pnpm db:generate
+```
+
+That updates `apps/web/drizzle/`. Do not hand-write the next table, check, index, or policy change. Functions, triggers, and grants that Drizzle cannot emit live in a custom migration (`pnpm exec drizzle-kit generate --custom` from `apps/web`); `0001_household_access` is that exception.
 
 Open http://localhost:3000 and sign in with the seed account:
 
@@ -37,7 +45,7 @@ The seed builds accounts, categories, budgets, and transactions relative to toda
 
 No bank credentials are required. Leave `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` empty unless you want to try Google sign-in. Verification links for email-and-password signups are printed in the server log.
 
-`DATABASE_URL` is the restricted `dollas_app` role. It cannot bypass row-level security, and it cannot apply schema changes. `DATABASE_MIGRATE_URL` is the table owner, used by `pnpm db:migrate` and `pnpm db:seed`. After those have run, starting the app sees the current `schema_migration` rows and does not apply anything.
+`DATABASE_URL` is the restricted `dollas_app` role. It cannot bypass row-level security, and it cannot apply schema changes. `DATABASE_MIGRATE_URL` is the table owner, used by `pnpm db:migrate` and `pnpm db:seed`. After those have run, starting the app sees the current Drizzle journal and does not apply anything.
 
 ## Checks
 
@@ -67,7 +75,7 @@ Set these environment variable names in Vercel. Do not commit the values.
 | `GOOGLE_CLIENT_ID` | No | Google sign-in. Counts as a verified email. Set both or neither. |
 | `GOOGLE_CLIENT_SECRET` | No | Pairs with `GOOGLE_CLIENT_ID`. |
 
-On boot, the Node.js server applies `apps/web/src/db/migrations/*.sql` before it accepts requests. A fresh Neon database gets that schema on the first Vercel boot. Each file name is stored in `schema_migration`. A later boot, or a boot whose schema is already current, does nothing. Several instances can cold-start together: they take a Postgres advisory lock, so one applies a file and the others wait and then skip it. Startup does not seed data.
+On boot, the Node.js server applies the Drizzle journal in `apps/web/drizzle` before it accepts requests. A fresh Neon database has no tables and an empty journal, so the first Vercel boot runs `0000_books`, `0001_household_access`, and `0002_household_rls` through Drizzle's migrator and records them in `drizzle.__drizzle_migrations`. Startup uses `DATABASE_URL_UNPOOLED` when it is set, otherwise `DATABASE_URL`. A later boot, or a boot whose journal is already current, does nothing. Several instances can cold-start together: they take a Postgres advisory lock, so one applies the pending migrations and the others wait and then skip them. Startup does not seed data.
 
 Do not run `pnpm db:seed` against the production database.
 

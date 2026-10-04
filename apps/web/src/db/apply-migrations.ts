@@ -1,8 +1,8 @@
-import { existsSync } from "node:fs";
-import { readdir, readFile } from "node:fs/promises";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import postgres, { type Sql } from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
+import postgres from "postgres";
 
 /**
  * Session lock shared by every cold start. Direct connections only: PgBouncer
@@ -11,9 +11,25 @@ import postgres, { type Sql } from "postgres";
  */
 const MIGRATION_LOCK = [4812, 1001] as const;
 
-export type MigrationFile = {
-  id: string;
-  sql: string;
+/**
+ * Local non-owner role. Docker already creates it. A fresh database (Neon on
+ * first boot) needs the same role so the grants in the household migration
+ * have a target. The password matches local development and is not a
+ * production credential; the app connects with DATABASE_URL.
+ */
+export const APP_ROLE_SQL = "CREATE ROLE dollas_app LOGIN PASSWORD 'dollas' NOSUPERUSER NOBYPASSRLS";
+
+/**
+ * Books tables created before this Drizzle journal (the previous SQL migration)
+ * already include functions, grants, and row-level security. Stamp the journal
+ * at this migration so those statements are not run again. Anything generated
+ * after it still applies.
+ */
+const LEGACY_BASELINE_TAG = "0002_household_rls";
+
+export type JournalEntry = {
+  tag: string;
+  when: number;
 };
 
 export type MigrationResult = {
@@ -21,23 +37,25 @@ export type MigrationResult = {
   skipped: string[];
 };
 
-export type MigrationClient = {
+export type MigrationSession = {
   lock(): Promise<void>;
   unlock(): Promise<void>;
-  ensureMigrationTable(): Promise<"ok" | "forbidden">;
-  appliedIds(): Promise<string[] | "forbidden">;
-  execute(statement: string): Promise<void>;
-  record(id: string): Promise<"inserted" | "exists">;
-  booksSchemaPresent(): Promise<boolean>;
-  /** Lets the local app role see which files are applied. Must not throw. */
-  grantBookkeepingRead(): Promise<void>;
   end(): Promise<void>;
+  canCreateSchema(): Promise<boolean>;
+  booksSchemaPresent(): Promise<boolean>;
+  /** Latest journal created_at. Null when the journal is missing or empty. */
+  latestJournalAt(): Promise<number | null | "unreadable">;
+  ensureAppRole(): Promise<void>;
+  baselineLegacy(createdAt: number): Promise<void>;
+  migrate(folder: string): Promise<void>;
+  grantJournalRead(): Promise<void>;
 };
 
 export type MigrateOnStartupOptions = {
   env?: Record<string, string | undefined>;
-  files?: MigrationFile[];
-  connect?: (url: string) => MigrationClient;
+  folder?: string;
+  journal?: JournalEntry[];
+  connect?: (url: string) => MigrationSession;
 };
 
 let startupTask: Promise<MigrationResult> | undefined;
@@ -54,6 +72,20 @@ export function startupDatabaseUrl(env: Record<string, string | undefined>): str
   throw new Error("DATABASE_URL is required");
 }
 
+/**
+ * Same skip rule as drizzle-orm: a migration runs only when the latest journal
+ * created_at is strictly older than that migration's folder timestamp.
+ */
+export function pendingMigrationTags(journal: JournalEntry[], lastCreatedAt: number | null): string[] {
+  return journal.filter((entry) => lastCreatedAt == null || lastCreatedAt < entry.when).map((entry) => entry.tag);
+}
+
+export function legacyBaselineAt(journal: JournalEntry[]): number {
+  const marker = journal.find((entry) => entry.tag === LEGACY_BASELINE_TAG);
+  if (marker) return marker.when;
+  return journal.reduce((max, entry) => Math.max(max, entry.when), 0);
+}
+
 export function migrateOnStartup(options?: MigrateOnStartupOptions): Promise<MigrationResult> {
   if (options) return runStartup(options);
   if (!startupTask) {
@@ -65,36 +97,42 @@ export function migrateOnStartup(options?: MigrateOnStartupOptions): Promise<Mig
   return startupTask;
 }
 
-async function runStartup(options: MigrateOnStartupOptions): Promise<MigrationResult> {
-  const env = options.env ?? process.env;
-  const url = startupDatabaseUrl(env);
-  const files = options.files ?? (await loadMigrationFiles());
-  const connect = options.connect ?? createPostgresMigrationClient;
-  const client = connect(url);
+export async function migrateWithUrl(url: string, options?: MigrateOnStartupOptions): Promise<MigrationResult> {
+  const folder = options?.folder ?? migrationsFolder();
+  const journal = options?.journal ?? readJournal(folder);
+  const connect = options?.connect ?? createPostgresMigrationSession;
+  const session = connect(url);
   try {
-    const result = await applyMigrations(client, files);
-    if (result.applied.length > 0) {
-      console.log(`Applied schema migrations: ${result.applied.join(", ")}`);
-    }
-    return result;
+    return await applyMigrations(session, journal, folder);
   } finally {
-    await client.end();
+    await session.end();
   }
 }
 
-export async function applyMigrations(client: MigrationClient, files: MigrationFile[]): Promise<MigrationResult> {
-  const ordered = [...files].sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+async function runStartup(options: MigrateOnStartupOptions): Promise<MigrationResult> {
+  const env = options.env ?? process.env;
+  const url = startupDatabaseUrl(env);
+  const result = await migrateWithUrl(url, options);
+  if (result.applied.length > 0) {
+    console.log(`Applied schema migrations: ${result.applied.join(", ")}`);
+  }
+  return result;
+}
+
+export async function applyMigrations(
+  session: MigrationSession,
+  journal: JournalEntry[],
+  folder: string,
+): Promise<MigrationResult> {
   let locked = false;
   try {
-    await client.lock();
+    await session.lock();
     locked = true;
-    const table = await client.ensureMigrationTable();
-    if (table === "forbidden") return await finishWithoutOwnership(client, ordered);
-    return await applyPending(client, ordered);
+    return await applyLocked(session, journal, folder);
   } finally {
     if (locked) {
       try {
-        await client.unlock();
+        await session.unlock();
       } catch (error) {
         console.error("Failed to release the schema migration lock", error);
       }
@@ -102,186 +140,81 @@ export async function applyMigrations(client: MigrationClient, files: MigrationF
   }
 }
 
-async function finishWithoutOwnership(client: MigrationClient, files: MigrationFile[]): Promise<MigrationResult> {
-  const known = await client.appliedIds();
-  if (known === "forbidden") {
-    if (await client.booksSchemaPresent()) {
-      console.warn(
-        "Skipping startup migrations: this database role cannot change the schema, and the books tables are already present. Local development applies schema changes with pnpm db:migrate.",
-      );
-      return { applied: [], skipped: files.map((file) => file.id) };
-    }
+async function applyLocked(
+  session: MigrationSession,
+  journal: JournalEntry[],
+  folder: string,
+): Promise<MigrationResult> {
+  const tags = journal.map((entry) => entry.tag);
+  if (!(await session.canCreateSchema())) return await finishWithoutOwnership(session, journal);
+
+  await session.ensureAppRole();
+  const latest = await session.latestJournalAt();
+  if ((await session.booksSchemaPresent()) && latest == null) {
+    await session.baselineLegacy(legacyBaselineAt(journal));
+  }
+
+  const current = await session.latestJournalAt();
+  const lastCreatedAt = typeof current === "number" ? current : null;
+  const pending = pendingMigrationTags(journal, lastCreatedAt);
+  if (pending.length === 0) {
+    await session.grantJournalRead();
+    return { applied: [], skipped: tags };
+  }
+
+  await session.migrate(folder);
+  await session.grantJournalRead();
+  return {
+    applied: pending,
+    skipped: tags.filter((tag) => !pending.includes(tag)),
+  };
+}
+
+async function finishWithoutOwnership(session: MigrationSession, journal: JournalEntry[]): Promise<MigrationResult> {
+  const tags = journal.map((entry) => entry.tag);
+  const booksPresent = await session.booksSchemaPresent();
+  const latest = await session.latestJournalAt();
+
+  if (!booksPresent && (latest === "unreadable" || latest == null)) {
     throw new Error(
       "This database role cannot apply migrations, and the books schema is missing. Startup uses DATABASE_URL_UNPOOLED when set, otherwise DATABASE_URL. Locally, run pnpm db:migrate with DATABASE_MIGRATE_URL.",
     );
   }
-  const appliedSet = new Set(known);
-  const pending = files.filter((file) => !appliedSet.has(file.id));
-  if (pending.length === 0) return { applied: [], skipped: files.map((file) => file.id) };
+
+  if (latest === "unreadable" || latest == null) {
+    console.warn(
+      "Skipping startup migrations: this database role cannot change the schema, and the books tables are already present. Local development applies schema changes with pnpm db:migrate.",
+    );
+    return { applied: [], skipped: tags };
+  }
+
+  const pending = pendingMigrationTags(journal, latest);
+  if (pending.length === 0) return { applied: [], skipped: tags };
+
   throw new Error(
-    `Pending migrations (${pending.map((file) => file.id).join(", ")}) cannot be applied by this database role. Locally, run pnpm db:migrate. On Vercel, DATABASE_URL_UNPOOLED or DATABASE_URL must be allowed to change the schema.`,
+    `Pending migrations (${pending.join(", ")}) cannot be applied by this database role. Locally, run pnpm db:migrate. On Vercel, DATABASE_URL_UNPOOLED or DATABASE_URL must be allowed to change the schema.`,
   );
 }
 
-async function applyPending(client: MigrationClient, files: MigrationFile[]): Promise<MigrationResult> {
-  const known = await client.appliedIds();
-  if (known === "forbidden") return finishWithoutOwnership(client, files);
-  const appliedSet = new Set(known);
-  const applied: string[] = [];
-  const skipped: string[] = [];
-  for (const file of files) {
-    if (appliedSet.has(file.id)) {
-      skipped.push(file.id);
-      continue;
-    }
-    for (const statement of splitSqlStatements(file.sql)) {
-      if (!isExecutable(statement)) continue;
-      await client.execute(statement);
-    }
-    const recorded = await client.record(file.id);
-    appliedSet.add(file.id);
-    if (recorded === "inserted") applied.push(file.id);
-    else skipped.push(file.id);
-  }
-  await client.grantBookkeepingRead();
-  return { applied, skipped };
-}
-
-export async function loadMigrationFiles(directory = migrationsDirectory()): Promise<MigrationFile[]> {
-  const names = (await readdir(directory)).filter((name) => name.endsWith(".sql")).sort();
-  if (names.length === 0) throw new Error(`No SQL migrations found in ${directory}`);
-  const files: MigrationFile[] = [];
-  for (const id of names) {
-    files.push({ id, sql: await readFile(path.join(directory, id), "utf8") });
-  }
-  return files;
-}
-
-export function migrationsDirectory(): string {
-  const besideModule = path.join(path.dirname(fileURLToPath(import.meta.url)), "migrations");
-  if (existsSync(path.join(besideModule, "001_books.sql"))) return besideModule;
-
-  const fromApp = path.join(process.cwd(), "src", "db", "migrations");
-  if (existsSync(path.join(fromApp, "001_books.sql"))) return fromApp;
-
-  const fromRepo = path.join(process.cwd(), "apps", "web", "src", "db", "migrations");
-  if (existsSync(path.join(fromRepo, "001_books.sql"))) return fromRepo;
-
-  throw new Error(
-    "Could not find src/db/migrations. Startup schema apply needs the SQL files in the server bundle.",
-  );
-}
-
-/**
- * psql splits a file into autocommit statements. One simple-query message with
- * every statement would be a single transaction, and CREATE ROLE cannot run there.
- * Dollar quotes keep semicolons inside functions attached to the same statement.
- */
-export function splitSqlStatements(source: string): string[] {
-  const statements: string[] = [];
-  let current = "";
-  let index = 0;
-
-  const push = () => {
-    const statement = current.trim();
-    current = "";
-    if (statement.length > 0) statements.push(statement);
+export function readJournal(folder: string): JournalEntry[] {
+  const journalPath = path.join(folder, "meta", "_journal.json");
+  const journal = JSON.parse(readFileSync(journalPath, "utf8")) as {
+    entries: Array<{ tag: string; when: number }>;
   };
+  return journal.entries.map((entry) => ({ tag: entry.tag, when: entry.when }));
+}
 
-  while (index < source.length) {
-    const char = source[index];
-    const next = source[index + 1];
-
-    if (char === "-" && next === "-") {
-      const end = source.indexOf("\n", index);
-      const slice = end === -1 ? source.slice(index) : source.slice(index, end + 1);
-      current += slice;
-      index += slice.length;
-      continue;
-    }
-
-    if (char === "/" && next === "*") {
-      const end = source.indexOf("*/", index + 2);
-      const slice = end === -1 ? source.slice(index) : source.slice(index, end + 2);
-      current += slice;
-      index += slice.length;
-      continue;
-    }
-
-    if (char === "'") {
-      current += char;
-      index += 1;
-      while (index < source.length) {
-        current += source[index];
-        if (source[index] === "'") {
-          if (source[index + 1] === "'") {
-            current += source[index + 1];
-            index += 2;
-            continue;
-          }
-          index += 1;
-          break;
-        }
-        index += 1;
-      }
-      continue;
-    }
-
-    if (char === '"') {
-      current += char;
-      index += 1;
-      while (index < source.length) {
-        current += source[index];
-        if (source[index] === '"') {
-          if (source[index + 1] === '"') {
-            current += source[index + 1];
-            index += 2;
-            continue;
-          }
-          index += 1;
-          break;
-        }
-        index += 1;
-      }
-      continue;
-    }
-
-    if (char === "$") {
-      const tag = /^\$[A-Za-z0-9_]*\$/.exec(source.slice(index));
-      if (tag) {
-        const closer = source.indexOf(tag[0], index + tag[0].length);
-        const slice = closer === -1 ? source.slice(index) : source.slice(index, closer + tag[0].length);
-        current += slice;
-        index += slice.length;
-        continue;
-      }
-    }
-
-    if (char === ";") {
-      current += char;
-      index += 1;
-      push();
-      continue;
-    }
-
-    current += char;
-    index += 1;
+export function migrationsFolder(): string {
+  const candidates = [path.join(process.cwd(), "drizzle"), path.join(process.cwd(), "apps", "web", "drizzle")];
+  for (const folder of candidates) {
+    if (existsSync(path.join(folder, "meta", "_journal.json"))) return folder;
   }
-
-  push();
-  return statements;
+  throw new Error(
+    "Could not find drizzle/meta/_journal.json. Startup schema apply needs the Drizzle migrations in the server bundle.",
+  );
 }
 
-function isExecutable(statement: string): boolean {
-  const stripped = statement
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/--[^\n]*/g, " ")
-    .replace(/;/g, " ")
-    .trim();
-  return stripped.length > 0;
-}
-
-export function createPostgresMigrationClient(url: string): MigrationClient {
+export function createPostgresMigrationSession(url: string): MigrationSession {
   const sql = postgres(url, {
     max: 1,
     prepare: false,
@@ -292,68 +225,88 @@ export function createPostgresMigrationClient(url: string): MigrationClient {
 
   return {
     async lock() {
-      await query(sql, "select pg_advisory_lock($1, $2)", [MIGRATION_LOCK[0], MIGRATION_LOCK[1]]);
+      await sql`select pg_advisory_lock(${MIGRATION_LOCK[0]}, ${MIGRATION_LOCK[1]})`;
     },
     async unlock() {
-      await query(sql, "select pg_advisory_unlock($1, $2)", [MIGRATION_LOCK[0], MIGRATION_LOCK[1]]);
+      await sql`select pg_advisory_unlock(${MIGRATION_LOCK[0]}, ${MIGRATION_LOCK[1]})`;
     },
-    async ensureMigrationTable() {
-      try {
-        await sql.unsafe(`
-          create table if not exists schema_migration (
-            id text primary key,
-            applied_at timestamptz not null default now()
-          )
-        `);
-        return "ok";
-      } catch (error) {
-        if (postgresErrorCode(error) === "42501") return "forbidden";
-        throw error;
-      }
+    async end() {
+      await sql.end({ timeout: 5 });
     },
-    async appliedIds() {
-      try {
-        const result = await query(sql, "select id from schema_migration");
-        return result.map((row) => String(row.id));
-      } catch (error) {
-        if (postgresErrorCode(error) === "42501" || postgresErrorCode(error) === "42P01") return "forbidden";
-        throw error;
-      }
-    },
-    async execute(statement) {
-      await sql.unsafe(statement);
-    },
-    async record(id) {
-      try {
-        await query(sql, "insert into schema_migration (id) values ($1)", [id]);
-        return "inserted";
-      } catch (error) {
-        if (postgresErrorCode(error) === "23505") return "exists";
-        throw error;
-      }
+    async canCreateSchema() {
+      const rows = await sql<{ ok: boolean }[]>`
+        select has_database_privilege(current_user, current_database(), 'CREATE') as ok
+      `;
+      return rows[0]?.ok === true;
     },
     async booksSchemaPresent() {
-      const result = await query(sql, "select to_regclass('public.household') as household");
-      return result[0]?.household != null;
+      const rows = await sql<{ household: string | null }[]>`
+        select to_regclass('public.household')::text as household
+      `;
+      return rows[0]?.household != null;
     },
-    async grantBookkeepingRead() {
+    async latestJournalAt() {
+      try {
+        const exists = await sql<{ rel: string | null }[]>`
+          select to_regclass('drizzle.__drizzle_migrations')::text as rel
+        `;
+        if (exists[0]?.rel == null) return null;
+        const rows = await sql<{ created_at: string | number | null }[]>`
+          select created_at from drizzle.__drizzle_migrations order by created_at desc limit 1
+        `;
+        const value = rows[0]?.created_at;
+        if (value == null) return null;
+        return Number(value);
+      } catch (error) {
+        if (postgresErrorCode(error) === "42501" || postgresErrorCode(error) === "42P01") return "unreadable";
+        throw error;
+      }
+    },
+    async ensureAppRole() {
+      const existing = await sql`select 1 from pg_roles where rolname = 'dollas_app'`;
+      if (existing.length > 0) return;
+      try {
+        await sql.unsafe(APP_ROLE_SQL);
+      } catch (error) {
+        if (postgresErrorCode(error) === "42710") return;
+        throw error;
+      }
+    },
+    async baselineLegacy(createdAt) {
+      if (!Number.isSafeInteger(createdAt)) throw new Error("Invalid migration timestamp");
+      await sql.unsafe("CREATE SCHEMA IF NOT EXISTS drizzle");
+      await sql.unsafe(`
+        CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
+          id SERIAL PRIMARY KEY,
+          hash text NOT NULL,
+          created_at bigint
+        )
+      `);
+      const count = await sql<{ n: string }[]>`select count(*)::text as n from drizzle.__drizzle_migrations`;
+      if (count[0]?.n !== "0") return;
+      await sql.unsafe(
+        `insert into drizzle.__drizzle_migrations (hash, created_at) values ('baseline', ${createdAt})`,
+      );
+    },
+    async migrate(folder) {
+      await migrate(drizzle(sql), { migrationsFolder: folder });
+    },
+    async grantJournalRead() {
       try {
         await sql.unsafe(`
-          do $$
-          begin
-            if exists (select 1 from pg_roles where rolname = 'dollas_app') then
-              grant select on schema_migration to dollas_app;
-            end if;
-          end
+          DO $$
+          BEGIN
+            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dollas_app') THEN
+              GRANT USAGE ON SCHEMA drizzle TO dollas_app;
+              GRANT SELECT ON drizzle.__drizzle_migrations TO dollas_app;
+            END IF;
+          END
           $$;
         `);
       } catch (error) {
         const message = error instanceof Error ? error.message : "unknown error";
-        console.warn(`Could not grant schema_migration read access: ${message}`);
+        console.warn(`Could not grant drizzle journal read access: ${message}`);
       }
-    },
-    async end() {
-      await sql.end({ timeout: 5 });
     },
   };
 }
@@ -364,13 +317,4 @@ function postgresErrorCode(error: unknown): string | undefined {
     return typeof code === "string" ? code : undefined;
   }
   return undefined;
-}
-
-async function query(
-  sql: Sql,
-  text: string,
-  params: Array<string | number> = [],
-): Promise<Array<Record<string, unknown>>> {
-  const result = await sql.unsafe(text, params);
-  return result as unknown as Array<Record<string, unknown>>;
 }

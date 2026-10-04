@@ -1,18 +1,12 @@
+import { migrateWithUrl } from "./apply-migrations";
 import { loadEnv, requiredEnv } from "./env";
-import { applyMigrations, createPostgresMigrationClient, loadMigrationFiles } from "./apply-migrations";
 
 async function main() {
   loadEnv();
   const url = requiredEnv("DATABASE_MIGRATE_URL");
-  const files = await loadMigrationFiles();
-  const client = createPostgresMigrationClient(url);
-  try {
-    const result = await applyMigrations(client, files);
-    for (const id of result.skipped) console.log(`skip ${id}`);
-    for (const id of result.applied) console.log(`applied ${id}`);
-  } finally {
-    await client.end();
-  }
+  const result = await migrateWithUrl(url);
+  for (const id of result.skipped) console.log(`skip ${id}`);
+  for (const id of result.applied) console.log(`applied ${id}`);
 }
 
 main().catch((error: unknown) => {

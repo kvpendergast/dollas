@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791153072297,
+      "tag": "0000_books",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791153084881,
+      "tag": "0001_household_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791153206561,
+      "tag": "0002_household_rls",
+      "breakpoints": true
+    }
+  ]
+}

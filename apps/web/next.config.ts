@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@dollas/domain"],
   outputFileTracingRoot: path.join(path.dirname(fileURLToPath(import.meta.url)), "../.."),
   outputFileTracingIncludes: {
-    "/*": ["./src/db/migrations/**/*"],
+    "/*": ["./drizzle/**/*.sql", "./drizzle/meta/_journal.json"],
   },
 };
 
