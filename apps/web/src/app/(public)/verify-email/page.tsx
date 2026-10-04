@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { verificationEmailHelp } from "@/lib/verification-email";
+
+export const dynamic = "force-dynamic";
 
 export default function VerifyEmailPage() {
   return (
@@ -11,9 +14,7 @@ export default function VerifyEmailPage() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 text-sm text-muted-foreground">
-        <p>
-          In local development the verification link is written to the server log. Open it, then come back and sign in.
-        </p>
+        <p>{verificationEmailHelp()}</p>
         <Link href="/sign-in" className="text-primary underline-offset-4 hover:underline">
           Back to sign in
         </Link>

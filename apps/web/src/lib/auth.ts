@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { schema, user } from "@/db/schema";
 import { logInfo } from "@/lib/telemetry";
+import { deliverVerificationEmail } from "@/lib/verification-email";
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -46,8 +47,7 @@ function createAuth() {
         sendOnSignIn: true,
         autoSignInAfterVerification: true,
         sendVerificationEmail: async ({ user: accountUser, url }) => {
-          logInfo("Email verification link", { email: accountUser.email, url });
-          console.info(`Verify ${accountUser.email}: ${url}`);
+          await deliverVerificationEmail({ email: accountUser.email, url });
         },
       },
       socialProviders: googleAuthEnabled
