@@ -43,7 +43,7 @@ Open http://localhost:3000 and sign in with the seed account:
 
 The seed builds accounts, categories, budgets, and transactions relative to today, including a grocery purchase split across categories. History, the home spend estimate, and plan totals are computed from those rows.
 
-No bank credentials are required. Leave `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` empty unless you want to try Google sign-in. Verification links for email-and-password signups are printed in the server log.
+No bank credentials are required. Leave `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` empty unless you want to try Google sign-in. Set `RESEND_API_KEY` and `RESEND_FROM` to email verification links through Resend. The sender is whatever `RESEND_FROM` is set to. Production and preview use `noreply@dollas.kylependergast.com`. When both variables are unset, local development writes the link to the server log.
 
 `DATABASE_URL` is the restricted `dollas_app` role. It cannot bypass row-level security, and it cannot apply schema changes. `DATABASE_MIGRATE_URL` is the table owner, used by `pnpm db:migrate` and `pnpm db:seed`. After those have run, starting the app sees the current Drizzle journal and does not apply anything.
 
@@ -55,7 +55,7 @@ pnpm lint
 pnpm typecheck
 ```
 
-Domain tests cover household access (members only, and unverified email/password stays out) and the partial-month history rule: the current month is not treated as finished, and its year-over-year change is “Not comparable yet” with no dollar delta. Web tests cover startup migrations: an already current schema is a no-op, and startup does not read `DATABASE_MIGRATE_URL` when `DATABASE_URL` or `DATABASE_URL_UNPOOLED` is set.
+Domain tests cover household access (members only, and unverified email/password stays out) and the partial-month history rule: the current month is not treated as finished, and its year-over-year change is “Not comparable yet” with no dollar delta. Web tests cover startup migrations: an already current schema is a no-op, and startup does not read `DATABASE_MIGRATE_URL` when `DATABASE_URL` or `DATABASE_URL_UNPOOLED` is set. They also cover verification email: Resend sends the link when it is configured, and local development without those variables still writes the link to the server log.
 
 CI runs a gitleaks secret scan and a code-quality scan (lint, types, and tests).
 
@@ -63,7 +63,7 @@ CI runs a gitleaks secret scan and a code-quality scan (lint, types, and tests).
 
 The Next.js app is the pnpm workspace package `@dollas/web` in `apps/web`. On the Vercel project, set the root directory to `apps/web`. The install command is `pnpm install --frozen-lockfile --filter @dollas/web...` (also in `apps/web/vercel.json`). The workspace root and `packages/domain` have to be included in the build, which is the “Include source files outside of the Root Directory” setting. Node on that project is 24.x.
 
-Set these environment variable names in Vercel. Do not commit the values.
+Set these environment variables in Vercel. Do not commit secret values. `RESEND_API_KEY` lives only on Vercel.
 
 | Name | Required | Role |
 | --- | --- | --- |
@@ -71,6 +71,8 @@ Set these environment variable names in Vercel. Do not commit the values.
 | `DATABASE_URL_UNPOOLED` | Injected with Neon | Direct Postgres URL. Startup prefers it so schema changes and the migration lock keep one session. |
 | `BETTER_AUTH_SECRET` | Yes | Signs sessions. There is no production fallback. |
 | `BETTER_AUTH_URL` | Yes | Public site origin, including `https://`. |
+| `RESEND_API_KEY` | Yes | Sends email-verification links through Resend. Set on Vercel for production and preview. Do not commit a value. |
+| `RESEND_FROM` | Yes | From address on those messages. Production and preview set this to `noreply@dollas.kylependergast.com`. The app sends from the value of this variable. |
 | `DATABASE_MIGRATE_URL` | No | Not set on Vercel and not read at startup. Local `pnpm db:migrate` and `pnpm db:seed` still use it. |
 | `GOOGLE_CLIENT_ID` | No | Google sign-in. Counts as a verified email. Set both or neither. |
 | `GOOGLE_CLIENT_SECRET` | No | Pairs with `GOOGLE_CLIENT_ID`. |
