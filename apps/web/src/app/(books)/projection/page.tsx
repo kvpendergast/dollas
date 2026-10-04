@@ -11,17 +11,17 @@ export default async function ProjectionPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="font-serif text-4xl">Projection</h1>
-        <p className="text-sm text-muted-foreground">{monthLabel(books.asOf.year, books.asOf.month)} is still in progress.</p>
+        <h1 className="font-serif text-4xl">A look ahead</h1>
+        <p className="text-sm text-muted-foreground">{monthLabel(books.asOf.year, books.asOf.month)} is still open. This is a guess.</p>
       </div>
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Spend estimate</CardTitle>
-            <Badge>Estimate</Badge>
+            <CardTitle>The guess</CardTitle>
+            <Badge>Guess</Badge>
           </div>
           <CardDescription>
-            Daily pace times the days in the month. This is not a closed total, and it is not a phone tab.
+            Daily pace times the days in the month. A guess, not a closed total, and not a phone tab.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

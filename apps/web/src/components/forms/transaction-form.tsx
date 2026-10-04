@@ -56,7 +56,7 @@ export function TransactionForm({
         <div className="flex items-center justify-between">
           <Label htmlFor="category-0">Category</Label>
           <button type="button" className="text-sm text-primary" onClick={() => setSplit((value) => !value)}>
-            {split ? "Use one category" : "Split across categories"}
+            {split ? "One category" : "Split it"}
           </button>
         </div>
         <CategoryRow categories={categories} index={0} showAmount={split} />
@@ -68,7 +68,7 @@ export function TransactionForm({
         </p>
       ) : null}
       <Button type="submit" className="h-10" disabled={pending}>
-        {pending ? "Saving" : "Add transaction"}
+        {pending ? "Saving" : "Add it"}
       </Button>
     </form>
   );

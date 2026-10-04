@@ -10,15 +10,15 @@ export default async function HouseholdPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="font-serif text-4xl">{books.householdName}</h1>
-        <p className="text-sm text-muted-foreground">Share a code so someone else can join these books.</p>
+        <p className="text-sm text-muted-foreground">Send a code. Your person gets their own login.</p>
       </div>
       <Card>
         <CardHeader>
           <CardTitle>Invites</CardTitle>
-          <CardDescription>Codes stay active until they expire. They are not a phone tab.</CardDescription>
+          <CardDescription>Codes work until they expire. Not a shared password, and not a phone tab.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {active.length === 0 ? <p className="text-sm text-muted-foreground">No active invites.</p> : null}
+          {active.length === 0 ? <p className="text-sm text-muted-foreground">No invites out yet.</p> : null}
           <ul className="space-y-2">
             {active.map((invite) => (
               <li key={invite.id} className="flex items-baseline justify-between gap-3">

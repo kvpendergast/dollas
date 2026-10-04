@@ -55,7 +55,7 @@ export function SignUpForm({ googleEnabled }: { googleEnabled: boolean }) {
           <Input id="password" name="password" type="password" autoComplete="new-password" minLength={8} required />
         </div>
         <fieldset className="space-y-3 rounded-xl border border-border p-3">
-          <legend className="px-1 text-sm font-medium">Household</legend>
+          <legend className="px-1 text-sm font-medium">The books</legend>
           <label className="flex items-start gap-2 text-sm">
             <input type="radio" name="mode" value="start" defaultChecked className="mt-1" />
             <span className="flex-1 space-y-1.5">
@@ -77,7 +77,7 @@ export function SignUpForm({ googleEnabled }: { googleEnabled: boolean }) {
           </p>
         ) : null}
         <Button type="submit" className="h-10 w-full" disabled={pending}>
-          {pending ? "Creating account" : "Create account"}
+          {pending ? "Creating login" : "Create a login"}
         </Button>
       </form>
       <GoogleButton enabled={googleEnabled} />
@@ -99,7 +99,7 @@ export function StartHouseholdForm({ defaultName = "" }: { defaultName?: string 
         </p>
       ) : null}
       <Button type="submit" className="h-10 w-full" disabled={pending}>
-        Start household
+        Start the books
       </Button>
     </form>
   );
@@ -119,7 +119,7 @@ export function JoinHouseholdForm({ defaultCode = "" }: { defaultCode?: string }
         </p>
       ) : null}
       <Button type="submit" className="h-10 w-full" disabled={pending}>
-        Join household
+        Join the books
       </Button>
     </form>
   );

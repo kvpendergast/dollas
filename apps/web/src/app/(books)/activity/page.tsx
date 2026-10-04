@@ -13,12 +13,12 @@ export default async function ActivityPage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-serif text-4xl">Activity</h1>
-        <p className="text-sm text-muted-foreground">Transactions from the household books, including category splits.</p>
+        <p className="text-sm text-muted-foreground">What came in, what went out, splits included.</p>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Add a transaction</CardTitle>
-          <CardDescription>Split the amount when one purchase covers more than one category.</CardDescription>
+          <CardTitle>Add one</CardTitle>
+          <CardDescription>One stop, two categories? Split it.</CardDescription>
         </CardHeader>
         <CardContent>
           <TransactionForm
@@ -40,6 +40,11 @@ export default async function ActivityPage() {
           <ImportForm />
         </CardContent>
       </Card>
+      {activity.transactions.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {activity.accounts.length === 0 ? "No dollas in here yet. Add an account." : "No dollas in here yet."}
+        </p>
+      ) : null}
       <div className="space-y-3">
         {activity.transactions.map((item) => {
           const split = item.splits.length > 1;

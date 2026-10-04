@@ -17,7 +17,7 @@ export function BooksShell({
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-4 md:px-8">
             <div>
-              <p className="font-serif text-2xl leading-none text-primary md:hidden">dollas</p>
+              <p className="font-serif text-2xl leading-none text-primary md:hidden">Dollas</p>
               <p className="text-sm text-muted-foreground">{householdName}</p>
             </div>
             <div className="flex items-center gap-3 text-sm">

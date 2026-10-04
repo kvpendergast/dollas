@@ -9,8 +9,10 @@ export default function SignUpPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create an account</CardTitle>
-        <CardDescription>Start a household, or join one with an invite. Email and password stay locked until the address is verified.</CardDescription>
+        <CardTitle>Create a login</CardTitle>
+        <CardDescription>
+          Start the books, or join with an invite. Email and password stay locked until the address is verified.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <SignUpForm googleEnabled={googleAuthEnabled} />

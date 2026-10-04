@@ -16,7 +16,9 @@ export default async function PlanPage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-serif text-4xl">Plan</h1>
-        <p className="text-sm text-muted-foreground">Monthly category budgets for {monthLabel(books.asOf.year, books.asOf.month)}.</p>
+        <p className="text-sm text-muted-foreground">
+          {monthLabel(books.asOf.year, books.asOf.month)}, category by category. The coffee shop can keep its own.
+        </p>
       </div>
       <Card>
         <CardHeader>

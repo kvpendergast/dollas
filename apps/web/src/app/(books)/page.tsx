@@ -2,10 +2,13 @@ import { formatCents, monthLabel } from "@dollas/domain";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireBooks } from "@/slices/access/guard";
+import { Landing } from "@/components/landing";
+import { getActorContext, requireBooks } from "@/slices/access/guard";
 import { loadHome } from "@/slices/books/queries";
 
 export default async function HomePage() {
+  const ctx = await getActorContext();
+  if (!ctx) return <Landing />;
   const books = await requireBooks();
   const home = await loadHome(books);
   const leftTone = home.leftCents < 0 ? "text-over" : "text-income";
@@ -13,7 +16,7 @@ export default async function HomePage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-serif text-4xl tracking-tight">{monthLabel(books.asOf.year, books.asOf.month)}</h1>
-        <p className="text-sm text-muted-foreground">This month is still open. Figures run through today.</p>
+        <p className="text-sm text-muted-foreground">This month is still open. Numbers run through today.</p>
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
@@ -38,10 +41,10 @@ export default async function HomePage() {
       <Card className="border-primary/20">
         <CardHeader>
           <div className="flex items-center justify-between gap-3">
-            <CardTitle>Spend estimate</CardTitle>
-            <Badge>Estimate</Badge>
+            <CardTitle>A look ahead</CardTitle>
+            <Badge>Guess</Badge>
           </div>
-          <CardDescription>Labeled as an estimate because the month is not finished.</CardDescription>
+          <CardDescription>Labeled as a guess. The month is not finished.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="font-serif text-5xl tabular-nums">{formatCents(home.estimate.estimateCents)}</p>
@@ -49,17 +52,23 @@ export default async function HomePage() {
             {formatCents(home.estimate.spentSoFarCents)} spent across {home.estimate.daysElapsed} of {home.estimate.daysInMonth} days.
           </p>
           <Link href="/projection" className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
-            See the projection
+            See the guess
           </Link>
         </CardContent>
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Plan so far</CardTitle>
-          <CardDescription>{formatCents(home.budgetedCents)} budgeted across categories this month.</CardDescription>
+          <CardTitle>The plan so far</CardTitle>
+          <CardDescription>{formatCents(home.budgetedCents)} budgeted this month.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {home.categories.length === 0 ? <p className="text-sm text-muted-foreground">No spending yet this month.</p> : null}
+          {home.categories.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {home.incomeCents === 0 && home.spentCents === 0
+                ? "No dollas in here yet. Add an account, or drop in a CSV."
+                : "Nothing spent yet this month."}
+            </p>
+          ) : null}
           {home.categories.map((category) => (
             <div key={category.categoryId} className="flex items-baseline justify-between gap-3 text-sm">
               <span>{category.name}</span>

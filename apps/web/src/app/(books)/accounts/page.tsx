@@ -11,8 +11,11 @@ export default async function AccountsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-serif text-4xl">Accounts</h1>
-        <p className="text-sm text-muted-foreground">Balances are opening money plus every transaction in the books.</p>
+        <p className="text-sm text-muted-foreground">Opening money, plus every transaction since. That&apos;s the balance.</p>
       </div>
+      {accounts.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No dollas in here yet. Add an account, or drop in a CSV.</p>
+      ) : null}
       <div className="grid gap-4 md:grid-cols-3">
         {accounts.map((account) => {
           const owed = account.type === "credit" && account.balanceCents < 0;
