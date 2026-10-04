@@ -1,0 +1,17 @@
+{
+  "name": "dollas",
+  "private": true,
+  "packageManager": "pnpm@10.33.3",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @dollas/web dev",
+    "build": "pnpm --filter @dollas/web build",
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm --filter @dollas/domain test",
+    "db:migrate": "pnpm --filter @dollas/web db:migrate",
+    "db:seed": "pnpm --filter @dollas/web db:seed"
+  }
+}

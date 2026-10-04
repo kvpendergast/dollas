@@ -1,0 +1,21 @@
+title = "dollas local development allowlist"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Local-only database passwords and the documented demo login"
+paths = [
+  '''docker-compose.yml''',
+  '''docker/init.sql''',
+  '''apps/web/.env.example''',
+  '''apps/web/src/db/migrations/001_books.sql''',
+  '''apps/web/src/db/seed.ts''',
+  '''apps/web/src/lib/auth.ts''',
+  '''README.md''',
+]
+regexTarget = "match"
+regexes = [
+  '''dollas-local-dev-secret''',
+  '''maple-demo''',
+]

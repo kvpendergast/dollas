@@ -1,0 +1,45 @@
+import { formatCents } from "@dollas/domain";
+import { AccountForm } from "@/components/forms/account-form";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { requireBooks } from "@/slices/access/guard";
+import { loadAccounts } from "@/slices/books/queries";
+
+export default async function AccountsPage() {
+  const books = await requireBooks();
+  const accounts = await loadAccounts(books);
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-serif text-4xl">Accounts</h1>
+        <p className="text-sm text-muted-foreground">Balances are opening money plus every transaction in the books.</p>
+      </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        {accounts.map((account) => {
+          const owed = account.type === "credit" && account.balanceCents < 0;
+          return (
+            <Card key={account.id}>
+              <CardHeader>
+                <CardDescription className="capitalize">{account.type}</CardDescription>
+                <CardTitle>{account.name}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className={`font-serif text-3xl tabular-nums ${owed ? "text-over" : "text-income"}`}>
+                  {formatCents(owed ? -account.balanceCents : account.balanceCents)}
+                </p>
+                <p className="text-xs text-muted-foreground">{owed ? "Owed" : "Balance"}</p>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Add an account</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AccountForm />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
