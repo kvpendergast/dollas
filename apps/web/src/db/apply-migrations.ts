@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
@@ -12,12 +13,12 @@ import postgres from "postgres";
 const MIGRATION_LOCK = [4812, 1001] as const;
 
 /**
- * Local non-owner role. Docker already creates it. A fresh database (Neon on
- * first boot) needs the same role so the grants in the household migration
- * have a target. The password matches local development and is not a
- * production credential; the app connects with DATABASE_URL.
+ * Local non-owner role. Docker already creates a LOGIN role before migrate.
+ * A fresh Neon database does not. Neon rejects passwords below 60 bits of
+ * entropy, so startup must not send the local password here. NOLOGIN is enough
+ * for the grants; the app connects with DATABASE_URL, not this role.
  */
-export const APP_ROLE_SQL = "CREATE ROLE dollas_app LOGIN PASSWORD 'dollas' NOSUPERUSER NOBYPASSRLS";
+export const APP_ROLE_SQL = "CREATE ROLE dollas_app NOLOGIN NOSUPERUSER NOBYPASSRLS";
 
 /**
  * Books tables created before this Drizzle journal (the previous SQL migration)
@@ -111,12 +112,17 @@ export async function migrateWithUrl(url: string, options?: MigrateOnStartupOpti
 
 async function runStartup(options: MigrateOnStartupOptions): Promise<MigrationResult> {
   const env = options.env ?? process.env;
-  const url = startupDatabaseUrl(env);
-  const result = await migrateWithUrl(url, options);
-  if (result.applied.length > 0) {
-    console.log(`Applied schema migrations: ${result.applied.join(", ")}`);
+  try {
+    const url = startupDatabaseUrl(env);
+    const result = await migrateWithUrl(url, options);
+    if (result.applied.length > 0) {
+      console.log(`Applied schema migrations: ${result.applied.join(", ")}`);
+    }
+    return result;
+  } catch (error) {
+    console.error(`Startup schema migration failed: ${publicErrorText(error)}`);
+    throw error;
   }
-  return result;
 }
 
 export async function applyMigrations(
@@ -134,7 +140,7 @@ export async function applyMigrations(
       try {
         await session.unlock();
       } catch (error) {
-        console.error("Failed to release the schema migration lock", error);
+        console.error(`Failed to release the schema migration lock: ${publicErrorText(error)}`);
       }
     }
   }
@@ -148,7 +154,13 @@ async function applyLocked(
   const tags = journal.map((entry) => entry.tag);
   if (!(await session.canCreateSchema())) return await finishWithoutOwnership(session, journal);
 
-  await session.ensureAppRole();
+  try {
+    await session.ensureAppRole();
+  } catch (error) {
+    // The Neon owner can apply the schema without this role. A rejected
+    // CREATE ROLE must not turn every request into a blank 500.
+    console.error(`Could not create the dollas_app role: ${publicErrorText(error)}`);
+  }
   const latest = await session.latestJournalAt();
   if ((await session.booksSchemaPresent()) && latest == null) {
     await session.baselineLegacy(legacyBaselineAt(journal));
@@ -204,14 +216,39 @@ export function readJournal(folder: string): JournalEntry[] {
   return journal.entries.map((entry) => ({ tag: entry.tag, when: entry.when }));
 }
 
-export function migrationsFolder(): string {
-  const candidates = [path.join(process.cwd(), "drizzle"), path.join(process.cwd(), "apps", "web", "drizzle")];
+export function migrationFolderCandidates(cwd: string, moduleDirectory: string): string[] {
+  return [
+    path.join(cwd, "drizzle"),
+    path.join(cwd, "apps", "web", "drizzle"),
+    // Source file lives at apps/web/src/db. The traced server chunk lives at
+    // apps/web/.next/server/chunks. One of these two relative paths is the journal.
+    path.join(moduleDirectory, "..", "..", "drizzle"),
+    path.join(moduleDirectory, "..", "..", "..", "drizzle"),
+  ];
+}
+
+export function resolveMigrationsFolder(candidates: string[]): string {
   for (const folder of candidates) {
     if (existsSync(path.join(folder, "meta", "_journal.json"))) return folder;
   }
   throw new Error(
-    "Could not find drizzle/meta/_journal.json. Startup schema apply needs the Drizzle migrations in the server bundle.",
+    `Could not find drizzle/meta/_journal.json. Looked in: ${candidates.join(", ")}. Startup schema apply needs the Drizzle migrations in the server bundle.`,
   );
+}
+
+export function migrationsFolder(): string {
+  return resolveMigrationsFolder(
+    migrationFolderCandidates(process.cwd(), path.dirname(fileURLToPath(import.meta.url))),
+  );
+}
+
+export function publicErrorText(error: unknown): string {
+  const raw = error instanceof Error ? error.message : "Unknown error";
+  const message = raw
+    .replace(/postgres(?:ql)?:\/\/\S+/gi, "[redacted-url]")
+    .replace(/\b(password|pwd)=([^\s&]+)/gi, "$1=[redacted]");
+  const code = postgresErrorCode(error);
+  return code ? `${code} ${message}` : message;
 }
 
 export function createPostgresMigrationSession(url: string): MigrationSession {
@@ -265,12 +302,7 @@ export function createPostgresMigrationSession(url: string): MigrationSession {
     async ensureAppRole() {
       const existing = await sql`select 1 from pg_roles where rolname = 'dollas_app'`;
       if (existing.length > 0) return;
-      try {
-        await sql.unsafe(APP_ROLE_SQL);
-      } catch (error) {
-        if (postgresErrorCode(error) === "42710") return;
-        throw error;
-      }
+      await sql.unsafe(APP_ROLE_SQL);
     },
     async baselineLegacy(createdAt) {
       if (!Number.isSafeInteger(createdAt)) throw new Error("Invalid migration timestamp");

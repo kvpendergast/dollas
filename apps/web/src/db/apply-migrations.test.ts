@@ -2,14 +2,19 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import {
   APP_ROLE_SQL,
   applyMigrations,
   legacyBaselineAt,
+  migrationFolderCandidates,
   migrationsFolder,
   migrateOnStartup,
   pendingMigrationTags,
+  publicErrorText,
   readJournal,
+  resolveMigrationsFolder,
   startupDatabaseUrl,
   type JournalEntry,
   type MigrationSession,
@@ -31,6 +36,7 @@ class MemorySession implements MigrationSession {
       lastCreatedAt?: number | null;
       delayMs?: number;
       afterMigrateAt?: number;
+      roleError?: Error;
     },
   ) {
     this.lastCreatedAt = options?.lastCreatedAt ?? null;
@@ -72,6 +78,7 @@ class MemorySession implements MigrationSession {
 
   async ensureAppRole(): Promise<void> {
     this.ensuredRole = true;
+    if (this.options?.roleError) throw this.options.roleError;
   }
 
   async baselineLegacy(createdAt: number): Promise<void> {
@@ -212,6 +219,16 @@ describe("applyMigrations", () => {
     await assert.rejects(() => applyMigrations(session, sampleJournal, "drizzle"), /books schema is missing/);
   });
 
+  it("still applies the schema when creating the app role is rejected", async () => {
+    const session = new MemorySession({
+      afterMigrateAt: 30,
+      roleError: Object.assign(new Error("password must have at least 60 bits of entropy"), { code: "22023" }),
+    });
+    const result = await applyMigrations(session, sampleJournal, "drizzle");
+    assert.equal(session.migrateCalls, 1);
+    assert.deepEqual(result.applied, ["0000_books", "0001_household_access", "0002_household_rls"]);
+  });
+
   it("fails when the journal shows a pending migration the role cannot apply", async () => {
     const session = new MemorySession({ canCreate: false, booksPresent: true, lastCreatedAt: 10 });
     await assert.rejects(
@@ -244,6 +261,31 @@ describe("generated schema", () => {
     assert.equal(rls.includes('ALTER TABLE "session"'), false);
     assert.equal(rls.includes('ALTER TABLE "account"'), false);
     assert.equal(rls.includes('ALTER TABLE "verification"'), false);
-    assert.match(APP_ROLE_SQL, /NOSUPERUSER NOBYPASSRLS/);
+    assert.match(APP_ROLE_SQL, /NOLOGIN NOSUPERUSER NOBYPASSRLS/);
+    assert.equal(/password/i.test(APP_ROLE_SQL), false);
+  });
+});
+
+describe("migration folder lookup", () => {
+  it("finds the journal next to the traced server chunk when cwd is the tracing root", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "dollas-trace-"));
+    const moduleDirectory = path.join(root, "apps", "web", ".next", "server", "chunks");
+    mkdirSync(path.join(root, "apps", "web", "drizzle", "meta"), { recursive: true });
+    writeFileSync(path.join(root, "apps", "web", "drizzle", "meta", "_journal.json"), "{}");
+    const folder = resolveMigrationsFolder(migrationFolderCandidates(root, moduleDirectory));
+    assert.equal(folder, path.join(root, "apps", "web", "drizzle"));
+  });
+});
+
+describe("publicErrorText", () => {
+  it("does not include a connection string", () => {
+    const error = Object.assign(new Error("connect failed postgres://user:secret@ep.neon.tech/neondb?sslmode=require"), {
+      code: "ECONNREFUSED",
+    });
+    const text = publicErrorText(error);
+    assert.match(text, /ECONNREFUSED/);
+    assert.equal(text.includes("secret"), false);
+    assert.equal(text.includes("ep.neon.tech"), false);
+    assert.match(text, /\[redacted-url\]/);
   });
 });
