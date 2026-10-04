@@ -9,7 +9,6 @@ paths = [
   '''docker-compose.yml''',
   '''docker/init.sql''',
   '''apps/web/.env.example''',
-  '''apps/web/src/db/apply-migrations.ts''',
   '''apps/web/src/db/seed.ts''',
   '''apps/web/src/lib/auth.ts''',
   '''README.md''',

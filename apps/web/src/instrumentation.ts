@@ -1,12 +1,20 @@
 import type { Instrumentation } from "next";
 
 export async function register() {
-  if (process.env.NEXT_RUNTIME === "nodejs") {
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  try {
     const { initTelemetry } = await import("./lib/telemetry");
     initTelemetry();
-    const { migrateOnStartup } = await import("./db/apply-migrations");
-    await migrateOnStartup();
+  } catch (error) {
+    console.error(`Telemetry init failed: ${startupErrorText(error)}`);
   }
+  const { migrateOnStartup } = await import("./db/apply-migrations");
+  await migrateOnStartup();
+}
+
+function startupErrorText(error: unknown): string {
+  const message = error instanceof Error ? error.message : "Unknown error";
+  return message.replace(/postgres(?:ql)?:\/\/\S+/gi, "[redacted-url]");
 }
 
 export const onRequestError: Instrumentation.onRequestError = async (error, request, context) => {

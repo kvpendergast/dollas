@@ -1,4 +1,4 @@
-import { migrateWithUrl } from "./apply-migrations";
+import { migrateWithUrl, publicErrorText } from "./apply-migrations";
 import { loadEnv, requiredEnv } from "./env";
 
 async function main() {
@@ -10,6 +10,6 @@ async function main() {
 }
 
 main().catch((error: unknown) => {
-  console.error(error);
+  console.error(publicErrorText(error));
   process.exit(1);
 });
