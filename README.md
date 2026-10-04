@@ -15,7 +15,7 @@ A self-hosted household budgeting app. One shared set of books, separate logins.
 
 ## Local development
 
-You need Node.js 22, pnpm, and Postgres 16. Docker Compose is the usual way to get the database.
+You need Node.js 22, pnpm, and Postgres 16. Docker Compose is the usual way to get the database. Migrations run through Drizzle and the `postgres` driver, so the host does not need `psql`.
 
 ```bash
 docker compose up -d
@@ -25,6 +25,14 @@ pnpm db:migrate
 pnpm db:seed
 pnpm dev
 ```
+
+Schema changes start in `apps/web/src/db/schema.ts`. Generate a migration and commit the files Drizzle writes:
+
+```bash
+pnpm db:generate
+```
+
+That updates `apps/web/drizzle/`. Do not hand-write the next table, check, index, or policy change. Functions, triggers, and grants that Drizzle cannot emit live in a custom migration (`pnpm exec drizzle-kit generate --custom` from `apps/web`); `0001_household_access` is that exception.
 
 Open http://localhost:3000 and sign in with the seed account:
 
@@ -37,7 +45,7 @@ The seed builds accounts, categories, budgets, and transactions relative to toda
 
 No bank credentials are required. Leave `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` empty unless you want to try Google sign-in. Verification links for email-and-password signups are printed in the server log.
 
-`DATABASE_URL` is the restricted `dollas_app` role. It cannot bypass row-level security. `DATABASE_MIGRATE_URL` is the table owner, used only for migrations and seeding.
+`DATABASE_URL` is the restricted `dollas_app` role. It cannot bypass row-level security, and it cannot apply schema changes. `DATABASE_MIGRATE_URL` is the table owner, used by `pnpm db:migrate` and `pnpm db:seed`. After those have run, starting the app sees the current Drizzle journal and does not apply anything.
 
 ## Checks
 
@@ -47,7 +55,7 @@ pnpm lint
 pnpm typecheck
 ```
 
-Domain tests cover household access (members only, and unverified email/password stays out) and the partial-month history rule: the current month is not treated as finished, and its year-over-year change is “Not comparable yet” with no dollar delta.
+Domain tests cover household access (members only, and unverified email/password stays out) and the partial-month history rule: the current month is not treated as finished, and its year-over-year change is “Not comparable yet” with no dollar delta. Web tests cover startup migrations: an already current schema is a no-op, and startup does not read `DATABASE_MIGRATE_URL` when `DATABASE_URL` or `DATABASE_URL_UNPOOLED` is set.
 
 CI runs a gitleaks secret scan and a code-quality scan (lint, types, and tests).
 
@@ -59,14 +67,17 @@ Set these environment variable names in Vercel. Do not commit the values.
 
 | Name | Required | Role |
 | --- | --- | --- |
-| `DATABASE_URL` | Yes | Postgres URL for the non-owner app role. That role must not bypass row-level security. Money stays integer cents. |
+| `DATABASE_URL` | Yes | Pooled Postgres URL injected by the Neon marketplace integration. Startup uses it for migrations when `DATABASE_URL_UNPOOLED` is unset. Money stays integer cents. |
+| `DATABASE_URL_UNPOOLED` | Injected with Neon | Direct Postgres URL. Startup prefers it so schema changes and the migration lock keep one session. |
 | `BETTER_AUTH_SECRET` | Yes | Signs sessions. There is no production fallback. |
 | `BETTER_AUTH_URL` | Yes | Public site origin, including `https://`. |
-| `DATABASE_MIGRATE_URL` | For schema changes | Table-owner URL. Used by `pnpm db:migrate`, not by the running app. |
+| `DATABASE_MIGRATE_URL` | No | Not set on Vercel and not read at startup. Local `pnpm db:migrate` and `pnpm db:seed` still use it. |
 | `GOOGLE_CLIENT_ID` | No | Google sign-in. Counts as a verified email. Set both or neither. |
 | `GOOGLE_CLIENT_SECRET` | No | Pairs with `GOOGLE_CLIENT_ID`. |
 
-Apply migrations with the owner URL before people sign in. Do not point production at the local seed password, and do not run `pnpm db:seed` against the production database.
+On boot, the Node.js server applies the Drizzle journal in `apps/web/drizzle` before it accepts requests. A fresh Neon database has no tables and an empty journal, so the first Vercel boot runs `0000_books`, `0001_household_access`, and `0002_household_rls` through Drizzle's migrator and records them in `drizzle.__drizzle_migrations`. Startup uses `DATABASE_URL_UNPOOLED` when it is set, otherwise `DATABASE_URL`. A later boot, or a boot whose journal is already current, does nothing. Several instances can cold-start together: they take a Postgres advisory lock, so one applies the pending migrations and the others wait and then skip them. Startup does not seed data.
+
+Do not run `pnpm db:seed` against the production database.
 
 ## Screens
 
