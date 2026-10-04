@@ -10,7 +10,7 @@
     "build": "pnpm --filter @dollas/web build",
     "lint": "pnpm -r --if-present lint",
     "typecheck": "pnpm -r --if-present typecheck",
-    "test": "pnpm --filter @dollas/domain test",
+    "test": "pnpm -r --if-present test",
     "db:migrate": "pnpm --filter @dollas/web db:migrate",
     "db:seed": "pnpm --filter @dollas/web db:seed"
   }

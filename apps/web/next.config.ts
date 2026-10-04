@@ -5,6 +5,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   transpilePackages: ["@dollas/domain"],
   outputFileTracingRoot: path.join(path.dirname(fileURLToPath(import.meta.url)), "../.."),
+  outputFileTracingIncludes: {
+    "/*": ["./src/db/migrations/**/*"],
+  },
 };
 
 export default nextConfig;
