@@ -24,6 +24,12 @@ export {
 } from "./categories/define";
 
 export {
+  categoryMenuSections,
+  type CategoryMenuEntry,
+  type CategoryMenuSection,
+} from "./categories/menu";
+
+export {
   assertCents,
   expenseMagnitude,
   formatCents,
