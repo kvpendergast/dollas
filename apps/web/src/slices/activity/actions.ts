@@ -1,6 +1,15 @@
 "use server";
 
-import { DomainError, importCsv, resolveCsvRows, validateSplits, type PayeeCategoryRule } from "@dollas/domain";
+import {
+  DomainError,
+  accountAcceptsCorrection,
+  accountAcceptsNewEntry,
+  accountsForActiveLists,
+  importCsv,
+  resolveCsvRows,
+  validateSplits,
+  type PayeeCategoryRule,
+} from "@dollas/domain";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { withActor } from "@/db/actor";
@@ -23,10 +32,22 @@ export async function importCsvAction(_state: ImportCsvState, formData: FormData
 
   try {
     const inserted = await withActor(books.userId, async (tx) => {
-      const accounts = await tx
-        .select({ id: ledgerAccount.id, name: ledgerAccount.name })
+      const accountRows = await tx
+        .select({
+          id: ledgerAccount.id,
+          name: ledgerAccount.name,
+          householdId: ledgerAccount.householdId,
+          archivedAt: ledgerAccount.archivedAt,
+        })
         .from(ledgerAccount)
         .where(eq(ledgerAccount.householdId, books.householdId));
+      const accounts = accountsForActiveLists(
+        accountRows.map((row) => ({
+          ...row,
+          archivedAt: row.archivedAt ? row.archivedAt.toISOString() : null,
+        })),
+        books.householdId,
+      ).map((row) => ({ id: row.id, name: row.name }));
       const categories = await tx
         .select({ id: category.id, name: category.name })
         .from(category)
@@ -116,12 +137,28 @@ async function requireHouseholdTargets(
   householdId: string,
   accountId: string,
   categoryIds: readonly string[],
+  placement: { kind: "new" } | { kind: "correction"; currentAccountId: string },
 ): Promise<void> {
   const [accountRow] = await tx
-    .select({ id: ledgerAccount.id })
+    .select({
+      id: ledgerAccount.id,
+      householdId: ledgerAccount.householdId,
+      archivedAt: ledgerAccount.archivedAt,
+    })
     .from(ledgerAccount)
     .where(and(eq(ledgerAccount.id, accountId), eq(ledgerAccount.householdId, householdId)));
-  if (!accountRow) throw new Error("Choose an account in this household.");
+  const account = accountRow
+    ? {
+        id: accountRow.id,
+        householdId: accountRow.householdId,
+        archivedAt: accountRow.archivedAt ? accountRow.archivedAt.toISOString() : null,
+      }
+    : null;
+  const accepted =
+    placement.kind === "new"
+      ? accountAcceptsNewEntry(account, householdId)
+      : accountAcceptsCorrection(account, householdId, placement.currentAccountId);
+  if (accepted.isErr()) throw accepted.error;
   const known = await tx.select({ id: category.id }).from(category).where(eq(category.householdId, householdId));
   const knownIds = new Set(known.map((row) => row.id));
   if (categoryIds.some((categoryId) => !knownIds.has(categoryId))) {
@@ -150,6 +187,7 @@ export async function createTransactionAction(_state: { error: string }, formDat
         books.householdId,
         parsed.draft.accountId,
         parsed.draft.splits.map((split) => split.categoryId),
+        { kind: "new" },
       );
       const [row] = await tx
         .insert(transaction)
@@ -203,7 +241,7 @@ async function replaceTransaction(
 ): Promise<void> {
   await withActor(userId, async (tx) => {
     const [existing] = await tx
-      .select({ id: transaction.id })
+      .select({ id: transaction.id, accountId: transaction.accountId })
       .from(transaction)
       .where(and(eq(transaction.id, transactionId), eq(transaction.householdId, householdId)));
     if (!existing) throw new Error("That transaction is not in this household.");
@@ -212,6 +250,7 @@ async function replaceTransaction(
       householdId,
       draft.accountId,
       draft.splits.map((split) => split.categoryId),
+      { kind: "correction", currentAccountId: existing.accountId },
     );
     // This correction is one transaction. Payee rules stay as they are.
     const updated = await tx

@@ -71,6 +71,13 @@
       "when": 1791240154148,
       "tag": "0009_bank_connection_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791241350825,
+      "tag": "0010_ledger_account_archive",
+      "breakpoints": true
     }
   ]
 }

@@ -85,3 +85,9 @@ export class BankConnectionError extends DomainError {
     super("bank_connection", message);
   }
 }
+
+export class AccountError extends DomainError {
+  constructor(message: string) {
+    super("account", message);
+  }
+}

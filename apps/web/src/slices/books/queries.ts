@@ -1,9 +1,14 @@
 import {
+  accountBalanceCents,
+  accountsForActiveLists,
   buildSpendingHistory,
   categoryBooksEffect,
   estimateMonthSpend,
+  homeAccountTotalCents,
+  isAccountType,
   summarizeCategoryMonth,
   toIsoDate,
+  type AccountType,
   type CivilDate,
   type HistoryColumn,
   type SpendEstimate,
@@ -92,13 +97,26 @@ export async function loadHome(books: BooksContext) {
           eq(categoryBudget.month, books.asOf.month),
         ),
       );
-    const [account] = await tx
-      .select({ id: ledgerAccount.id })
+    const accountRows = await tx
+      .select({
+        id: ledgerAccount.id,
+        householdId: ledgerAccount.householdId,
+        name: ledgerAccount.name,
+        type: ledgerAccount.type,
+        openingBalanceCents: ledgerAccount.openingBalanceCents,
+        archivedAt: ledgerAccount.archivedAt,
+      })
       .from(ledgerAccount)
-      .where(eq(ledgerAccount.householdId, books.householdId))
-      .limit(1);
-    return { transactions, budgets, hasAccounts: Boolean(account) };
+      .where(eq(ledgerAccount.householdId, books.householdId));
+    const accountMovements = await tx
+      .select({ accountId: transaction.accountId, amountCents: transaction.amountCents })
+      .from(transaction)
+      .where(eq(transaction.householdId, books.householdId));
+    return { transactions, budgets, accountRows, accountMovements };
   });
+  const accounts = rollupAccounts(rows.accountRows, rows.accountMovements);
+  const accountTotal = homeAccountTotalCents(accounts, books.householdId);
+  if (accountTotal.isErr()) throw accountTotal.error;
 
   let incomeCents = 0;
   let spentCents = 0;
@@ -135,7 +153,8 @@ export async function loadHome(books: BooksContext) {
     leftCents: incomeCents - spentCents,
     budgetedCents,
     categories: categories.slice(0, 5),
-    hasAccounts: rows.hasAccounts,
+    hasAccounts: accountsForActiveLists(accounts, books.householdId).length > 0,
+    accountBalanceCents: accountTotal.value,
     estimate: estimateResult.value satisfies SpendEstimate,
   };
 }
@@ -169,6 +188,7 @@ export async function loadActivity(books: BooksContext) {
         amountCents: transaction.amountCents,
         accountId: transaction.accountId,
         accountName: ledgerAccount.name,
+        accountArchivedAt: ledgerAccount.archivedAt,
         categoryId: category.id,
         categoryName: category.name,
         groupName: categoryGroup.name,
@@ -189,6 +209,7 @@ export async function loadActivity(books: BooksContext) {
         amountCents: number;
         accountId: string;
         accountName: string;
+        accountArchived: boolean;
         splits: Array<{ categoryId: string; categoryName: string; amountCents: number }>;
       }
     >();
@@ -200,6 +221,7 @@ export async function loadActivity(books: BooksContext) {
         amountCents: row.amountCents,
         accountId: row.accountId,
         accountName: row.accountName,
+        accountArchived: row.accountArchivedAt !== null,
         splits: [],
       };
       current.splits.push({
@@ -226,7 +248,20 @@ export async function loadActivity(books: BooksContext) {
       .leftJoin(categoryGroup, eq(categoryGroup.id, category.groupId))
       .where(eq(payeeCategoryRule.householdId, books.householdId));
     return {
-      accounts: accounts.sort((a, b) => a.name.localeCompare(b.name)),
+      accounts: accounts
+        .flatMap((account) => {
+          if (!isAccountType(account.type)) return [];
+          return [
+            {
+              id: account.id,
+              name: account.name,
+              householdId: account.householdId,
+              type: account.type,
+              archivedAt: account.archivedAt ? account.archivedAt.toISOString() : null,
+            },
+          ];
+        })
+        .sort((a, b) => a.name.localeCompare(b.name)),
       categories,
       payeeRules: rules
         .map((rule) => ({
@@ -241,24 +276,79 @@ export async function loadActivity(books: BooksContext) {
   });
 }
 
+export type AccountListItem = {
+  id: string;
+  householdId: string;
+  name: string;
+  type: AccountType;
+  openingBalanceCents: number;
+  archivedAt: string | null;
+  movementCents: number;
+  transactionCount: number;
+  balanceCents: number;
+};
+
+function rollupAccounts(
+  rows: Array<{
+    id: string;
+    householdId: string;
+    name: string;
+    type: string;
+    openingBalanceCents: number;
+    archivedAt: Date | null;
+  }>,
+  movements: Array<{ accountId: string; amountCents: number }>,
+): AccountListItem[] {
+  const sums = new Map<string, number>();
+  const counts = new Map<string, number>();
+  for (const row of movements) {
+    sums.set(row.accountId, (sums.get(row.accountId) ?? 0) + row.amountCents);
+    counts.set(row.accountId, (counts.get(row.accountId) ?? 0) + 1);
+  }
+  return rows
+    .flatMap((account) => {
+      if (!isAccountType(account.type)) return [];
+      const movementCents = sums.get(account.id) ?? 0;
+      const balance = accountBalanceCents({
+        openingBalanceCents: account.openingBalanceCents,
+        movementCents,
+      });
+      if (balance.isErr()) throw balance.error;
+      return [
+        {
+          id: account.id,
+          householdId: account.householdId,
+          name: account.name,
+          type: account.type,
+          openingBalanceCents: account.openingBalanceCents,
+          archivedAt: account.archivedAt ? account.archivedAt.toISOString() : null,
+          movementCents,
+          transactionCount: counts.get(account.id) ?? 0,
+          balanceCents: balance.value,
+        },
+      ];
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export async function loadAccounts(books: BooksContext) {
   return withActor(books.userId, async (tx) => {
     const accounts = await tx
-      .select()
+      .select({
+        id: ledgerAccount.id,
+        householdId: ledgerAccount.householdId,
+        name: ledgerAccount.name,
+        type: ledgerAccount.type,
+        openingBalanceCents: ledgerAccount.openingBalanceCents,
+        archivedAt: ledgerAccount.archivedAt,
+      })
       .from(ledgerAccount)
       .where(eq(ledgerAccount.householdId, books.householdId));
     const movements = await tx
       .select({ accountId: transaction.accountId, amountCents: transaction.amountCents })
       .from(transaction)
       .where(eq(transaction.householdId, books.householdId));
-    const sums = new Map<string, number>();
-    for (const row of movements) sums.set(row.accountId, (sums.get(row.accountId) ?? 0) + row.amountCents);
-    return accounts
-      .map((account) => ({
-        ...account,
-        balanceCents: account.openingBalanceCents + (sums.get(account.id) ?? 0),
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    return rollupAccounts(accounts, movements);
   });
 }
 
