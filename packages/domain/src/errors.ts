@@ -49,3 +49,9 @@ export class InvalidEstimateError extends DomainError {
     super("invalid_estimate", message);
   }
 }
+
+export class CsvImportError extends DomainError {
+  constructor(message: string) {
+    super("csv_import", message);
+  }
+}

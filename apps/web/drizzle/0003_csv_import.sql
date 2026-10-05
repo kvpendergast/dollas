@@ -1,0 +1,2 @@
+ALTER TABLE "transaction" ADD COLUMN "import_fingerprint" text;--> statement-breakpoint
+ALTER TABLE "transaction" ADD CONSTRAINT "transaction_import_fingerprint_key" UNIQUE("household_id","import_fingerprint");
