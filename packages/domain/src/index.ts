@@ -3,6 +3,7 @@ export {
   DomainError,
   HouseholdAccessError,
   InvalidCategoryError,
+  PayeeCategoryRuleError,
   InvalidEstimateError,
   InvalidHistoryError,
   InvalidMoneyError,
@@ -71,6 +72,13 @@ export {
   type PlannedCsvRow,
   type ResolvedCsvRow,
 } from "./import/csv";
+
+export {
+  definePayeeCategoryRule,
+  matchingPayeeRule,
+  payeeRuleKey,
+  type PayeeCategoryRule,
+} from "./rules/payee-category";
 
 export { estimateMonthSpend, type SpendEstimate } from "./projection/estimate";
 

@@ -1,6 +1,7 @@
 import { err, ok, type Result } from "neverthrow";
 import { CsvImportError } from "../errors";
 import { parseDollarInput, type Cents } from "../money/cents";
+import { matchingPayeeRule, type PayeeCategoryRule } from "../rules/payee-category";
 
 const MAX_CSV_CHARS = 1_000_000;
 const MAX_ROWS = 5_000;
@@ -77,11 +78,28 @@ export function resolveCsvRows(
   rows: readonly PlannedCsvRow[],
   accounts: readonly { id: string; name: string }[],
   categories: readonly { id: string; name: string }[],
+  rules: readonly PayeeCategoryRule[] = [],
 ): Result<readonly ResolvedCsvRow[], CsvImportError> {
   const resolved: ResolvedCsvRow[] = [];
   for (const row of rows) {
     const accountId = matchName("account", row.line, row.accountName, accounts);
     if (accountId.isErr()) return err(accountId.error);
+    const rule = matchingPayeeRule(row.payee, rules);
+    if (rule) {
+      const known = categories.some((category) => category.id === rule.categoryId);
+      if (!known) {
+        return err(
+          new CsvImportError(
+            `Row ${row.line}: That payee rule uses a category this household does not have.`,
+          ),
+        );
+      }
+      resolved.push({ ...row, accountId: accountId.value, categoryId: rule.categoryId });
+      continue;
+    }
+    if (row.categoryName.length < 1) {
+      return err(new CsvImportError(`Row ${row.line}: Enter a category.`));
+    }
     const categoryId = matchName("category", row.line, row.categoryName, categories);
     if (categoryId.isErr()) return err(categoryId.error);
     resolved.push({ ...row, accountId: accountId.value, categoryId: categoryId.value });
@@ -174,9 +192,6 @@ function parseDataRow(
   const categoryName = cell("category");
   if (accountName.length < 1) {
     return err(new CsvImportError(`Row ${record.line}: Enter an account.`));
-  }
-  if (categoryName.length < 1) {
-    return err(new CsvImportError(`Row ${record.line}: Enter a category.`));
   }
   return ok({
     line: record.line,

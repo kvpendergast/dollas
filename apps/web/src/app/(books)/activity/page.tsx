@@ -1,5 +1,6 @@
 import { formatCents, toIsoDate } from "@dollas/domain";
 import { ImportForm } from "@/components/forms/import-form";
+import { PayeeRules } from "@/components/forms/payee-rule-form";
 import { TransactionCorrection } from "@/components/forms/transaction-correction";
 import { TransactionForm } from "@/components/forms/transaction-form";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,18 @@ export default async function ActivityPage() {
             categories={activity.categories}
             today={toIsoDate(books.asOf)}
           />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Payee rules</CardTitle>
+          <CardDescription>
+            When a payee on a new import contains this text, that transaction uses this category. A longer match wins.
+            Changing one transaction does not change the rule.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PayeeRules rules={activity.payeeRules} categories={activity.categories} />
         </CardContent>
       </Card>
       <Card>

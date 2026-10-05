@@ -14,7 +14,8 @@ export function ImportForm() {
     <form action={action} className="space-y-3">
       <p className="text-sm text-muted-foreground">
         Columns are date, payee, amount, account, and category. Amounts are dollars and cents. Negative amounts are
-        expenses and positive amounts are income. Account and category names have to match this household.
+        expenses and positive amounts are income. Account names have to match this household. A payee rule sets the
+        category when the payee contains its text. Otherwise the category name has to match.
       </p>
       <pre className="overflow-x-auto rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">{`date,payee,amount,account,category
 2026-03-02,Market,-86.40,Checking,Groceries`}</pre>

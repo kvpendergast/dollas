@@ -43,6 +43,20 @@
       "when": 1791200371420,
       "tag": "0005_category_group_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791207410580,
+      "tag": "0006_payee_category_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791207417932,
+      "tag": "0007_payee_category_rule_grants",
+      "breakpoints": true
     }
   ]
 }

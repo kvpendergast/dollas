@@ -16,6 +16,7 @@ import {
   categoryGroup,
   householdInvite,
   ledgerAccount,
+  payeeCategoryRule,
   transaction,
   transactionSplit,
 } from "@/db/schema";
@@ -212,9 +213,29 @@ export async function loadActivity(books: BooksContext) {
       if (a.occurredOn === b.occurredOn) return a.payee.localeCompare(b.payee);
       return a.occurredOn < b.occurredOn ? 1 : -1;
     });
+    const rules = await tx
+      .select({
+        id: payeeCategoryRule.id,
+        pattern: payeeCategoryRule.pattern,
+        categoryId: payeeCategoryRule.categoryId,
+        categoryName: category.name,
+        groupName: categoryGroup.name,
+      })
+      .from(payeeCategoryRule)
+      .innerJoin(category, eq(category.id, payeeCategoryRule.categoryId))
+      .leftJoin(categoryGroup, eq(categoryGroup.id, category.groupId))
+      .where(eq(payeeCategoryRule.householdId, books.householdId));
     return {
       accounts: accounts.sort((a, b) => a.name.localeCompare(b.name)),
       categories,
+      payeeRules: rules
+        .map((rule) => ({
+          id: rule.id,
+          pattern: rule.pattern,
+          categoryId: rule.categoryId,
+          categoryName: categoryLabel(rule.categoryName, rule.groupName),
+        }))
+        .sort((a, b) => a.pattern.localeCompare(b.pattern)),
       transactions: transactions.slice(0, 60),
     };
   });
