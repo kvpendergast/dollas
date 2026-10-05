@@ -1,6 +1,7 @@
 import { err, ok, type Result } from "neverthrow";
 import { InvalidCategoryError } from "../errors";
 import { categoryKindLabel, categoryKinds, isCategoryKind, type CategoryKind } from "./define";
+import { compareCatalogOrder } from "./organize";
 
 export type CategoryMenuEntry = {
   id: string;
@@ -24,7 +25,7 @@ export type CategoryMenuSection = {
  * Activity's category menu keeps a household group and a kind as separate
  * headings. A group that contains income, expense, and transfer becomes three
  * sections. The kind of whichever category was added first does not decide
- * the section for the rest.
+ * the section for the rest. Items inside a section stay in the order the household set.
  */
 export function categoryMenuSections(
   categories: readonly CategoryMenuEntry[],
@@ -53,8 +54,7 @@ export function categoryMenuSections(
 }
 
 function compareEntries(a: CategoryMenuEntry, b: CategoryMenuEntry): number {
-  if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-  return a.name.localeCompare(b.name);
+  return compareCatalogOrder(a, b);
 }
 
 function compareSections(a: CategoryMenuSection, b: CategoryMenuSection): number {

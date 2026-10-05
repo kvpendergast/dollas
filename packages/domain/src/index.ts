@@ -31,6 +31,21 @@ export {
 } from "./categories/menu";
 
 export {
+  compareCatalogOrder,
+  moveCategory,
+  removeCategoryGroup,
+  renameCategoryGroup,
+  reorderCategories,
+  reorderGroups,
+  shiftCategory,
+  shiftGroup,
+  type CatalogDirection,
+  type CategoryCatalog,
+  type OrganizedCategory,
+  type OrganizedGroup,
+} from "./categories/organize";
+
+export {
   assertCents,
   expenseMagnitude,
   formatCents,
