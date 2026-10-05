@@ -15,7 +15,9 @@ A self-hosted household budgeting app. One shared set of books, separate logins.
 
 ## Local development
 
-You need Node.js 22, pnpm, and Postgres 16. Docker Compose is the usual way to get the database. Migrations run through Drizzle and the `postgres` driver, so the host does not need `psql`.
+You need Node.js 22.13 or newer, pnpm 11.28.4 (`packageManager` in the root `package.json`), and Postgres 16. Docker Compose is the usual way to get the database. Migrations run through Drizzle and the `postgres` driver, so the host does not need `psql`.
+
+`pnpm install` refuses a dependency version published less than five days ago, including a version already written into `pnpm-lock.yaml`. CI and Vercel use `pnpm install --frozen-lockfile`, so they apply the same cutoff. The setting is `minimumReleaseAge` in `pnpm-workspace.yaml` (7200 minutes). Dependency install scripts do not run. `allowBuilds` is the allowlist for a package that must build a native or platform binary; it is empty, because esbuild, sharp, and unrs-resolver ship prebuilt platform packages.
 
 ```bash
 docker compose up -d
