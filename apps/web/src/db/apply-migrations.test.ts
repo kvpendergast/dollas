@@ -137,8 +137,9 @@ describe("startup database URL", () => {
 describe("pendingMigrationTags", () => {
   it("already migrated is a no-op", () => {
     const journal = readJournal(migrationsFolder());
-    const current = legacyBaselineAt(journal);
-    assert.deepEqual(pendingMigrationTags(journal, current), []);
+    const latest = journal.reduce((max, entry) => Math.max(max, entry.when), 0);
+    assert.deepEqual(pendingMigrationTags(journal, latest), []);
+    assert.deepEqual(pendingMigrationTags(journal, legacyBaselineAt(journal)), ["0003_csv_import"]);
     assert.deepEqual(pendingMigrationTags(sampleJournal, 30), []);
   });
 
@@ -155,7 +156,8 @@ describe("pendingMigrationTags", () => {
 describe("applyMigrations", () => {
   it("already migrated is a no-op", async () => {
     const journal = readJournal(migrationsFolder());
-    const session = new MemorySession({ lastCreatedAt: legacyBaselineAt(journal), booksPresent: true });
+    const latest = journal.reduce((max, entry) => Math.max(max, entry.when), 0);
+    const session = new MemorySession({ lastCreatedAt: latest, booksPresent: true });
     const result = await applyMigrations(session, journal, migrationsFolder());
     assert.deepEqual(result.applied, []);
     assert.deepEqual(result.skipped, journal.map((entry) => entry.tag));

@@ -223,10 +223,12 @@ export const transaction = pgTable(
     occurredOn: date("occurred_on").notNull(),
     payee: text("payee").notNull(),
     amountCents: integer("amount_cents").notNull(),
+    importFingerprint: text("import_fingerprint"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
     index("transaction_household_date_idx").on(table.householdId, table.occurredOn),
+    unique("transaction_import_fingerprint_key").on(table.householdId, table.importFingerprint),
     pgPolicy("transaction_all", {
       for: "all",
       using: sql`app_can_access_household(${table.householdId})`,

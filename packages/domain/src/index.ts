@@ -1,4 +1,5 @@
 export {
+  CsvImportError,
   DomainError,
   HouseholdAccessError,
   InvalidEstimateError,
@@ -42,6 +43,14 @@ export {
 } from "./history/columns";
 
 export { validateSplits, type BalancedSplit, type SplitDraft } from "./activity/splits";
+
+export {
+  importCsv,
+  resolveCsvRows,
+  type CsvLedger,
+  type PlannedCsvRow,
+  type ResolvedCsvRow,
+} from "./import/csv";
 
 export { estimateMonthSpend, type SpendEstimate } from "./projection/estimate";
 

@@ -1,4 +1,5 @@
 import { formatCents, toIsoDate } from "@dollas/domain";
+import { ImportForm } from "@/components/forms/import-form";
 import { TransactionForm } from "@/components/forms/transaction-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +26,18 @@ export default async function ActivityPage() {
             categories={activity.categories}
             today={toIsoDate(books.asOf)}
           />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Import a CSV</CardTitle>
+          <CardDescription>
+            Bring transactions in from a file on this computer. There is no bank connection and no third-party key.
+            Importing the same file again does not add duplicates.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ImportForm />
         </CardContent>
       </Card>
       <div className="space-y-3">
