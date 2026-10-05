@@ -1,13 +1,18 @@
 "use client";
 
-import { categoryKindLabel, isCategoryKind } from "@dollas/domain";
-import { useActionState } from "react";
-import { Badge } from "@/components/ui/badge";
+import {
+  TRANSFER_KIND_HELP,
+  categoryKindChangeWarning,
+  categoryKindLabel,
+  categoryKinds,
+} from "@dollas/domain";
+import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  changeCategoryKindAction,
   moveCategoryAction,
   removeCategoryGroupAction,
   renameCategoryGroupAction,
@@ -21,15 +26,11 @@ type ActionState = { error: string };
 
 type OrganizerAction = (state: ActionState, formData: FormData) => Promise<ActionState>;
 
-type ListedCategory = { id: string; name: string; kind: string };
+type ListedCategory = { id: string; name: string; kind: string; budgetCount: number };
 
 type ListedGroup = { id: string; name: string; categories: ListedCategory[] };
 
 type Destination = { value: string; label: string };
-
-function kindLabel(kind: string): string {
-  return isCategoryKind(kind) ? categoryKindLabel(kind) : kind;
-}
 
 function FormError({ message }: { message: string }) {
   if (!message) return null;
@@ -188,6 +189,72 @@ function MoveCategoryForm({ category, destinations }: { category: ListedCategory
   );
 }
 
+function ChangeKindForm({ category }: { category: ListedCategory }) {
+  const [state, action, pending] = useActionState(changeCategoryKindAction, { error: "" });
+  const [kind, setKind] = useState(category.kind);
+  const selectId = `kind-${category.id}`;
+  const helpId = `kind-help-${category.id}`;
+  const confirmId = `kind-confirm-${category.id}`;
+  const liveWarning = categoryKindChangeWarning({
+    name: category.name,
+    currentKind: category.kind,
+    nextKind: kind,
+    budgetCount: category.budgetCount,
+  });
+  const removalWarning = categoryKindChangeWarning({
+    name: category.name,
+    currentKind: category.kind,
+    nextKind: kind,
+    budgetCount: Math.max(category.budgetCount, 1),
+  });
+  const warning = liveWarning ?? (state.error === removalWarning ? state.error : null);
+  const otherError = state.error && state.error !== warning ? state.error : "";
+  return (
+    <form action={action} aria-busy={pending} className="flex w-full flex-col gap-2">
+      <input type="hidden" name="categoryId" value={category.id} />
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <div className="w-full space-y-1.5 sm:max-w-xs">
+          <Label htmlFor={selectId}>Kind</Label>
+          <select
+            id={selectId}
+            name="kind"
+            value={kind}
+            onChange={(event) => setKind(event.target.value)}
+            aria-describedby={kind === "transfer" ? helpId : undefined}
+            className={selectClass}
+          >
+            {categoryKinds.map((option) => (
+              <option key={option} value={option}>
+                {categoryKindLabel(option)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <Button type="submit" className="h-10" disabled={pending || kind === category.kind}>
+          Change kind
+        </Button>
+      </div>
+      {kind === "transfer" ? (
+        <p id={helpId} className="text-sm text-muted-foreground">
+          {TRANSFER_KIND_HELP}
+        </p>
+      ) : null}
+      {warning ? (
+        <div className="space-y-2 rounded-lg bg-muted p-3">
+          <p role="status" className="text-sm">
+            {warning}
+          </p>
+          <label htmlFor={confirmId} className="flex min-h-10 items-center gap-3 text-sm">
+            <input id={confirmId} type="checkbox" name="confirmBudgetRemoval" value="yes" required className="size-5" />
+            <span>Remove its budgets</span>
+          </label>
+        </div>
+      ) : null}
+      <FormError message={otherError} />
+    </form>
+  );
+}
+
 function destinationsFor(groupId: string | null, groups: ListedGroup[]): Destination[] {
   return [
     ...groups.filter((group) => group.id !== groupId).map((group) => ({ value: group.id, label: group.name })),
@@ -211,12 +278,8 @@ function CategoryRow({
   const destinations = destinationsFor(groupId, groups);
   return (
     <li className="flex flex-col gap-3 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <span className="font-medium">{category.name}</span>
-        <Badge variant="secondary" className="shrink-0">
-          {kindLabel(category.kind)}
-        </Badge>
-      </div>
+      <span className="font-medium">{category.name}</span>
+      <ChangeKindForm key={`${category.id}:${category.kind}:${category.budgetCount}`} category={category} />
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
         {destinations.length > 0 ? <MoveCategoryForm category={category} destinations={destinations} /> : null}
         <ShiftControls

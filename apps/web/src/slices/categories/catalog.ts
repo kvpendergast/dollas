@@ -45,10 +45,12 @@ export async function saveCatalog(
   for (const row of after.categories) {
     const previous = beforeCategories.get(row.id);
     if (!previous || previous.householdId !== householdId || row.householdId !== householdId) continue;
-    if (previous.groupId === row.groupId && previous.sortOrder === row.sortOrder) continue;
+    if (previous.groupId === row.groupId && previous.sortOrder === row.sortOrder && previous.kind === row.kind) {
+      continue;
+    }
     const updated = await tx
       .update(category)
-      .set({ groupId: row.groupId, sortOrder: row.sortOrder })
+      .set({ groupId: row.groupId, sortOrder: row.sortOrder, kind: row.kind })
       .where(and(eq(category.id, row.id), eq(category.householdId, householdId)))
       .returning({ id: category.id });
     if (updated.length === 0) throw new Error("Category update did not apply.");
