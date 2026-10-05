@@ -126,7 +126,9 @@ export async function loadActivity(books: BooksContext) {
         occurredOn: transaction.occurredOn,
         payee: transaction.payee,
         amountCents: transaction.amountCents,
+        accountId: transaction.accountId,
         accountName: ledgerAccount.name,
+        categoryId: category.id,
         categoryName: category.name,
         splitCents: transactionSplit.amountCents,
       })
@@ -142,8 +144,9 @@ export async function loadActivity(books: BooksContext) {
         occurredOn: string;
         payee: string;
         amountCents: number;
+        accountId: string;
         accountName: string;
-        splits: Array<{ categoryName: string; amountCents: number }>;
+        splits: Array<{ categoryId: string; categoryName: string; amountCents: number }>;
       }
     >();
     for (const row of rows) {
@@ -152,10 +155,15 @@ export async function loadActivity(books: BooksContext) {
         occurredOn: row.occurredOn,
         payee: row.payee,
         amountCents: row.amountCents,
+        accountId: row.accountId,
         accountName: row.accountName,
         splits: [],
       };
-      current.splits.push({ categoryName: row.categoryName, amountCents: row.splitCents });
+      current.splits.push({
+        categoryId: row.categoryId,
+        categoryName: row.categoryName,
+        amountCents: row.splitCents,
+      });
       grouped.set(row.id, current);
     }
     const transactions = [...grouped.values()].sort((a, b) => {
