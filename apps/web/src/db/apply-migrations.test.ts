@@ -160,6 +160,8 @@ describe("pendingMigrationTags", () => {
       "0005_category_group_grants",
       "0006_payee_category_rules",
       "0007_payee_category_rule_grants",
+      "0008_bank_connection",
+      "0009_bank_connection_grants",
     ]);
   });
 
@@ -263,6 +265,8 @@ describe("generated schema", () => {
     const grants = await readFile(path.join(folder, "0005_category_group_grants.sql"), "utf8");
     const payeeRules = await readFile(path.join(folder, "0006_payee_category_rules.sql"), "utf8");
     const payeeGrants = await readFile(path.join(folder, "0007_payee_category_rule_grants.sql"), "utf8");
+    const bankConnections = await readFile(path.join(folder, "0008_bank_connection.sql"), "utf8");
+    const bankGrants = await readFile(path.join(folder, "0009_bank_connection_grants.sql"), "utf8");
 
     assert.match(books, /"amount_cents" integer/);
     assert.match(books, /"opening_balance_cents" integer/);
@@ -293,6 +297,7 @@ describe("generated schema", () => {
     assert.equal(/password/i.test(APP_GRANT_SQL), false);
     assert.match(APP_GRANT_SQL, /category_group/);
     assert.match(APP_GRANT_SQL, /payee_category_rule/);
+    assert.match(APP_GRANT_SQL, /bank_connection/);
     assert.match(categories, /CREATE TABLE "category_group"/);
     assert.match(categories, /'income', 'expense', 'transfer'/);
     assert.match(categories, /ENABLE ROW LEVEL SECURITY/);
@@ -314,6 +319,18 @@ describe("generated schema", () => {
     assert.equal(/PASSWORD/i.test(payeeGrants), false);
     assert.equal(/SET ROLE/i.test(payeeGrants), false);
     assert.equal(/SET LOCAL ROLE/i.test(payeeGrants), false);
+    assert.match(bankConnections, /CREATE TABLE "bank_connection"/);
+    assert.match(bankConnections, /encrypted_access_token/);
+    assert.match(bankConnections, /ENABLE ROW LEVEL SECURITY/);
+    assert.match(bankConnections, /app_can_access_household/);
+    assert.equal(bankConnections.includes("dollas_app"), false);
+    assert.equal(/password/i.test(bankConnections), false);
+    assert.match(bankGrants, /GRANT SELECT, INSERT, UPDATE, DELETE ON bank_connection TO dollas_app/);
+    assert.equal(/CREATE ROLE/i.test(bankGrants), false);
+    assert.equal(/ALTER ROLE/i.test(bankGrants), false);
+    assert.equal(/PASSWORD/i.test(bankGrants), false);
+    assert.equal(/SET ROLE/i.test(bankGrants), false);
+    assert.equal(/SET LOCAL ROLE/i.test(bankGrants), false);
   });
 });
 
@@ -338,5 +355,12 @@ describe("publicErrorText", () => {
     assert.equal(text.includes("secret"), false);
     assert.equal(text.includes("ep.neon.tech"), false);
     assert.match(text, /\[redacted-url\]/);
+  });
+
+  it("does not include a sealed connection token", () => {
+    const ciphertext = "v1.AAAAAAAAAAAAAAAA.BBBBBBBBBBBBBBBBBBBBBBBB";
+    const text = publicErrorText(new Error(`insert failed ${ciphertext}`));
+    assert.equal(text.includes(ciphertext), false);
+    assert.match(text, /\[redacted-token\]/);
   });
 });

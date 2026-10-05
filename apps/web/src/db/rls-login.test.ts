@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import postgres from "postgres";
+import { encryptToken, parseTokenKeyRing } from "@dollas/domain";
 import { withActor } from "./actor";
 import { assertAppRoleSubjectToRls, migrateWithUrl } from "./apply-migrations";
 import { openAppDatabase } from "./client";
-import { household, transaction } from "./schema";
+import { bankConnection, household, transaction } from "./schema";
 
 const OWNER_URL = "postgresql://dollas:dollas@127.0.0.1:5432/dollas";
 const APP_URL = "postgresql://dollas_app:dollas@127.0.0.1:5432/dollas";
@@ -126,6 +127,19 @@ describe("row-level security login", () => {
       transactionA = await ledger(houseA, "Rent A");
       transactionB = await ledger(houseB, "Rent B");
 
+      const keyRing = parseTokenKeyRing(`1:${Buffer.from(new Uint8Array(32).fill(3)).toString("base64")}`);
+      if (keyRing.isErr()) throw keyRing.error;
+      const tokenA = await encryptToken("household-a-access-token", keyRing.value, { householdId: houseA });
+      const tokenB = await encryptToken("household-b-access-token", keyRing.value, { householdId: houseB });
+      if (tokenA.isErr()) throw tokenA.error;
+      if (tokenB.isErr()) throw tokenB.error;
+      await owner`
+        insert into bank_connection (household_id, provider_id, label, encrypted_access_token, key_version)
+        values
+          (${houseA}, 'fake', 'House A bank', ${tokenA.value.ciphertext}, ${tokenA.value.keyVersion}),
+          (${houseB}, 'fake', 'House B bank', ${tokenB.value.ciphertext}, ${tokenB.value.keyVersion})
+      `;
+
       const visibleHouses = await withActor(
         userA,
         (tx) => tx.select({ id: household.id }).from(household),
@@ -144,9 +158,71 @@ describe("row-level security login", () => {
       assert.deepEqual(idsOf(visibleHouses), [houseA]);
       assert.deepEqual(idsOf(adaTransactions), [transactionA]);
       assert.deepEqual(idsOf(visibleTransactions), [transactionB]);
+
+      const adaConnections = await withActor(
+        userA,
+        (tx) =>
+          tx
+            .select({
+              id: bankConnection.id,
+              householdId: bankConnection.householdId,
+              token: bankConnection.encryptedAccessToken,
+            })
+            .from(bankConnection),
+        app.db,
+      );
+      assert.equal(adaConnections.length, 1);
+      assert.equal(adaConnections[0]?.householdId, houseA);
+      assert.equal(adaConnections[0]?.token, tokenA.value.ciphertext);
+      assert.equal(
+        adaConnections.some((row) => row.token === tokenB.value.ciphertext),
+        false,
+      );
+      await assert.rejects(() =>
+        withActor(
+          userA,
+          (tx) =>
+            tx.insert(bankConnection).values({
+              householdId: houseB,
+              providerId: "fake",
+              label: "Stolen",
+              encryptedAccessToken: tokenA.value.ciphertext,
+              keyVersion: tokenA.value.keyVersion,
+            }),
+          app.db,
+        ),
+      );
+      const hiddenDelete = await withActor(
+        userA,
+        (tx) => tx.delete(bankConnection).where(eq(bankConnection.householdId, houseB)).returning({ id: bankConnection.id }),
+        app.db,
+      );
+      assert.deepEqual(hiddenDelete, []);
+      const [stillB] = await owner<{ n: string }[]>`
+        select count(*)::text as n from bank_connection where household_id = ${houseB}
+      `;
+      assert.equal(stillB?.n, "1");
+      const connectionA = adaConnections[0]?.id ?? "";
+      const removed = await withActor(
+        userA,
+        (tx) => tx.delete(bankConnection).where(eq(bankConnection.id, connectionA)).returning({ id: bankConnection.id }),
+        app.db,
+      );
+      assert.deepEqual(removed.map((row) => row.id), [connectionA]);
+      const [goneA] = await owner<{ n: string }[]>`
+        select count(*)::text as n from bank_connection where household_id = ${houseA}
+      `;
+      assert.equal(goneA?.n, "0");
       const forgottenSession = await app.db.select({ id: household.id }).from(household);
       assert.equal(
         forgottenSession.some((row) => row.id === houseA || row.id === houseB),
+        false,
+      );
+      const forgottenConnections = await app.db
+        .select({ householdId: bankConnection.householdId })
+        .from(bankConnection);
+      assert.equal(
+        forgottenConnections.some((row) => row.householdId === houseA || row.householdId === houseB),
         false,
       );
 
@@ -186,6 +262,19 @@ describe("row-level security login", () => {
       assert.deepEqual(idsOf(await asLogin(userGoogle)), [houseB]);
       const anonymous = await direct<{ id: string }[]>`select id from household`;
       assert.deepEqual(idsOf(anonymous.filter((row) => row.id === houseA || row.id === houseB)), []);
+      const asLoginConnections = async (userId: string) =>
+        direct!.begin(async (tx) => {
+          await tx`select set_config('app.user_id', ${userId}, true)`;
+          return tx<{ household_id: string }[]>`select household_id from bank_connection`;
+        });
+      assert.deepEqual(
+        (await asLoginConnections(userB)).map((row) => row.household_id),
+        [houseB],
+      );
+      assert.deepEqual(
+        (await asLoginConnections(userA)).map((row) => row.household_id),
+        [],
+      );
 
       const scoped = await withActor(
         userA,

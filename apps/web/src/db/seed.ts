@@ -2,7 +2,18 @@ import { hashPassword } from "better-auth/crypto";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { civilDateInTimeZone, toIsoDate, type CivilDate } from "@dollas/domain";
+import {
+  civilDateInTimeZone,
+  connectBank,
+  createFakeBankProvider,
+  createProviderRegistry,
+  createQueryBankConnectionStore,
+  parseTokenKeyRing,
+  toIsoDate,
+  type CivilDate,
+} from "@dollas/domain";
+import { redactSecrets } from "../lib/redact";
+import { drizzleBankConnectionQueries } from "../slices/connections/store";
 import { loadEnv, requiredEnv } from "./env";
 import {
   account,
@@ -61,6 +72,8 @@ function onOrBefore(date: CivilDate, asOf: CivilDate): boolean {
 
 async function main() {
   loadEnv();
+  const keys = parseTokenKeyRing(process.env.BANK_CONNECTION_KEYS);
+  if (keys.isErr()) throw keys.error;
   const url = requiredEnv("DATABASE_MIGRATE_URL");
   const client = postgres(url, { max: 1 });
   const db = drizzle(client, { schema });
@@ -281,6 +294,24 @@ async function main() {
       );
   }
 
+  const registry = createProviderRegistry();
+  const registered = registry.register(createFakeBankProvider());
+  if (registered.isErr()) throw registered.error;
+  const connected = await connectBank(
+    {
+      registry,
+      store: createQueryBankConnectionStore(drizzleBankConnectionQueries(db)),
+      keys: keys.value,
+    },
+    {
+      householdId: house.id,
+      providerId: "fake",
+      setup: { token: `seed.${crypto.randomUUID()}` },
+      label: "Demo bank",
+    },
+  );
+  if (connected.isErr()) throw connected.error;
+
   console.log(`Seeded ${HOUSEHOLD_NAME} for ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
   console.log(`Invite code ${INVITE_CODE}`);
   console.log(`Transactions ${drafts.length}, as of ${toIsoDate(asOf)}`);
@@ -288,6 +319,7 @@ async function main() {
 }
 
 main().catch((error: unknown) => {
-  console.error(error);
+  const message = error instanceof Error ? error.message : "Seed failed";
+  console.error(redactSecrets(message));
   process.exit(1);
 });

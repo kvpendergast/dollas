@@ -288,6 +288,39 @@ export const payeeCategoryRule = pgTable(
   ],
 ).enableRLS();
 
+export const bankConnection = pgTable(
+  "bank_connection",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    providerId: text("provider_id").notNull(),
+    label: text("label").notNull(),
+    encryptedAccessToken: text("encrypted_access_token").notNull(),
+    keyVersion: integer("key_version").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("bank_connection_provider_chk", sql`${table.providerId} ~ '^[a-z][a-z0-9_-]{0,31}$'`),
+    check(
+      "bank_connection_label_chk",
+      sql`char_length(${table.label}) between 1 and 80 and ${table.label} !~ '[[:cntrl:]]'`,
+    ),
+    check(
+      "bank_connection_token_chk",
+      sql`${table.encryptedAccessToken} ~ '^v[1-9][0-9]{0,8}[.][A-Za-z0-9_-]{16,}[.][A-Za-z0-9_-]{16,}$'`,
+    ),
+    check("bank_connection_key_version_chk", sql`${table.keyVersion} >= 1`),
+    index("bank_connection_household_idx").on(table.householdId),
+    pgPolicy("bank_connection_all", {
+      for: "all",
+      using: sql`app_can_access_household(${table.householdId})`,
+      withCheck: sql`app_can_access_household(${table.householdId})`,
+    }),
+  ],
+).enableRLS();
+
 export const transactionSplit = pgTable(
   "transaction_split",
   {
@@ -328,4 +361,5 @@ export const schema = {
   payeeCategoryRule,
   transaction,
   transactionSplit,
+  bankConnection,
 };

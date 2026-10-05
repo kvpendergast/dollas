@@ -1,6 +1,6 @@
 # dollas
 
-A self-hosted household budgeting app. One shared set of books, separate logins. The browser is the client. There is no bank linking in this pass, and local development runs entirely on seed data.
+A self-hosted household budgeting app. One shared set of books, separate logins. The browser is the client. Bank connections store a provider token encrypted at rest. The app never asks for a bank username or password. Local development seeds a fake provider connection; a live provider is not wired up yet.
 
 ## Stack
 
@@ -28,6 +28,14 @@ pnpm db:seed
 pnpm dev
 ```
 
+Generate `BANK_CONNECTION_KEYS` into `apps/web/.env.local` before `pnpm db:seed` or `pnpm dev`. The app refuses to start, and seed refuses to write a connection, when the variable is missing or not a 32-byte key. Do not commit the value.
+
+```bash
+node -e "console.log('1:' + require('node:crypto').randomBytes(32).toString('base64'))"
+```
+
+Put that line in `.env.local` as `BANK_CONNECTION_KEYS=...`. The number is the key version. To rotate, add `2:` plus a new key and keep `1:` until existing tokens are re-encrypted. The highest version seals new tokens.
+
 Schema changes start in `apps/web/src/db/schema.ts`. Generate a migration and commit the files Drizzle writes:
 
 ```bash
@@ -45,7 +53,9 @@ Open http://localhost:3000 and sign in with the seed account:
 
 The seed builds accounts, categories, budgets, and transactions relative to today, including a grocery purchase split across categories. Those seed categories stay as they are. A member can add income, expense, and transfer categories in groups; transfers do not count as income or spending. On Activity, a member can save a payee rule: when a new CSV import contains a payee that matches that text, the transaction uses the rule's category. Correcting one transaction leaves the rule in place. History, the home spend estimate, and plan totals are computed from those rows.
 
-No bank credentials are required. Leave `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` empty unless you want to try Google sign-in. Set `RESEND_API_KEY` and `RESEND_FROM` to email verification links through Resend. The sender is whatever `RESEND_FROM` is set to. Production and preview use `noreply@dollas.kylependergast.com`. When both variables are unset, local development writes the link to the server log.
+Accounts lists ledger balances and bank connections. Disconnect deletes the stored token. Seed writes one encrypted connection for the in-memory `fake` provider, not a live bank. SimpleFIN is the first real provider and is not implemented yet. Teller and Plaid are not chosen. Synced transactions will reuse the ledger import fingerprint: a bank row is `bank:{provider}:{transaction id}`, which does not collide with a CSV fingerprint, so a later sync stays idempotent with CSV import.
+
+Leave `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` empty unless you want to try Google sign-in. Set `RESEND_API_KEY` and `RESEND_FROM` to email verification links through Resend. The sender is whatever `RESEND_FROM` is set to. Production and preview use `noreply@dollas.kylependergast.com`. When both variables are unset, local development writes the link to the server log.
 
 `DATABASE_URL` is the restricted `dollas_app` role. It cannot bypass row-level security, and it cannot apply schema changes. `DATABASE_MIGRATE_URL` is the table owner, used by `pnpm db:migrate` and `pnpm db:seed`. After those have run, starting the app sees the current Drizzle journal and does not apply anything. Household queries assume `dollas_app` for the transaction, so a forgotten membership check still cannot read another household.
 
@@ -78,10 +88,11 @@ Set these environment variables in Vercel. Do not commit secret values. `RESEND_
 | `DATABASE_MIGRATE_URL` | No | Not set on Vercel and not read at startup. Local `pnpm db:migrate` and `pnpm db:seed` still use it. |
 | `GOOGLE_CLIENT_ID` | No | Google sign-in. Counts as a verified email. Set both or neither. |
 | `GOOGLE_CLIENT_SECRET` | No | Pairs with `GOOGLE_CLIENT_ID`. |
+| `BANK_CONNECTION_KEYS` | Yes | AES-256-GCM keys for bank connection tokens. Comma-separated `version:base64` entries, each 32 bytes. The highest version encrypts new tokens. Missing or invalid keys fail startup with a typed error instead of storing plaintext. Do not commit a value. |
 
-On boot, the Node.js server applies the Drizzle journal in `apps/web/drizzle` before it accepts requests. A fresh Neon database has no tables and an empty journal, so the first Vercel boot runs `0000_books`, `0001_household_access`, `0002_household_rls`, `0003_csv_import`, `0004_custom_categories`, `0005_category_group_grants`, `0006_payee_category_rules`, and `0007_payee_category_rule_grants` through Drizzle's migrator and records them in `drizzle.__drizzle_migrations`. Startup uses `DATABASE_URL_UNPOOLED` when it is set, otherwise `DATABASE_URL`. A later boot, or a boot whose journal is already current, does nothing. Several instances can cold-start together: they take a Postgres advisory lock, so one applies the pending migrations and the others wait and then skip them. Startup does not seed data.
+On boot, the Node.js server applies the Drizzle journal in `apps/web/drizzle` before it accepts requests. A fresh Neon database has no tables and an empty journal, so the first Vercel boot runs `0000_books`, `0001_household_access`, `0002_household_rls`, `0003_csv_import`, `0004_custom_categories`, `0005_category_group_grants`, `0006_payee_category_rules`, `0007_payee_category_rule_grants`, `0008_bank_connection`, and `0009_bank_connection_grants` through Drizzle's migrator and records them in `drizzle.__drizzle_migrations`. Startup uses `DATABASE_URL_UNPOOLED` when it is set, otherwise `DATABASE_URL`. A later boot, or a boot whose journal is already current, does nothing. Several instances can cold-start together: they take a Postgres advisory lock, so one applies the pending migrations and the others wait and then skip them. Startup does not seed data.
 
-The Neon login owns the tables, and a table owner bypasses row-level security. Startup creates `dollas_app` as `NOLOGIN` with no password: Neon rejects the local development password, and that password is not a production credential. It grants `dollas_app` to the migration role and grants the same table privileges as `0001_household_access` (no insert on household, membership, or invites). Category groups receive the same read and write privileges as categories. Every app transaction then runs `SET LOCAL ROLE dollas_app` before it reads or writes, including queries that forget the membership check. The server refuses to start if that role cannot be assumed or can bypass row-level security. No additional Vercel variable is required, and no connection string is added to the repo. `DATABASE_MIGRATE_URL` stays unset on Vercel.
+The Neon login owns the tables, and a table owner bypasses row-level security. Startup creates `dollas_app` as `NOLOGIN` with no password: Neon rejects the local development password, and that password is not a production credential. It grants `dollas_app` to the migration role and grants the same table privileges as `0001_household_access` (no insert on household, membership, or invites), including later household tables such as bank connections. Category groups receive the same read and write privileges as categories. Every app transaction then runs `SET LOCAL ROLE dollas_app` before it reads or writes, including queries that forget the membership check. The server refuses to start if that role cannot be assumed or can bypass row-level security. No dollas_app connection string is added to the repo. `DATABASE_MIGRATE_URL` stays unset on Vercel. `BANK_CONNECTION_KEYS` is required or startup throws before it serves requests.
 
 Do not run `pnpm db:seed` against the production database.
 
