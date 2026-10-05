@@ -1,12 +1,21 @@
 "use client";
 
+import { categoryMenuSections } from "@dollas/domain";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createTransactionAction } from "@/slices/activity/actions";
 
-type Option = { id: string; name: string; kind?: string };
+type Option = { id: string; name: string };
+
+type CategoryOption = Option & {
+  kind: string;
+  sortOrder: number;
+  groupId: string | null;
+  groupName: string | null;
+  groupSort: number | null;
+};
 
 export function TransactionForm({
   accounts,
@@ -14,7 +23,7 @@ export function TransactionForm({
   today,
 }: {
   accounts: Option[];
-  categories: Option[];
+  categories: CategoryOption[];
   today: string;
 }) {
   const [state, action, pending] = useActionState(createTransactionAction, { error: "" });
@@ -79,26 +88,37 @@ function CategoryRow({
   index,
   showAmount,
 }: {
-  categories: Option[];
+  categories: CategoryOption[];
   index: number;
   showAmount: boolean;
 }) {
+  const menu = categoryMenuSections(categories);
   return (
     <div className="grid gap-2 md:grid-cols-[1fr_8rem]">
-      <select
-        id={`category-${index}`}
-        name="categoryId"
-        aria-label={index === 0 ? "Category" : "Split category"}
-        className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-        defaultValue={categories[Math.min(index, Math.max(categories.length - 1, 0))]?.id}
-        required
-      >
-        {categories.map((category) => (
-          <option key={category.id} value={category.id}>
-            {category.name}
-          </option>
-        ))}
-      </select>
+      {menu.isErr() ? (
+        <p role="alert" className="text-sm text-over">
+          {menu.error.message}
+        </p>
+      ) : (
+        <select
+          id={`category-${index}`}
+          name="categoryId"
+          aria-label={index === 0 ? "Category" : "Split category"}
+          className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+          defaultValue={menu.value[0]?.items[0]?.id}
+          required
+        >
+          {menu.value.map((section) => (
+            <optgroup key={section.id} label={section.label}>
+              {section.items.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      )}
       {showAmount ? (
         <Input name="splitAmount" inputMode="decimal" placeholder="0.00" aria-label="Split amount" required />
       ) : null}

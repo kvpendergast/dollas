@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Home, Landmark, List, WalletCards } from "lucide-react";
+import { BarChart3, Home, Landmark, List, Tags, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { bookNav, isNavActive } from "./nav";
@@ -9,6 +9,7 @@ const icons = {
   Home,
   Activity: List,
   Accounts: Landmark,
+  Categories: Tags,
   Plan: WalletCards,
   History: BarChart3,
 } as const;
@@ -20,7 +21,7 @@ export function PhoneNav() {
       aria-label="Phone"
       className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-card/95 backdrop-blur md:hidden"
     >
-      <ul className="grid grid-cols-5">
+      <ul className="grid grid-cols-6">
         {bookNav.map((item) => {
           const Icon = icons[item.label];
           const active = isNavActive(pathname, item.href);

@@ -1,8 +1,7 @@
 import {
   buildSpendingHistory,
+  categoryBooksEffect,
   estimateMonthSpend,
-  expenseMagnitude,
-  incomeMagnitude,
   summarizeCategoryMonth,
   toIsoDate,
   type CivilDate,
@@ -14,6 +13,7 @@ import { withActor } from "@/db/actor";
 import {
   category,
   categoryBudget,
+  categoryGroup,
   householdInvite,
   ledgerAccount,
   transaction,
@@ -25,22 +25,52 @@ function monthStart(asOf: CivilDate): string {
   return toIsoDate({ year: asOf.year, month: asOf.month, day: 1 });
 }
 
+function effectOf(kind: string, amountCents: number) {
+  const effect = categoryBooksEffect(kind, amountCents);
+  if (effect.isErr()) throw effect.error;
+  return effect.value;
+}
+
+function categoryLabel(name: string, groupName: string | null): string {
+  return groupName ? `${groupName} · ${name}` : name;
+}
+
+type ListedCategory = {
+  id: string;
+  name: string;
+  kind: string;
+  sortOrder: number;
+  groupId: string | null;
+  groupName: string | null;
+  groupSort: number | null;
+};
+
+function compareListed(a: ListedCategory, b: ListedCategory): number {
+  const aGroup = a.groupSort ?? Number.MAX_SAFE_INTEGER;
+  const bGroup = b.groupSort ?? Number.MAX_SAFE_INTEGER;
+  if (aGroup !== bGroup) return aGroup - bGroup;
+  const groupName = (a.groupName ?? "").localeCompare(b.groupName ?? "");
+  if (groupName !== 0) return groupName;
+  if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+  return a.name.localeCompare(b.name);
+}
+
 export async function loadHome(books: BooksContext) {
   const start = monthStart(books.asOf);
   const end = toIsoDate(books.asOf);
   const rows = await withActor(books.userId, async (tx) => {
     const transactions = await tx
       .select({
-        id: transaction.id,
-        amountCents: transaction.amountCents,
         categoryId: transactionSplit.categoryId,
         categoryName: category.name,
+        groupName: categoryGroup.name,
         splitCents: transactionSplit.amountCents,
         kind: category.kind,
       })
       .from(transaction)
       .innerJoin(transactionSplit, eq(transactionSplit.transactionId, transaction.id))
       .innerJoin(category, eq(category.id, transactionSplit.categoryId))
+      .leftJoin(categoryGroup, eq(categoryGroup.id, category.groupId))
       .where(
         and(
           eq(transaction.householdId, books.householdId),
@@ -69,20 +99,19 @@ export async function loadHome(books: BooksContext) {
     return { transactions, budgets, hasAccounts: Boolean(account) };
   });
 
-  const seen = new Set<string>();
   let incomeCents = 0;
   let spentCents = 0;
-  for (const row of rows.transactions) {
-    if (seen.has(row.id)) continue;
-    seen.add(row.id);
-    incomeCents += incomeMagnitude(row.amountCents);
-    spentCents += expenseMagnitude(row.amountCents);
-  }
   const spentByCategory = new Map<string, { name: string; spentCents: number }>();
   for (const row of rows.transactions) {
-    if (row.splitCents >= 0) continue;
-    const current = spentByCategory.get(row.categoryId) ?? { name: row.categoryName, spentCents: 0 };
-    current.spentCents += -row.splitCents;
+    const effect = effectOf(row.kind, row.splitCents);
+    incomeCents += effect.incomeCents;
+    spentCents += effect.spentCents;
+    if (effect.spentCents === 0) continue;
+    const current = spentByCategory.get(row.categoryId) ?? {
+      name: categoryLabel(row.categoryName, row.groupName),
+      spentCents: 0,
+    };
+    current.spentCents += effect.spentCents;
     spentByCategory.set(row.categoryId, current);
   }
   const budgetByCategory = new Map(rows.budgets.map((row) => [row.categoryId, row.amountCents]));
@@ -116,10 +145,21 @@ export async function loadActivity(books: BooksContext) {
       .select()
       .from(ledgerAccount)
       .where(eq(ledgerAccount.householdId, books.householdId));
-    const categories = await tx
-      .select()
-      .from(category)
-      .where(eq(category.householdId, books.householdId));
+    const categories = (
+      await tx
+        .select({
+          id: category.id,
+          name: category.name,
+          kind: category.kind,
+          sortOrder: category.sortOrder,
+          groupId: category.groupId,
+          groupName: categoryGroup.name,
+          groupSort: categoryGroup.sortOrder,
+        })
+        .from(category)
+        .leftJoin(categoryGroup, eq(categoryGroup.id, category.groupId))
+        .where(eq(category.householdId, books.householdId))
+    ).sort(compareListed);
     const rows = await tx
       .select({
         id: transaction.id,
@@ -130,12 +170,14 @@ export async function loadActivity(books: BooksContext) {
         accountName: ledgerAccount.name,
         categoryId: category.id,
         categoryName: category.name,
+        groupName: categoryGroup.name,
         splitCents: transactionSplit.amountCents,
       })
       .from(transaction)
       .innerJoin(ledgerAccount, eq(ledgerAccount.id, transaction.accountId))
       .innerJoin(transactionSplit, eq(transactionSplit.transactionId, transaction.id))
       .innerJoin(category, eq(category.id, transactionSplit.categoryId))
+      .leftJoin(categoryGroup, eq(categoryGroup.id, category.groupId))
       .where(eq(transaction.householdId, books.householdId));
     const grouped = new Map<
       string,
@@ -161,7 +203,7 @@ export async function loadActivity(books: BooksContext) {
       };
       current.splits.push({
         categoryId: row.categoryId,
-        categoryName: row.categoryName,
+        categoryName: categoryLabel(row.categoryName, row.groupName),
         amountCents: row.splitCents,
       });
       grouped.set(row.id, current);
@@ -172,7 +214,7 @@ export async function loadActivity(books: BooksContext) {
     });
     return {
       accounts: accounts.sort((a, b) => a.name.localeCompare(b.name)),
-      categories: categories.sort((a, b) => a.sortOrder - b.sortOrder),
+      categories,
       transactions: transactions.slice(0, 60),
     };
   });
@@ -203,7 +245,21 @@ export async function loadPlan(books: BooksContext) {
   const start = monthStart(books.asOf);
   const end = toIsoDate(books.asOf);
   return withActor(books.userId, async (tx) => {
-    const categories = await tx.select().from(category).where(eq(category.householdId, books.householdId));
+    const categories = (
+      await tx
+        .select({
+          id: category.id,
+          name: category.name,
+          kind: category.kind,
+          sortOrder: category.sortOrder,
+          groupId: category.groupId,
+          groupName: categoryGroup.name,
+          groupSort: categoryGroup.sortOrder,
+        })
+        .from(category)
+        .leftJoin(categoryGroup, eq(categoryGroup.id, category.groupId))
+        .where(eq(category.householdId, books.householdId))
+    ).sort(compareListed);
     const budgets = await tx
       .select()
       .from(categoryBudget)
@@ -218,9 +274,11 @@ export async function loadPlan(books: BooksContext) {
       .select({
         categoryId: transactionSplit.categoryId,
         amountCents: transactionSplit.amountCents,
+        kind: category.kind,
       })
       .from(transactionSplit)
       .innerJoin(transaction, eq(transaction.id, transactionSplit.transactionId))
+      .innerJoin(category, eq(category.id, transactionSplit.categoryId))
       .where(
         and(
           eq(transaction.householdId, books.householdId),
@@ -229,23 +287,25 @@ export async function loadPlan(books: BooksContext) {
         ),
       );
     const spent = new Map<string, number>();
+    let incomeCents = 0;
     for (const split of splits) {
-      if (split.amountCents >= 0) continue;
-      spent.set(split.categoryId, (spent.get(split.categoryId) ?? 0) + -split.amountCents);
+      const effect = effectOf(split.kind, split.amountCents);
+      incomeCents += effect.incomeCents;
+      if (effect.spentCents === 0) continue;
+      spent.set(split.categoryId, (spent.get(split.categoryId) ?? 0) + effect.spentCents);
     }
     const budgetByCategory = new Map(budgets.map((row) => [row.categoryId, row.amountCents]));
     const expense = categories
       .filter((row) => row.kind === "expense")
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((row) =>
-        summarizeCategoryMonth({
+      .map((row) => ({
+        ...summarizeCategoryMonth({
           categoryId: row.id,
           name: row.name,
           spentCents: spent.get(row.id) ?? 0,
           budgetCents: budgetByCategory.get(row.id) ?? null,
         }),
-      );
-    const incomeCents = splits.filter((split) => split.amountCents > 0).reduce((sum, split) => sum + split.amountCents, 0);
+        groupName: row.groupName,
+      }));
     return { expense, incomeCents };
   });
 }
@@ -253,16 +313,55 @@ export async function loadPlan(books: BooksContext) {
 export async function loadHistory(books: BooksContext): Promise<HistoryColumn[]> {
   const rows = await withActor(books.userId, (tx) =>
     tx
-      .select({ occurredOn: transaction.occurredOn, amountCents: transaction.amountCents })
+      .select({
+        occurredOn: transaction.occurredOn,
+        amountCents: transactionSplit.amountCents,
+        kind: category.kind,
+      })
       .from(transaction)
+      .innerJoin(transactionSplit, eq(transactionSplit.transactionId, transaction.id))
+      .innerJoin(category, eq(category.id, transactionSplit.categoryId))
       .where(eq(transaction.householdId, books.householdId)),
   );
-  const expenses = rows
-    .filter((row) => row.amountCents < 0)
-    .map((row) => ({ occurredOn: row.occurredOn, spentCents: -row.amountCents }));
+  const expenses = rows.flatMap((row) => {
+    const spentCents = effectOf(row.kind, row.amountCents).spentCents;
+    return spentCents === 0 ? [] : [{ occurredOn: row.occurredOn, spentCents }];
+  });
   const history = buildSpendingHistory({ expenses, asOf: books.asOf, monthCount: 12 });
   if (history.isErr()) throw history.error;
   return history.value;
+}
+
+export async function loadCategoryCatalog(books: BooksContext) {
+  return withActor(books.userId, async (tx) => {
+    const groups = await tx
+      .select()
+      .from(categoryGroup)
+      .where(eq(categoryGroup.householdId, books.householdId));
+    const categories = await tx
+      .select({
+        id: category.id,
+        name: category.name,
+        kind: category.kind,
+        sortOrder: category.sortOrder,
+        groupId: category.groupId,
+      })
+      .from(category)
+      .where(eq(category.householdId, books.householdId));
+    const byGroup = groups
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+      .map((group) => ({
+        id: group.id,
+        name: group.name,
+        categories: categories
+          .filter((row) => row.groupId === group.id)
+          .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
+      }));
+    const ungrouped = categories
+      .filter((row) => row.groupId === null)
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+    return { groups: byGroup, ungrouped };
+  });
 }
 
 export async function loadProjection(books: BooksContext) {

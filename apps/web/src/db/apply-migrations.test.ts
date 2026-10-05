@@ -149,8 +149,16 @@ describe("pendingMigrationTags", () => {
     const journal = readJournal(migrationsFolder());
     const latest = journal.reduce((max, entry) => Math.max(max, entry.when), 0);
     assert.deepEqual(pendingMigrationTags(journal, latest), []);
-    assert.deepEqual(pendingMigrationTags(journal, legacyBaselineAt(journal)), ["0003_csv_import"]);
     assert.deepEqual(pendingMigrationTags(sampleJournal, 30), []);
+  });
+
+  it("keeps migrations after the legacy baseline pending", () => {
+    const journal = readJournal(migrationsFolder());
+    assert.deepEqual(pendingMigrationTags(journal, legacyBaselineAt(journal)), [
+      "0003_csv_import",
+      "0004_custom_categories",
+      "0005_category_group_grants",
+    ]);
   });
 
   it("applies only migrations newer than the latest journal timestamp", () => {
@@ -249,6 +257,8 @@ describe("generated schema", () => {
     const books = await readFile(path.join(folder, "0000_books.sql"), "utf8");
     const access = await readFile(path.join(folder, "0001_household_access.sql"), "utf8");
     const rls = await readFile(path.join(folder, "0002_household_rls.sql"), "utf8");
+    const categories = await readFile(path.join(folder, "0004_custom_categories.sql"), "utf8");
+    const grants = await readFile(path.join(folder, "0005_category_group_grants.sql"), "utf8");
 
     assert.match(books, /"amount_cents" integer/);
     assert.match(books, /"opening_balance_cents" integer/);
@@ -277,6 +287,17 @@ describe("generated schema", () => {
     assert.equal(/GRANT [^;]*INSERT[^;]*ON household_member TO dollas_app/.test(APP_GRANT_SQL), false);
     assert.equal(/GRANT [^;]*INSERT[^;]*ON household_invite TO dollas_app/.test(APP_GRANT_SQL), false);
     assert.equal(/password/i.test(APP_GRANT_SQL), false);
+    assert.match(APP_GRANT_SQL, /category_group/);
+    assert.match(categories, /CREATE TABLE "category_group"/);
+    assert.match(categories, /'income', 'expense', 'transfer'/);
+    assert.match(categories, /ENABLE ROW LEVEL SECURITY/);
+    assert.match(categories, /app_can_access_household/);
+    assert.equal(categories.includes("dollas_app"), false);
+    assert.match(grants, /GRANT SELECT, INSERT, UPDATE, DELETE ON category_group TO dollas_app/);
+    assert.match(grants, /category group must belong to the same household/);
+    assert.equal(/CREATE ROLE/i.test(grants), false);
+    assert.equal(/ALTER ROLE/i.test(grants), false);
+    assert.equal(/PASSWORD/i.test(grants), false);
   });
 });
 

@@ -161,6 +161,28 @@ export const ledgerAccount = pgTable(
   ],
 ).enableRLS();
 
+export const categoryGroup = pgTable(
+  "category_group",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique("category_group_household_name_key").on(table.householdId, table.name),
+    index("category_group_household_idx").on(table.householdId),
+    pgPolicy("category_group_all", {
+      for: "all",
+      using: sql`app_can_access_household(${table.householdId})`,
+      withCheck: sql`app_can_access_household(${table.householdId})`,
+    }),
+  ],
+).enableRLS();
+
 export const category = pgTable(
   "category",
   {
@@ -168,13 +190,15 @@ export const category = pgTable(
     householdId: uuid("household_id")
       .notNull()
       .references(() => household.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").references(() => categoryGroup.id, { onDelete: "restrict" }),
     name: text("name").notNull(),
     kind: text("kind").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
-    check("category_kind_chk", sql`${table.kind} in ('income', 'expense')`),
+    check("category_kind_chk", sql`${table.kind} in ('income', 'expense', 'transfer')`),
+    index("category_group_idx").on(table.groupId),
     pgPolicy("category_all", {
       for: "all",
       using: sql`app_can_access_household(${table.householdId})`,
@@ -271,6 +295,7 @@ export const schema = {
   householdMember,
   householdInvite,
   ledgerAccount,
+  categoryGroup,
   category,
   categoryBudget,
   transaction,

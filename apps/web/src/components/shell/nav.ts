@@ -2,6 +2,7 @@ export const bookNav = [
   { href: "/", label: "Home" },
   { href: "/activity", label: "Activity" },
   { href: "/accounts", label: "Accounts" },
+  { href: "/categories", label: "Categories" },
   { href: "/plan", label: "Plan" },
   { href: "/history", label: "History" },
 ] as const;
