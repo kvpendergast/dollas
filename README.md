@@ -45,7 +45,7 @@ The seed builds accounts, categories, budgets, and transactions relative to toda
 
 No bank credentials are required. Leave `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` empty unless you want to try Google sign-in. Set `RESEND_API_KEY` and `RESEND_FROM` to email verification links through Resend. The sender is whatever `RESEND_FROM` is set to. Production and preview use `noreply@dollas.kylependergast.com`. When both variables are unset, local development writes the link to the server log.
 
-`DATABASE_URL` is the restricted `dollas_app` role. It cannot bypass row-level security, and it cannot apply schema changes. `DATABASE_MIGRATE_URL` is the table owner, used by `pnpm db:migrate` and `pnpm db:seed`. After those have run, starting the app sees the current Drizzle journal and does not apply anything.
+`DATABASE_URL` is the restricted `dollas_app` role. It cannot bypass row-level security, and it cannot apply schema changes. `DATABASE_MIGRATE_URL` is the table owner, used by `pnpm db:migrate` and `pnpm db:seed`. After those have run, starting the app sees the current Drizzle journal and does not apply anything. Household queries assume `dollas_app` for the transaction, so a forgotten membership check still cannot read another household.
 
 ## Checks
 
@@ -55,7 +55,7 @@ pnpm lint
 pnpm typecheck
 ```
 
-Domain tests cover household access (members only, and unverified email/password stays out) and the partial-month history rule: the current month is not treated as finished, and its year-over-year change is “Not comparable yet” with no dollar delta. Web tests cover startup migrations: an already current schema is a no-op, and startup does not read `DATABASE_MIGRATE_URL` when `DATABASE_URL` or `DATABASE_URL_UNPOOLED` is set. They also cover verification email: Resend sends the link when it is configured, and local development without those variables still writes the link to the server log.
+Domain tests cover household access (members only, and unverified email/password stays out) and the partial-month history rule: the current month is not treated as finished, and its year-over-year change is “Not comparable yet” with no dollar delta. Web tests cover startup migrations: an already current schema is a no-op, and startup does not read `DATABASE_MIGRATE_URL` when `DATABASE_URL` or `DATABASE_URL_UNPOOLED` is set. When Postgres is running on localhost, they also check that a non-owner login cannot read another household without a membership predicate, and that the table owner can until the session assumes `dollas_app`. They also cover verification email: Resend sends the link when it is configured, and local development without those variables still writes the link to the server log.
 
 CI runs a gitleaks secret scan and a code-quality scan (lint, types, and tests).
 
@@ -67,8 +67,8 @@ Set these environment variables in Vercel. Do not commit secret values. `RESEND_
 
 | Name | Required | Role |
 | --- | --- | --- |
-| `DATABASE_URL` | Yes | Pooled Postgres URL injected by the Neon marketplace integration. Startup uses it for migrations when `DATABASE_URL_UNPOOLED` is unset. Money stays integer cents. |
-| `DATABASE_URL_UNPOOLED` | Injected with Neon | Direct Postgres URL. Startup prefers it so schema changes and the migration lock keep one session. |
+| `DATABASE_URL` | Yes | Pooled Postgres URL injected by the Neon marketplace integration. That login owns the tables, so row-level security does not apply to the login itself. Startup uses it for migrations when `DATABASE_URL_UNPOOLED` is unset. Money stays integer cents. |
+| `DATABASE_URL_UNPOOLED` | Injected with Neon | Direct Postgres URL for the same owner login. Startup prefers it so schema changes and the migration lock keep one session. |
 | `BETTER_AUTH_SECRET` | Yes | Signs sessions. There is no production fallback. |
 | `BETTER_AUTH_URL` | Yes | Public site origin, including `https://`. |
 | `RESEND_API_KEY` | Yes | Sends email-verification links through Resend. Set on Vercel for production and preview. Do not commit a value. |
@@ -78,6 +78,8 @@ Set these environment variables in Vercel. Do not commit secret values. `RESEND_
 | `GOOGLE_CLIENT_SECRET` | No | Pairs with `GOOGLE_CLIENT_ID`. |
 
 On boot, the Node.js server applies the Drizzle journal in `apps/web/drizzle` before it accepts requests. A fresh Neon database has no tables and an empty journal, so the first Vercel boot runs `0000_books`, `0001_household_access`, and `0002_household_rls` through Drizzle's migrator and records them in `drizzle.__drizzle_migrations`. Startup uses `DATABASE_URL_UNPOOLED` when it is set, otherwise `DATABASE_URL`. A later boot, or a boot whose journal is already current, does nothing. Several instances can cold-start together: they take a Postgres advisory lock, so one applies the pending migrations and the others wait and then skip them. Startup does not seed data.
+
+The Neon login owns the tables, and a table owner bypasses row-level security. Startup creates `dollas_app` as `NOLOGIN` with no password: Neon rejects the local development password, and that password is not a production credential. It grants `dollas_app` to the migration role and grants the same table privileges as `0001_household_access` (no insert on household, membership, or invites). Every app transaction then runs `SET LOCAL ROLE dollas_app` before it reads or writes, including queries that forget the membership check. The server refuses to start if that role cannot be assumed or can bypass row-level security. No additional Vercel variable is required, and no connection string is added to the repo. `DATABASE_MIGRATE_URL` stays unset on Vercel.
 
 Do not run `pnpm db:seed` against the production database.
 
