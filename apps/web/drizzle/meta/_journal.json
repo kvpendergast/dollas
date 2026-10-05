@@ -29,6 +29,20 @@
       "when": 1791159563107,
       "tag": "0003_csv_import",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791200367435,
+      "tag": "0004_custom_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791200371420,
+      "tag": "0005_category_group_grants",
+      "breakpoints": true
     }
   ]
 }

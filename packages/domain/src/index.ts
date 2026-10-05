@@ -2,12 +2,26 @@ export {
   CsvImportError,
   DomainError,
   HouseholdAccessError,
+  InvalidCategoryError,
   InvalidEstimateError,
   InvalidHistoryError,
   InvalidMoneyError,
   SplitImbalanceError,
   UnverifiedEmailError,
 } from "./errors";
+
+export {
+  categoryBooksEffect,
+  categoryKindLabel,
+  categoryKinds,
+  defineCategory,
+  defineCategoryGroup,
+  isCategoryKind,
+  type CategoryBooksEffect,
+  type CategoryKind,
+  type DefinedCategory,
+  type DefinedCategoryGroup,
+} from "./categories/define";
 
 export {
   assertCents,

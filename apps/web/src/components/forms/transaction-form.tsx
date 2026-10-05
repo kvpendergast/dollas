@@ -1,12 +1,40 @@
 "use client";
 
+import { categoryKindLabel, isCategoryKind } from "@dollas/domain";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createTransactionAction } from "@/slices/activity/actions";
 
-type Option = { id: string; name: string; kind?: string };
+type Option = { id: string; name: string };
+
+type CategoryOption = Option & {
+  kind: string;
+  groupId: string | null;
+  groupName: string | null;
+  groupSort: number | null;
+};
+
+function kindLabel(kind: string): string {
+  return isCategoryKind(kind) ? categoryKindLabel(kind) : kind;
+}
+
+function categorySections(categories: CategoryOption[]) {
+  const groups = new Map<string, { id: string; label: string; sort: number; items: CategoryOption[] }>();
+  for (const category of categories) {
+    const id = category.groupId ?? "ungrouped";
+    const current = groups.get(id) ?? {
+      id,
+      label: category.groupName ?? "Ungrouped",
+      sort: category.groupId ? (category.groupSort ?? 0) : Number.MAX_SAFE_INTEGER,
+      items: [],
+    };
+    current.items.push(category);
+    groups.set(id, current);
+  }
+  return [...groups.values()].sort((a, b) => a.sort - b.sort || a.label.localeCompare(b.label));
+}
 
 export function TransactionForm({
   accounts,
@@ -14,7 +42,7 @@ export function TransactionForm({
   today,
 }: {
   accounts: Option[];
-  categories: Option[];
+  categories: CategoryOption[];
   today: string;
 }) {
   const [state, action, pending] = useActionState(createTransactionAction, { error: "" });
@@ -79,10 +107,11 @@ function CategoryRow({
   index,
   showAmount,
 }: {
-  categories: Option[];
+  categories: CategoryOption[];
   index: number;
   showAmount: boolean;
 }) {
+  const sections = categorySections(categories);
   return (
     <div className="grid gap-2 md:grid-cols-[1fr_8rem]">
       <select
@@ -93,10 +122,14 @@ function CategoryRow({
         defaultValue={categories[Math.min(index, Math.max(categories.length - 1, 0))]?.id}
         required
       >
-        {categories.map((category) => (
-          <option key={category.id} value={category.id}>
-            {category.name}
-          </option>
+        {sections.map((section) => (
+          <optgroup key={section.id} label={section.label}>
+            {section.items.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name} · {kindLabel(category.kind)}
+              </option>
+            ))}
+          </optgroup>
         ))}
       </select>
       {showAmount ? (

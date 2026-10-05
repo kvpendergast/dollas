@@ -55,3 +55,9 @@ export class CsvImportError extends DomainError {
     super("csv_import", message);
   }
 }
+
+export class InvalidCategoryError extends DomainError {
+  constructor(message: string) {
+    super("invalid_category", message);
+  }
+}

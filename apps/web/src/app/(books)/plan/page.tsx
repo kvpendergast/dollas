@@ -40,6 +40,7 @@ export default async function PlanPage() {
               <CardHeader>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
+                    <p className="text-xs text-muted-foreground">{category.groupName ?? "Ungrouped"}</p>
                     <CardTitle>{category.name}</CardTitle>
                     <CardDescription className={over ? "text-over" : undefined}>
                       {formatCents(category.spentCents)} spent

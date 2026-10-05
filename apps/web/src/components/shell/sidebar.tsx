@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Home, Landmark, List, WalletCards } from "lucide-react";
+import { BarChart3, Home, Landmark, List, Tags, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { bookNav, isNavActive } from "./nav";
@@ -9,6 +9,7 @@ const icons = {
   Home,
   Activity: List,
   Accounts: Landmark,
+  Categories: Tags,
   Plan: WalletCards,
   History: BarChart3,
 } as const;
