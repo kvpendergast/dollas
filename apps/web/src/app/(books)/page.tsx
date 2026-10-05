@@ -42,9 +42,9 @@ export default async function HomePage() {
         <CardHeader>
           <div className="flex items-center justify-between gap-3">
             <CardTitle>A look ahead</CardTitle>
-            <Badge>Guess</Badge>
+            <Badge>Estimate</Badge>
           </div>
-          <CardDescription>Labeled as a guess. The month is not finished.</CardDescription>
+          <CardDescription>Labeled as an estimate. The month is not finished.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="font-serif text-5xl tabular-nums">{formatCents(home.estimate.estimateCents)}</p>
@@ -52,7 +52,7 @@ export default async function HomePage() {
             {formatCents(home.estimate.spentSoFarCents)} spent across {home.estimate.daysElapsed} of {home.estimate.daysInMonth} days.
           </p>
           <Link href="/projection" className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
-            See the guess
+            See the estimate
           </Link>
         </CardContent>
       </Card>
@@ -65,7 +65,7 @@ export default async function HomePage() {
           {home.categories.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               {home.incomeCents === 0 && home.spentCents === 0
-                ? "No dollas in here yet. Add an account, or drop in a CSV."
+                ? "No dollas in here yet. Add an account."
                 : "Nothing spent yet this month."}
             </p>
           ) : null}

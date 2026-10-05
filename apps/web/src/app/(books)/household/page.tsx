@@ -15,7 +15,7 @@ export default async function HouseholdPage() {
       <Card>
         <CardHeader>
           <CardTitle>Invites</CardTitle>
-          <CardDescription>Codes work until they expire. Not a shared password, and not a phone tab.</CardDescription>
+          <CardDescription>Codes work until they expire. Nobody shares a password.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {active.length === 0 ? <p className="text-sm text-muted-foreground">No invites out yet.</p> : null}
