@@ -1,3 +1,4 @@
+import { TRANSFER_KIND_HELP } from "@dollas/domain";
 import { CategoryForm, CategoryGroupForm } from "@/components/forms/category-forms";
 import { CategoryOrganizer } from "@/components/forms/category-organizer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,16 +11,26 @@ export default async function CategoriesPage() {
   const groups = catalog.groups.map((group) => ({
     id: group.id,
     name: group.name,
-    categories: group.categories.map((item) => ({ id: item.id, name: item.name, kind: item.kind })),
+    categories: group.categories.map((item) => ({
+      id: item.id,
+      name: item.name,
+      kind: item.kind,
+      budgetCount: item.budgetCount,
+    })),
   }));
-  const ungrouped = catalog.ungrouped.map((item) => ({ id: item.id, name: item.name, kind: item.kind }));
+  const ungrouped = catalog.ungrouped.map((item) => ({
+    id: item.id,
+    name: item.name,
+    kind: item.kind,
+    budgetCount: item.budgetCount,
+  }));
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-serif text-4xl">Categories</h1>
         <p className="max-w-xl text-sm text-muted-foreground">
           A group holds categories. Transactions and budgets use categories, not groups. A category is income, an
-          expense, or a transfer.
+          expense, or a transfer. {TRANSFER_KIND_HELP}
         </p>
       </div>
       {groups.length === 0 && ungrouped.length === 0 ? (

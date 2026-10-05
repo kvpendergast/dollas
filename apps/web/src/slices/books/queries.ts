@@ -14,7 +14,7 @@ import {
   type HistoryColumn,
   type SpendEstimate,
 } from "@dollas/domain";
-import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { and, count, eq, gte, lte, sql } from "drizzle-orm";
 import { withActor } from "@/db/actor";
 import {
   category,
@@ -459,12 +459,25 @@ export async function loadCategoryCatalog(books: BooksContext) {
       })
       .from(category)
       .where(eq(category.householdId, books.householdId));
+    const budgetRows = await tx
+      .select({
+        categoryId: categoryBudget.categoryId,
+        budgetCount: count(),
+      })
+      .from(categoryBudget)
+      .where(eq(categoryBudget.householdId, books.householdId))
+      .groupBy(categoryBudget.categoryId);
+    const budgetCounts = new Map(budgetRows.map((row) => [row.categoryId, Number(row.budgetCount)]));
+    const listed = categories.map((row) => ({
+      ...row,
+      budgetCount: budgetCounts.get(row.id) ?? 0,
+    }));
     const byGroup = [...groups].sort(compareCatalogOrder).map((group) => ({
       id: group.id,
       name: group.name,
-      categories: categories.filter((row) => row.groupId === group.id).sort(compareCatalogOrder),
+      categories: listed.filter((row) => row.groupId === group.id).sort(compareCatalogOrder),
     }));
-    const ungrouped = categories.filter((row) => row.groupId === null).sort(compareCatalogOrder);
+    const ungrouped = listed.filter((row) => row.groupId === null).sort(compareCatalogOrder);
     return { groups: byGroup, ungrouped };
   });
 }

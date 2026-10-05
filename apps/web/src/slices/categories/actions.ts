@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  changeCategoryKind,
   defineCategory,
   defineCategoryGroup,
   moveCategory,
@@ -11,10 +12,10 @@ import {
   type CatalogDirection,
   type CategoryCatalog,
 } from "@dollas/domain";
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { withActor } from "@/db/actor";
-import { category, categoryGroup } from "@/db/schema";
+import { category, categoryBudget, categoryGroup } from "@/db/schema";
 import { logError, logInfo } from "@/lib/telemetry";
 import { requireBooks, type BooksContext } from "@/slices/access/guard";
 import { loadCatalog, saveCatalog } from "./catalog";
@@ -25,7 +26,17 @@ function revalidateCategoryViews() {
   revalidatePath("/categories");
   revalidatePath("/activity");
   revalidatePath("/plan");
+  revalidatePath("/history");
+  revalidatePath("/projection");
   revalidatePath("/");
+}
+
+function readBudgetCount(value: unknown): number {
+  const budgetCount = typeof value === "number" ? value : Number(value ?? 0);
+  if (!Number.isSafeInteger(budgetCount) || budgetCount < 0) {
+    throw new Error("Budget count is not valid.");
+  }
+  return budgetCount;
 }
 
 function isUniqueViolation(error: unknown): boolean {
@@ -209,6 +220,50 @@ export async function shiftCategoryAction(_state: { error: string }, formData: F
     "Could not reorder categories.",
     (catalog) => shiftCategory(catalog, books.householdId, categoryId, direction),
   );
+}
+
+export async function changeCategoryKindAction(_state: { error: string }, formData: FormData) {
+  const books = await requireBooks();
+  const categoryId = String(formData.get("categoryId") ?? "");
+  const kind = String(formData.get("kind") ?? "");
+  const confirmBudgetRemoval = formData.get("confirmBudgetRemoval") === "yes";
+  try {
+    const failure = await withActor(books.userId, async (tx) => {
+      const current = await loadCatalog(tx, books.householdId);
+      const [row] = await tx
+        .select({ value: count() })
+        .from(categoryBudget)
+        .where(and(eq(categoryBudget.householdId, books.householdId), eq(categoryBudget.categoryId, categoryId)));
+      const next = changeCategoryKind(
+        current,
+        books.householdId,
+        categoryId,
+        kind,
+        readBudgetCount(row?.value),
+        confirmBudgetRemoval,
+      );
+      if (next.isErr()) return next.error.message;
+      await saveCatalog(tx, books.householdId, current, next.value.catalog);
+      if (next.value.removeBudgetsFor) {
+        await tx
+          .delete(categoryBudget)
+          .where(
+            and(
+              eq(categoryBudget.householdId, books.householdId),
+              eq(categoryBudget.categoryId, next.value.removeBudgetsFor),
+            ),
+          );
+      }
+      return "";
+    });
+    if (failure) return { error: failure };
+  } catch (error) {
+    logError(error, { action: "change-category-kind", householdId: books.householdId });
+    return { error: "Could not change that category's kind." };
+  }
+  logInfo("Changed a category kind", { action: "change-category-kind", householdId: books.householdId });
+  revalidateCategoryViews();
+  return { error: "" };
 }
 
 export async function removeCategoryGroupAction(_state: { error: string }, formData: FormData) {

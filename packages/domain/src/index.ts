@@ -74,6 +74,14 @@ export {
 } from "./categories/organize";
 
 export {
+  TRANSFER_KIND_HELP,
+  categoryKindChangeWarning,
+  changeCategoryKind,
+  type CategoryKindChange,
+  type KindChangeWarningInput,
+} from "./categories/kind";
+
+export {
   assertCents,
   expenseMagnitude,
   formatCents,
