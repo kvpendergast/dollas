@@ -42,7 +42,7 @@ BEGIN
   GRANT SELECT ON household_member TO dollas_app;
   REVOKE ALL ON household_invite FROM dollas_app;
   GRANT SELECT ON household_invite TO dollas_app;
-  GRANT SELECT, INSERT, UPDATE, DELETE ON ledger_account, category, category_group, category_budget, transaction, transaction_split TO dollas_app;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON ledger_account, category, category_group, category_budget, transaction, transaction_split, payee_category_rule TO dollas_app;
   GRANT EXECUTE ON FUNCTION app_user_id() TO dollas_app;
   GRANT EXECUTE ON FUNCTION app_can_access_household(uuid) TO dollas_app;
   GRANT EXECUTE ON FUNCTION create_household(text) TO dollas_app;

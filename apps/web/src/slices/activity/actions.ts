@@ -1,11 +1,11 @@
 "use server";
 
-import { DomainError, importCsv, resolveCsvRows, validateSplits } from "@dollas/domain";
+import { DomainError, importCsv, resolveCsvRows, validateSplits, type PayeeCategoryRule } from "@dollas/domain";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { withActor } from "@/db/actor";
 import type { AppTx } from "@/db/client";
-import { category, ledgerAccount, transaction, transactionSplit } from "@/db/schema";
+import { category, ledgerAccount, payeeCategoryRule, transaction, transactionSplit } from "@/db/schema";
 import { logError } from "@/lib/telemetry";
 import { requireBooks } from "@/slices/access/guard";
 import { readTransactionDraft, type TransactionDraft } from "./draft";
@@ -35,10 +35,14 @@ export async function importCsvAction(_state: ImportCsvState, formData: FormData
         .select({ fingerprint: transaction.importFingerprint })
         .from(transaction)
         .where(and(eq(transaction.householdId, books.householdId), isNotNull(transaction.importFingerprint)));
+      const rules: PayeeCategoryRule[] = await tx
+        .select({ pattern: payeeCategoryRule.pattern, categoryId: payeeCategoryRule.categoryId })
+        .from(payeeCategoryRule)
+        .where(eq(payeeCategoryRule.householdId, books.householdId));
       const outcome = await importCsv(
         text,
         { rows: existing.flatMap((row) => (row.fingerprint ? [{ fingerprint: row.fingerprint }] : [])) },
-        (rows) => resolveCsvRows(rows, accounts, categories),
+        (rows) => resolveCsvRows(rows, accounts, categories, rules),
       );
       if (outcome.isErr()) throw outcome.error;
       if (outcome.value.added === 0) return 0;
@@ -209,6 +213,7 @@ async function replaceTransaction(
       draft.accountId,
       draft.splits.map((split) => split.categoryId),
     );
+    // This correction is one transaction. Payee rules stay as they are.
     const updated = await tx
       .update(transaction)
       .set({

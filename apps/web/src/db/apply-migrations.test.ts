@@ -158,6 +158,8 @@ describe("pendingMigrationTags", () => {
       "0003_csv_import",
       "0004_custom_categories",
       "0005_category_group_grants",
+      "0006_payee_category_rules",
+      "0007_payee_category_rule_grants",
     ]);
   });
 
@@ -259,6 +261,8 @@ describe("generated schema", () => {
     const rls = await readFile(path.join(folder, "0002_household_rls.sql"), "utf8");
     const categories = await readFile(path.join(folder, "0004_custom_categories.sql"), "utf8");
     const grants = await readFile(path.join(folder, "0005_category_group_grants.sql"), "utf8");
+    const payeeRules = await readFile(path.join(folder, "0006_payee_category_rules.sql"), "utf8");
+    const payeeGrants = await readFile(path.join(folder, "0007_payee_category_rule_grants.sql"), "utf8");
 
     assert.match(books, /"amount_cents" integer/);
     assert.match(books, /"opening_balance_cents" integer/);
@@ -288,6 +292,7 @@ describe("generated schema", () => {
     assert.equal(/GRANT [^;]*INSERT[^;]*ON household_invite TO dollas_app/.test(APP_GRANT_SQL), false);
     assert.equal(/password/i.test(APP_GRANT_SQL), false);
     assert.match(APP_GRANT_SQL, /category_group/);
+    assert.match(APP_GRANT_SQL, /payee_category_rule/);
     assert.match(categories, /CREATE TABLE "category_group"/);
     assert.match(categories, /'income', 'expense', 'transfer'/);
     assert.match(categories, /ENABLE ROW LEVEL SECURITY/);
@@ -298,6 +303,17 @@ describe("generated schema", () => {
     assert.equal(/CREATE ROLE/i.test(grants), false);
     assert.equal(/ALTER ROLE/i.test(grants), false);
     assert.equal(/PASSWORD/i.test(grants), false);
+    assert.match(payeeRules, /CREATE TABLE "payee_category_rule"/);
+    assert.match(payeeRules, /ENABLE ROW LEVEL SECURITY/);
+    assert.match(payeeRules, /app_can_access_household/);
+    assert.equal(payeeRules.includes("dollas_app"), false);
+    assert.match(payeeGrants, /GRANT SELECT, INSERT, UPDATE, DELETE ON payee_category_rule TO dollas_app/);
+    assert.match(payeeGrants, /payee rule category must belong to the same household/);
+    assert.equal(/CREATE ROLE/i.test(payeeGrants), false);
+    assert.equal(/ALTER ROLE/i.test(payeeGrants), false);
+    assert.equal(/PASSWORD/i.test(payeeGrants), false);
+    assert.equal(/SET ROLE/i.test(payeeGrants), false);
+    assert.equal(/SET LOCAL ROLE/i.test(payeeGrants), false);
   });
 });
 

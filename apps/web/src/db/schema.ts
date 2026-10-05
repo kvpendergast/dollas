@@ -11,6 +11,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -261,6 +262,32 @@ export const transaction = pgTable(
   ],
 ).enableRLS();
 
+export const payeeCategoryRule = pgTable(
+  "payee_category_rule",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    pattern: text("pattern").notNull(),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => category.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("payee_category_rule_pattern_chk", sql`char_length(${table.pattern}) between 2 and 200`),
+    uniqueIndex("payee_category_rule_pattern_key").on(table.householdId, sql`lower(${table.pattern})`),
+    index("payee_category_rule_household_idx").on(table.householdId),
+    index("payee_category_rule_category_idx").on(table.categoryId),
+    pgPolicy("payee_category_rule_all", {
+      for: "all",
+      using: sql`app_can_access_household(${table.householdId})`,
+      withCheck: sql`app_can_access_household(${table.householdId})`,
+    }),
+  ],
+).enableRLS();
+
 export const transactionSplit = pgTable(
   "transaction_split",
   {
@@ -298,6 +325,7 @@ export const schema = {
   categoryGroup,
   category,
   categoryBudget,
+  payeeCategoryRule,
   transaction,
   transactionSplit,
 };

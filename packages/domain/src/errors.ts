@@ -61,3 +61,9 @@ export class InvalidCategoryError extends DomainError {
     super("invalid_category", message);
   }
 }
+
+export class PayeeCategoryRuleError extends DomainError {
+  constructor(message: string) {
+    super("payee_category_rule", message);
+  }
+}
