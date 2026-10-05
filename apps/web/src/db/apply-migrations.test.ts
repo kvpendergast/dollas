@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import {
+  APP_GRANT_SQL,
   APP_ROLE_SQL,
   applyMigrations,
   legacyBaselineAt,
@@ -93,6 +94,8 @@ class MemorySession implements MigrationSession {
     }
     this.lastCreatedAt = this.options?.afterMigrateAt ?? this.lastCreatedAt;
   }
+
+  async grantAppAccess(): Promise<void> {}
 
   async grantJournalRead(): Promise<void> {}
 }
@@ -263,6 +266,15 @@ describe("generated schema", () => {
     assert.equal(rls.includes('ALTER TABLE "verification"'), false);
     assert.match(APP_ROLE_SQL, /NOLOGIN NOSUPERUSER NOBYPASSRLS/);
     assert.equal(/password/i.test(APP_ROLE_SQL), false);
+    assert.match(APP_GRANT_SQL, /GRANT dollas_app TO current_user/);
+    assert.match(APP_GRANT_SQL, /REVOKE ALL ON household FROM dollas_app/);
+    assert.match(APP_GRANT_SQL, /GRANT SELECT, UPDATE ON household TO dollas_app/);
+    assert.match(APP_GRANT_SQL, /REVOKE ALL ON household_member FROM dollas_app/);
+    assert.match(APP_GRANT_SQL, /REVOKE ALL ON household_invite FROM dollas_app/);
+    assert.equal(/GRANT [^;]*INSERT[^;]*ON household TO dollas_app/.test(APP_GRANT_SQL), false);
+    assert.equal(/GRANT [^;]*INSERT[^;]*ON household_member TO dollas_app/.test(APP_GRANT_SQL), false);
+    assert.equal(/GRANT [^;]*INSERT[^;]*ON household_invite TO dollas_app/.test(APP_GRANT_SQL), false);
+    assert.equal(/password/i.test(APP_GRANT_SQL), false);
   });
 });
 

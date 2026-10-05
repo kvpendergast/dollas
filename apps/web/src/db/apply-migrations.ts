@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
+import { ASSUME_APP_ROLE_SQL, isSubjectToRowLevelSecurity, type RoleSecurityFacts } from "./app-role";
 
 /**
  * Session lock shared by every cold start. Direct connections only: PgBouncer
@@ -13,12 +14,44 @@ import postgres from "postgres";
 const MIGRATION_LOCK = [4812, 1001] as const;
 
 /**
- * Local non-owner role. Docker already creates a LOGIN role before migrate.
- * A fresh Neon database does not. Neon rejects passwords below 60 bits of
- * entropy, so startup must not send the local password here. NOLOGIN is enough
- * for the grants; the app connects with DATABASE_URL, not this role.
+ * Non-owner role used for household queries. Docker already creates a LOGIN
+ * role for local development. A fresh Neon database does not. Neon rejects
+ * passwords below 60 bits of entropy, so this statement has no password.
+ * NOLOGIN is enough: the migration role is granted this role, and each app
+ * transaction assumes it so row-level security applies to the table owner too.
  */
 export const APP_ROLE_SQL = "CREATE ROLE dollas_app NOLOGIN NOSUPERUSER NOBYPASSRLS";
+
+/**
+ * Re-applied on every owner startup. Migration 0001 grants only when the role
+ * already exists, and an existing Neon database may have migrated first.
+ * INSERT stays revoked on household, household_member, and household_invite.
+ */
+export const APP_GRANT_SQL = `
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dollas_app') THEN
+    RETURN;
+  END IF;
+  EXECUTE format('GRANT CONNECT ON DATABASE %I TO dollas_app', current_database());
+  GRANT USAGE ON SCHEMA public TO dollas_app;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON "user", session, account, verification TO dollas_app;
+  REVOKE ALL ON household FROM dollas_app;
+  GRANT SELECT, UPDATE ON household TO dollas_app;
+  REVOKE ALL ON household_member FROM dollas_app;
+  GRANT SELECT ON household_member TO dollas_app;
+  REVOKE ALL ON household_invite FROM dollas_app;
+  GRANT SELECT ON household_invite TO dollas_app;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON ledger_account, category, category_budget, transaction, transaction_split TO dollas_app;
+  GRANT EXECUTE ON FUNCTION app_user_id() TO dollas_app;
+  GRANT EXECUTE ON FUNCTION app_can_access_household(uuid) TO dollas_app;
+  GRANT EXECUTE ON FUNCTION create_household(text) TO dollas_app;
+  GRANT EXECUTE ON FUNCTION accept_invite(text) TO dollas_app;
+  GRANT EXECUTE ON FUNCTION create_invite() TO dollas_app;
+  GRANT dollas_app TO current_user;
+END
+$$;
+`;
 
 /**
  * Books tables created before this Drizzle journal (the previous SQL migration)
@@ -49,6 +82,7 @@ export type MigrationSession = {
   ensureAppRole(): Promise<void>;
   baselineLegacy(createdAt: number): Promise<void>;
   migrate(folder: string): Promise<void>;
+  grantAppAccess(): Promise<void>;
   grantJournalRead(): Promise<void>;
 };
 
@@ -118,6 +152,7 @@ async function runStartup(options: MigrateOnStartupOptions): Promise<MigrationRe
     if (result.applied.length > 0) {
       console.log(`Applied schema migrations: ${result.applied.join(", ")}`);
     }
+    if (!options.connect) await assertAppRoleSubjectToRls(url);
     return result;
   } catch (error) {
     console.error(`Startup schema migration failed: ${publicErrorText(error)}`);
@@ -157,8 +192,8 @@ async function applyLocked(
   try {
     await session.ensureAppRole();
   } catch (error) {
-    // The Neon owner can apply the schema without this role. A rejected
-    // CREATE ROLE must not turn every request into a blank 500.
+    // Schema apply must not depend on this role. Serving without it is refused
+    // after migrations, when the app role cannot be assumed.
     console.error(`Could not create the dollas_app role: ${publicErrorText(error)}`);
   }
   const latest = await session.latestJournalAt();
@@ -170,11 +205,13 @@ async function applyLocked(
   const lastCreatedAt = typeof current === "number" ? current : null;
   const pending = pendingMigrationTags(journal, lastCreatedAt);
   if (pending.length === 0) {
+    await session.grantAppAccess();
     await session.grantJournalRead();
     return { applied: [], skipped: tags };
   }
 
   await session.migrate(folder);
+  await session.grantAppAccess();
   await session.grantJournalRead();
   return {
     applied: pending,
@@ -242,6 +279,60 @@ export function migrationsFolder(): string {
   );
 }
 
+/**
+ * Connects with the migration URL and assumes dollas_app for one transaction.
+ * Startup refuses to serve when that role is missing, cannot be assumed, or
+ * can bypass row-level security. The connection string is never included.
+ */
+export async function assertAppRoleSubjectToRls(url: string): Promise<void> {
+  const sql = postgres(url, {
+    max: 1,
+    prepare: false,
+    connect_timeout: 30,
+    connection: { application_name: "dollas-rls-check" },
+    onnotice() {},
+  });
+  try {
+    const facts = await sql.begin(async (tx) => {
+      await tx.unsafe(ASSUME_APP_ROLE_SQL);
+      const rows = await tx<RoleSecurityFacts[]>`
+        select
+          current_user as "currentUser",
+          r.rolsuper as "superuser",
+          r.rolbypassrls as "bypassrls",
+          (r.oid = c.relowner) as "ownsHousehold",
+          c.relforcerowsecurity as "forceRls",
+          c.relrowsecurity as "rlsEnabled"
+        from pg_roles r
+        join pg_class c on c.relname = 'household'
+        join pg_namespace n on n.oid = c.relnamespace
+        where r.rolname = current_user
+          and n.nspname = 'public'
+      `;
+      return rows[0];
+    });
+    if (!facts) {
+      throw new Error("The household table is missing, so row-level security cannot be confirmed for dollas_app.");
+    }
+    if (!isSubjectToRowLevelSecurity(facts)) {
+      throw new Error(
+        "dollas_app can bypass row-level security. Household queries must run as that non-owner role, without superuser or BYPASSRLS.",
+      );
+    }
+  } catch (error) {
+    if (isReportedAppRoleError(error)) throw error;
+    const code = postgresErrorCode(error);
+    if (code === "42501" || code === "28000" || code === "42704") {
+      throw new Error(
+        "The database login cannot assume dollas_app, so household queries would bypass row-level security. Startup grants dollas_app to the migration role after creating that NOLOGIN role.",
+      );
+    }
+    throw new Error(`Could not confirm dollas_app is subject to row-level security (${code ?? "error"}).`);
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
 export function publicErrorText(error: unknown): string {
   const raw = error instanceof Error ? error.message : "Unknown error";
   const message = raw
@@ -301,8 +392,15 @@ export function createPostgresMigrationSession(url: string): MigrationSession {
     },
     async ensureAppRole() {
       const existing = await sql`select 1 from pg_roles where rolname = 'dollas_app'`;
-      if (existing.length > 0) return;
-      await sql.unsafe(APP_ROLE_SQL);
+      if (existing.length === 0) await sql.unsafe(APP_ROLE_SQL);
+      // Vercel must not keep a login. An earlier boot may have created dollas_app
+      // with the local password before Neon rejected it; NOLOGIN closes that.
+      // Local migrate leaves LOGIN alone so DATABASE_URL can still connect.
+      if (process.env.VERCEL) {
+        await sql.unsafe("ALTER ROLE dollas_app NOLOGIN NOSUPERUSER NOBYPASSRLS");
+      } else {
+        await sql.unsafe("ALTER ROLE dollas_app NOSUPERUSER NOBYPASSRLS");
+      }
     },
     async baselineLegacy(createdAt) {
       if (!Number.isSafeInteger(createdAt)) throw new Error("Invalid migration timestamp");
@@ -323,6 +421,15 @@ export function createPostgresMigrationSession(url: string): MigrationSession {
     async migrate(folder) {
       await migrate(drizzle(sql), { migrationsFolder: folder });
     },
+    async grantAppAccess() {
+      const role = await sql`select 1 from pg_roles where rolname = 'dollas_app'`;
+      if (role.length === 0) return;
+      const household = await sql<{ household: string | null }[]>`
+        select to_regclass('public.household')::text as household
+      `;
+      if (household[0]?.household == null) return;
+      await sql.unsafe(APP_GRANT_SQL);
+    },
     async grantJournalRead() {
       try {
         await sql.unsafe(`
@@ -336,11 +443,18 @@ export function createPostgresMigrationSession(url: string): MigrationSession {
           $$;
         `);
       } catch (error) {
-        const message = error instanceof Error ? error.message : "unknown error";
-        console.warn(`Could not grant drizzle journal read access: ${message}`);
+        console.warn(`Could not grant drizzle journal read access: ${publicErrorText(error)}`);
       }
     },
   };
+}
+
+function isReportedAppRoleError(error: unknown): error is Error {
+  return (
+    error instanceof Error &&
+    (error.message.startsWith("The household table is missing") ||
+      error.message.startsWith("dollas_app can bypass row-level security"))
+  );
 }
 
 function postgresErrorCode(error: unknown): string | undefined {
