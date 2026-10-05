@@ -1,5 +1,6 @@
 "use client";
 
+import { categoryMenuSections, type CategoryMenuEntry } from "@dollas/domain";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +24,7 @@ function unsignedDollarInput(cents: number): string {
   return `${dollars}.${remainder}`;
 }
 
-function blankRow(existing: readonly SplitRow[], categories: readonly Option[]): SplitRow {
+function blankRow(existing: readonly SplitRow[], categories: readonly CategoryMenuEntry[]): SplitRow {
   const used = new Set(existing.map((row) => row.categoryId));
   const categoryId = categories.find((category) => !used.has(category.id))?.id ?? "";
   return { key: crypto.randomUUID(), categoryId, amount: "" };
@@ -43,7 +44,7 @@ export function TransactionCorrection({
     splits: Array<{ categoryId: string; amountCents: number }>;
   };
   accounts: Option[];
-  categories: Option[];
+  categories: CategoryMenuEntry[];
 }) {
   const field = `correction-${transaction.id}`;
   const [state, action, pending] = useActionState(updateTransactionAction, { error: "" });
@@ -228,7 +229,7 @@ function CategoryFields({
   field: string;
   index: number;
   row: SplitRow;
-  categories: Option[];
+  categories: CategoryMenuEntry[];
   used: Set<string>;
   showAmount: boolean;
   removable: boolean;
@@ -236,24 +237,35 @@ function CategoryFields({
   onRemove: (key: string) => void;
 }) {
   const choices = categories.filter((category) => category.id === row.categoryId || !used.has(category.id));
+  const menu = categoryMenuSections(choices);
   return (
     <div className={showAmount ? "grid gap-2 md:grid-cols-[1fr_8rem_auto] md:items-center" : undefined}>
-      <select
-        id={index === 0 ? `${field}-category-0` : undefined}
-        name="categoryId"
-        aria-label={index === 0 ? "Category" : "Split category"}
-        className={selectClass}
-        value={row.categoryId}
-        onChange={(event) => onChange(row.key, { categoryId: event.target.value })}
-        required
-      >
-        {row.categoryId === "" ? <option value="">Choose a category</option> : null}
-        {choices.map((category) => (
-          <option key={category.id} value={category.id}>
-            {category.name}
-          </option>
-        ))}
-      </select>
+      {menu.isErr() ? (
+        <p role="alert" className="text-sm text-over">
+          {menu.error.message}
+        </p>
+      ) : (
+        <select
+          id={index === 0 ? `${field}-category-0` : undefined}
+          name="categoryId"
+          aria-label={index === 0 ? "Category" : "Split category"}
+          className={selectClass}
+          value={row.categoryId}
+          onChange={(event) => onChange(row.key, { categoryId: event.target.value })}
+          required
+        >
+          {row.categoryId === "" ? <option value="">Choose a category</option> : null}
+          {menu.value.map((section) => (
+            <optgroup key={section.id} label={section.label}>
+              {section.items.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      )}
       {showAmount ? (
         <Input
           name="splitAmount"
