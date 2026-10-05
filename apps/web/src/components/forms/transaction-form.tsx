@@ -41,13 +41,19 @@ export function TransactionForm({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="accountId">Account</Label>
-          <select id="accountId" name="accountId" className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm" required>
-            {accounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.name}
-              </option>
-            ))}
-          </select>
+          {accounts.length === 0 ? (
+            <p id="accountId" className="text-sm text-muted-foreground">
+              Unarchive an account to add a transaction.
+            </p>
+          ) : (
+            <select id="accountId" name="accountId" className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm" required>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="direction">Direction</Label>
@@ -76,7 +82,7 @@ export function TransactionForm({
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" className="h-10" disabled={pending}>
+      <Button type="submit" className="h-10" disabled={pending || accounts.length === 0}>
         {pending ? "Saving" : "Add it"}
       </Button>
     </form>

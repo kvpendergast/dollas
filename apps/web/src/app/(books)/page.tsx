@@ -18,7 +18,7 @@ export default async function HomePage() {
         <h1 className="font-serif text-4xl tracking-tight">{monthLabel(books.asOf.year, books.asOf.month)}</h1>
         <p className="text-sm text-muted-foreground">This month is still open. Numbers run through today.</p>
       </div>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader>
             <CardDescription>Income</CardDescription>
@@ -36,6 +36,19 @@ export default async function HomePage() {
             <CardDescription>Money left</CardDescription>
             <CardTitle className={`font-serif text-3xl tabular-nums ${leftTone}`}>{formatCents(home.leftCents)}</CardTitle>
           </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardDescription>In accounts</CardDescription>
+            <CardTitle
+              className={`font-serif text-3xl tabular-nums ${home.accountBalanceCents < 0 ? "text-over" : "text-income"}`}
+            >
+              {formatCents(home.accountBalanceCents)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">Active accounts only. Archived accounts are left out.</p>
+          </CardContent>
         </Card>
       </div>
       <Card className="border-primary/20">

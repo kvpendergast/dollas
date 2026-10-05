@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { updateTransactionAction } from "@/slices/activity/actions";
 
-type Option = { id: string; name: string };
+type Option = { id: string; name: string; archived?: boolean };
 
 type SplitRow = {
   key: string;
@@ -114,7 +114,7 @@ export function TransactionCorrection({
             >
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
-                  {account.name}
+                  {account.archived ? `${account.name} (archived)` : account.name}
                 </option>
               ))}
             </select>

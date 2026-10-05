@@ -1,4 +1,4 @@
-import { formatCents, toIsoDate } from "@dollas/domain";
+import { accountsForActiveLists, formatCents, toIsoDate } from "@dollas/domain";
 import { ImportForm } from "@/components/forms/import-form";
 import { PayeeRules } from "@/components/forms/payee-rule-form";
 import { TransactionCorrection } from "@/components/forms/transaction-correction";
@@ -8,9 +8,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requireBooks } from "@/slices/access/guard";
 import { loadActivity } from "@/slices/books/queries";
 
+function correctionAccounts<T extends { id: string; name: string; archivedAt: string | null }>(
+  active: readonly T[],
+  all: readonly T[],
+  currentId: string,
+) {
+  const choices = active.some((account) => account.id === currentId)
+    ? active
+    : [...active, ...all.filter((account) => account.id === currentId)];
+  return choices.map((account) => ({
+    id: account.id,
+    name: account.name,
+    archived: account.archivedAt !== null,
+  }));
+}
+
 export default async function ActivityPage() {
   const books = await requireBooks();
   const activity = await loadActivity(books);
+  const newEntryAccounts = accountsForActiveLists(activity.accounts, books.householdId);
   return (
     <div className="space-y-6">
       <div>
@@ -24,10 +40,15 @@ export default async function ActivityPage() {
         </CardHeader>
         <CardContent>
           <TransactionForm
-            accounts={activity.accounts}
+            accounts={newEntryAccounts}
             categories={activity.categories}
             today={toIsoDate(books.asOf)}
           />
+          {activity.accounts.some((account) => account.archivedAt !== null) ? (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Archived accounts are not listed for new entries. Their past transactions stay below.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
       <Card>
@@ -56,7 +77,7 @@ export default async function ActivityPage() {
       </Card>
       {activity.transactions.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {activity.accounts.length === 0 ? "No dollas in here yet. Add an account." : "No dollas in here yet."}
+          {newEntryAccounts.length === 0 ? "No dollas in here yet. Add an account." : "No dollas in here yet."}
         </p>
       ) : null}
       <div className="space-y-3">
@@ -69,6 +90,7 @@ export default async function ActivityPage() {
                   <p className="font-medium">{item.payee}</p>
                   <p className="text-xs text-muted-foreground">
                     {item.occurredOn} · {item.accountName}
+                    {item.accountArchived ? " · Archived" : ""}
                     {split ? "" : ` · ${item.splits[0]?.categoryName ?? "Uncategorized"}`}
                   </p>
                 </div>
@@ -99,7 +121,7 @@ export default async function ActivityPage() {
                   item.splits.map((part) => `${part.categoryId}:${part.amountCents}`).join(","),
                 ].join("|")}
                 transaction={item}
-                accounts={activity.accounts}
+                accounts={correctionAccounts(newEntryAccounts, activity.accounts, item.accountId)}
                 categories={activity.categories}
               />
             </article>

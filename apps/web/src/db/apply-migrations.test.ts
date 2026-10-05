@@ -162,6 +162,7 @@ describe("pendingMigrationTags", () => {
       "0007_payee_category_rule_grants",
       "0008_bank_connection",
       "0009_bank_connection_grants",
+      "0010_ledger_account_archive",
     ]);
   });
 
@@ -267,6 +268,7 @@ describe("generated schema", () => {
     const payeeGrants = await readFile(path.join(folder, "0007_payee_category_rule_grants.sql"), "utf8");
     const bankConnections = await readFile(path.join(folder, "0008_bank_connection.sql"), "utf8");
     const bankGrants = await readFile(path.join(folder, "0009_bank_connection_grants.sql"), "utf8");
+    const accountArchive = await readFile(path.join(folder, "0010_ledger_account_archive.sql"), "utf8");
 
     assert.match(books, /"amount_cents" integer/);
     assert.match(books, /"opening_balance_cents" integer/);
@@ -331,6 +333,9 @@ describe("generated schema", () => {
     assert.equal(/PASSWORD/i.test(bankGrants), false);
     assert.equal(/SET ROLE/i.test(bankGrants), false);
     assert.equal(/SET LOCAL ROLE/i.test(bankGrants), false);
+    assert.match(accountArchive, /ADD COLUMN "archived_at" timestamp with time zone/);
+    assert.equal(accountArchive.includes("dollas_app"), false);
+    assert.equal(/CREATE ROLE/i.test(accountArchive), false);
   });
 });
 

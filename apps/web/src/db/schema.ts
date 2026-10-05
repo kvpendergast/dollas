@@ -150,6 +150,7 @@ export const ledgerAccount = pgTable(
     name: text("name").notNull(),
     type: text("type").notNull(),
     openingBalanceCents: integer("opening_balance_cents").notNull().default(0),
+    archivedAt: timestamp("archived_at", { withTimezone: true, mode: "date" }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
