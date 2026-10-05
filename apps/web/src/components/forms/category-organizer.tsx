@@ -253,12 +253,6 @@ function GroupCard({ group, groups, index }: { group: ListedGroup; groups: Liste
             {group.categories.length === 0 ? <RemoveEmptyGroup group={group} /> : null}
           </div>
           {group.categories.length > 0 ? (
-            <RemoveGroupForm
-              group={group}
-              destinations={otherGroups.map((item) => ({ value: item.id, label: item.name }))}
-            />
-          ) : null}
-          {group.categories.length > 0 ? (
             <ol className="m-0 list-none divide-y divide-border border-t border-border p-0">
               {group.categories.map((category, categoryIndex) => (
                 <CategoryRow
@@ -271,6 +265,12 @@ function GroupCard({ group, groups, index }: { group: ListedGroup; groups: Liste
                 />
               ))}
             </ol>
+          ) : null}
+          {group.categories.length > 0 ? (
+            <RemoveGroupForm
+              group={group}
+              destinations={otherGroups.map((item) => ({ value: item.id, label: item.name }))}
+            />
           ) : null}
         </CardContent>
       </Card>
