@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
+import { redactSecrets } from "../lib/redact";
 import { ASSUME_APP_ROLE_SQL, isSubjectToRowLevelSecurity, type RoleSecurityFacts } from "./app-role";
 
 /**
@@ -42,7 +43,7 @@ BEGIN
   GRANT SELECT ON household_member TO dollas_app;
   REVOKE ALL ON household_invite FROM dollas_app;
   GRANT SELECT ON household_invite TO dollas_app;
-  GRANT SELECT, INSERT, UPDATE, DELETE ON ledger_account, category, category_group, category_budget, transaction, transaction_split, payee_category_rule TO dollas_app;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON ledger_account, category, category_group, category_budget, transaction, transaction_split, payee_category_rule, bank_connection TO dollas_app;
   GRANT EXECUTE ON FUNCTION app_user_id() TO dollas_app;
   GRANT EXECUTE ON FUNCTION app_can_access_household(uuid) TO dollas_app;
   GRANT EXECUTE ON FUNCTION create_household(text) TO dollas_app;
@@ -335,9 +336,7 @@ export async function assertAppRoleSubjectToRls(url: string): Promise<void> {
 
 export function publicErrorText(error: unknown): string {
   const raw = error instanceof Error ? error.message : "Unknown error";
-  const message = raw
-    .replace(/postgres(?:ql)?:\/\/\S+/gi, "[redacted-url]")
-    .replace(/\b(password|pwd)=([^\s&]+)/gi, "$1=[redacted]");
+  const message = redactSecrets(raw);
   const code = postgresErrorCode(error);
   return code ? `${code} ${message}` : message;
 }

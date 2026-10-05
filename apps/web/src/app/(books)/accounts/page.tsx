@@ -1,12 +1,14 @@
 import { formatCents } from "@dollas/domain";
 import { AccountForm } from "@/components/forms/account-form";
+import { DisconnectConnectionForm } from "@/components/forms/disconnect-connection";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireBooks } from "@/slices/access/guard";
 import { loadAccounts } from "@/slices/books/queries";
+import { loadBankConnections } from "@/slices/connections/queries";
 
 export default async function AccountsPage() {
   const books = await requireBooks();
-  const accounts = await loadAccounts(books);
+  const [accounts, connections] = await Promise.all([loadAccounts(books), loadBankConnections(books)]);
   return (
     <div className="space-y-6">
       <div>
@@ -35,6 +37,29 @@ export default async function AccountsPage() {
           );
         })}
       </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Bank connections</CardTitle>
+          <CardDescription>
+            Disconnect deletes the stored token. Dollas never asks for a bank username or password.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {connections.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No bank is connected.</p>
+          ) : (
+            connections.map((connection) => (
+              <div key={connection.id} className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-serif text-2xl">{connection.label}</p>
+                  <p className="text-xs text-muted-foreground">{connection.providerId}</p>
+                </div>
+                <DisconnectConnectionForm connectionId={connection.id} label={connection.label} />
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>Add an account</CardTitle>

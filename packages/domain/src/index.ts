@@ -1,4 +1,5 @@
 export {
+  BankConnectionError,
   CsvImportError,
   DomainError,
   HouseholdAccessError,
@@ -7,7 +8,9 @@ export {
   InvalidEstimateError,
   InvalidHistoryError,
   InvalidMoneyError,
+  ProviderError,
   SplitImbalanceError,
+  TokenEncryptionError,
   UnverifiedEmailError,
 } from "./errors";
 
@@ -90,3 +93,47 @@ export {
 } from "./plan/budget-status";
 
 export { civilDateInTimeZone, monthLabel, shortMonthLabel, toIsoDate } from "./dates";
+
+export {
+  BANK_CONNECTION_KEYS_ENV,
+  decryptToken,
+  encryptToken,
+  parseTokenKeyRing,
+  reencryptToken,
+  type EncryptedToken,
+  type TokenAudience,
+  type TokenKeyRing,
+} from "./connections/token-cipher";
+
+export {
+  FAKE_BANK_PROVIDER_ID,
+  createFakeBankProvider,
+  createProviderRegistry,
+  providerTransactionFingerprint,
+  readProviderSetup,
+  type BankProvider,
+  type FakeBankProvider,
+  type ProviderAccess,
+  type ProviderAccount,
+  type ProviderAccountType,
+  type ProviderRegistry,
+  type ProviderSetup,
+  type ProviderSummary,
+  type ProviderTransaction,
+  type TransactionQuery,
+} from "./connections/provider";
+
+export {
+  connectBank,
+  createMemoryBankConnectionStore,
+  createQueryBankConnectionStore,
+  disconnectBank,
+  toPublicBankConnection,
+  type BankConnection,
+  type BankConnectionQueries,
+  type BankConnectionStore,
+  type ConnectionDeps,
+  type DisconnectResult,
+  type MemoryBankConnectionStore,
+  type PublicBankConnection,
+} from "./connections/connect";

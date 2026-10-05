@@ -67,3 +67,21 @@ export class PayeeCategoryRuleError extends DomainError {
     super("payee_category_rule", message);
   }
 }
+
+export class ProviderError extends DomainError {
+  constructor(message: string) {
+    super("provider", message);
+  }
+}
+
+export class TokenEncryptionError extends DomainError {
+  constructor(message: string) {
+    super("token_encryption", message);
+  }
+}
+
+export class BankConnectionError extends DomainError {
+  constructor(message: string) {
+    super("bank_connection", message);
+  }
+}

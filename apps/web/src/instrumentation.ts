@@ -10,6 +10,14 @@ export async function register() {
   }
   const { migrateOnStartup } = await import("./db/apply-migrations");
   await migrateOnStartup();
+  const { requireBankConnectionKeys } = await import("./slices/connections/keys");
+  try {
+    requireBankConnectionKeys();
+  } catch (error) {
+    const { logError } = await import("./lib/telemetry");
+    logError(error, { action: "bank-connection-keys" });
+    throw error;
+  }
 }
 
 function startupErrorText(error: unknown): string {
