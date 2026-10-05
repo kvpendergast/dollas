@@ -106,3 +106,9 @@ export class RateLimitedError extends DomainError {
     this.retryAfterSeconds = retryAfterSeconds;
   }
 }
+
+export class TransactionError extends DomainError {
+  constructor(message: string) {
+    super("transaction", message);
+  }
+}

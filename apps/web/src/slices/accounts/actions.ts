@@ -12,7 +12,7 @@ import {
   unarchiveAccount,
   type LedgerAccount,
 } from "@dollas/domain";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { withActor } from "@/db/actor";
 import type { AppTx } from "@/db/client";
@@ -51,7 +51,13 @@ async function loadLedgerAccount(
   const movements = await tx
     .select({ amountCents: transaction.amountCents })
     .from(transaction)
-    .where(and(eq(transaction.accountId, accountId), eq(transaction.householdId, householdId)));
+    .where(
+      and(
+        eq(transaction.accountId, accountId),
+        eq(transaction.householdId, householdId),
+        isNull(transaction.deletedAt),
+      ),
+    );
   let movementCents = 0;
   for (const movement of movements) movementCents += movement.amountCents;
   return {

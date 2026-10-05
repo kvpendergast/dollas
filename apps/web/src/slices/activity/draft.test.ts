@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { MAX_TRANSACTION_SPLITS, SPLIT_LIMIT_MESSAGE } from "@dollas/domain";
 import { readTransactionDraft } from "./draft";
 
 function form(entries: Record<string, string | string[]>): FormData {
@@ -85,7 +86,7 @@ describe("readTransactionDraft", () => {
     );
   });
 
-  it("refuses an unbalanced split before a correction is saved", () => {
+  it("refuses an unbalanced split before an edit is saved", () => {
     const result = readTransactionDraft(
       form({
         ...past,
@@ -107,6 +108,19 @@ describe("readTransactionDraft", () => {
       }),
     );
     assert.deepEqual(result, { error: "Splits must match the transaction direction." });
+  });
+
+  it("refuses a split past the shared category cap", () => {
+    const count = MAX_TRANSACTION_SPLITS + 1;
+    const result = readTransactionDraft(
+      form({
+        ...past,
+        amount: String(count),
+        categoryId: Array.from({ length: count }, (_, index) => `category-${index}`),
+        splitAmount: Array.from({ length: count }, () => "1.00"),
+      }),
+    );
+    assert.deepEqual(result, { error: SPLIT_LIMIT_MESSAGE });
   });
 
   it("refuses a category used twice", () => {

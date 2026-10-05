@@ -163,6 +163,7 @@ describe("pendingMigrationTags", () => {
       "0008_bank_connection",
       "0009_bank_connection_grants",
       "0010_ledger_account_archive",
+      "0011_transaction_deleted_at",
     ]);
   });
 
@@ -269,6 +270,7 @@ describe("generated schema", () => {
     const bankConnections = await readFile(path.join(folder, "0008_bank_connection.sql"), "utf8");
     const bankGrants = await readFile(path.join(folder, "0009_bank_connection_grants.sql"), "utf8");
     const accountArchive = await readFile(path.join(folder, "0010_ledger_account_archive.sql"), "utf8");
+    const transactionDeleted = await readFile(path.join(folder, "0011_transaction_deleted_at.sql"), "utf8");
 
     assert.match(books, /"amount_cents" integer/);
     assert.match(books, /"opening_balance_cents" integer/);
@@ -336,6 +338,11 @@ describe("generated schema", () => {
     assert.match(accountArchive, /ADD COLUMN "archived_at" timestamp with time zone/);
     assert.equal(accountArchive.includes("dollas_app"), false);
     assert.equal(/CREATE ROLE/i.test(accountArchive), false);
+    assert.match(transactionDeleted, /ADD COLUMN "deleted_at" timestamp with time zone/);
+    assert.equal(transactionDeleted.includes("dollas_app"), false);
+    assert.equal(/CREATE ROLE/i.test(transactionDeleted), false);
+    assert.equal(/ALTER ROLE/i.test(transactionDeleted), false);
+    assert.equal(/PASSWORD/i.test(transactionDeleted), false);
   });
 });
 
