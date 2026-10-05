@@ -32,11 +32,11 @@ export function HouseholdChoice({
             </Tabs.Trigger>
           </Tabs.List>
           <Tabs.Content value="start" className="space-y-3">
-            <p className="text-sm text-muted-foreground">You will be the owner of a new set of books.</p>
+            <p className="text-sm text-muted-foreground">You own this set of books. Your login stays yours.</p>
             <StartHouseholdForm defaultName={defaultName} />
           </Tabs.Content>
           <Tabs.Content value="join" className="space-y-3">
-            <p className="text-sm text-muted-foreground">Use a code from someone already in the household.</p>
+            <p className="text-sm text-muted-foreground">A code from your person. Your login stays yours.</p>
             <JoinHouseholdForm defaultCode={defaultCode} />
           </Tabs.Content>
         </CardContent>

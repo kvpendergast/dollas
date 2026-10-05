@@ -61,7 +61,12 @@ export async function loadHome(books: BooksContext) {
           eq(categoryBudget.month, books.asOf.month),
         ),
       );
-    return { transactions, budgets };
+    const [account] = await tx
+      .select({ id: ledgerAccount.id })
+      .from(ledgerAccount)
+      .where(eq(ledgerAccount.householdId, books.householdId))
+      .limit(1);
+    return { transactions, budgets, hasAccounts: Boolean(account) };
   });
 
   const seen = new Set<string>();
@@ -100,6 +105,7 @@ export async function loadHome(books: BooksContext) {
     leftCents: incomeCents - spentCents,
     budgetedCents,
     categories: categories.slice(0, 5),
+    hasAccounts: rows.hasAccounts,
     estimate: estimateResult.value satisfies SpendEstimate,
   };
 }

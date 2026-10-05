@@ -20,7 +20,7 @@ export function Sidebar() {
       <Link href="/" className="font-serif text-3xl tracking-tight text-primary">
         dollas
       </Link>
-      <p className="mt-1 text-xs text-muted-foreground">One set of books</p>
+      <p className="mt-1 text-xs text-muted-foreground">One pile of dollas.</p>
       <nav aria-label="Books" className="mt-8">
         <ul className="space-y-1">
           {bookNav.map((item) => {

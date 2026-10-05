@@ -11,8 +11,8 @@ export default async function ProjectionPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="font-serif text-4xl">Projection</h1>
-        <p className="text-sm text-muted-foreground">{monthLabel(books.asOf.year, books.asOf.month)} is still in progress.</p>
+        <h1 className="font-serif text-4xl">Spend estimate</h1>
+        <p className="text-sm text-muted-foreground">{monthLabel(books.asOf.year, books.asOf.month)} is still open. This is an estimate.</p>
       </div>
       <Card>
         <CardHeader>
@@ -20,9 +20,7 @@ export default async function ProjectionPage() {
             <CardTitle>Spend estimate</CardTitle>
             <Badge>Estimate</Badge>
           </div>
-          <CardDescription>
-            Daily pace times the days in the month. This is not a closed total, and it is not a phone tab.
-          </CardDescription>
+          <CardDescription>Daily pace times the days in the month. An estimate, not a closed total.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="font-serif text-5xl tabular-nums">{formatCents(estimate.estimateCents)}</p>

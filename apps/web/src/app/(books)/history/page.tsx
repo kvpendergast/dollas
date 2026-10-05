@@ -10,8 +10,7 @@ export default async function HistoryPage() {
       <div>
         <h1 className="font-serif text-4xl">History</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Spending from the books, month over month and year over year. Green means this year spent less. Red means more.
-          The current month stays open.
+          Month over month, year over year. Green means you spent less. Red means more. This month stays open.
         </p>
       </div>
       <HistoryChart columns={columns} />

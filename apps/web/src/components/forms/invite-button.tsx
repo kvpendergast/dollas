@@ -23,7 +23,7 @@ export function InviteButton() {
           });
         }}
       >
-        {pending ? "Creating" : "Create a new invite"}
+        {pending ? "Making the invite" : "Make an invite"}
       </Button>
       {code ? <p className="font-serif text-2xl tracking-wide">{code}</p> : null}
       {error ? (
