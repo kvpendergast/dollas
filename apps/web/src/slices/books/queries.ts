@@ -1,6 +1,7 @@
 import {
   buildSpendingHistory,
   categoryBooksEffect,
+  compareCatalogOrder,
   estimateMonthSpend,
   summarizeCategoryMonth,
   toIsoDate,
@@ -52,8 +53,7 @@ function compareListed(a: ListedCategory, b: ListedCategory): number {
   if (aGroup !== bGroup) return aGroup - bGroup;
   const groupName = (a.groupName ?? "").localeCompare(b.groupName ?? "");
   if (groupName !== 0) return groupName;
-  if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-  return a.name.localeCompare(b.name);
+  return compareCatalogOrder(a, b);
 }
 
 export async function loadHome(books: BooksContext) {
@@ -369,18 +369,12 @@ export async function loadCategoryCatalog(books: BooksContext) {
       })
       .from(category)
       .where(eq(category.householdId, books.householdId));
-    const byGroup = groups
-      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
-      .map((group) => ({
-        id: group.id,
-        name: group.name,
-        categories: categories
-          .filter((row) => row.groupId === group.id)
-          .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
-      }));
-    const ungrouped = categories
-      .filter((row) => row.groupId === null)
-      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+    const byGroup = [...groups].sort(compareCatalogOrder).map((group) => ({
+      id: group.id,
+      name: group.name,
+      categories: categories.filter((row) => row.groupId === group.id).sort(compareCatalogOrder),
+    }));
+    const ungrouped = categories.filter((row) => row.groupId === null).sort(compareCatalogOrder);
     return { groups: byGroup, ungrouped };
   });
 }
