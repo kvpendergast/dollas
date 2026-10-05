@@ -98,7 +98,7 @@ export function StartHouseholdForm({ defaultName = "" }: { defaultName?: string 
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" className="h-10" disabled={pending}>
+      <Button type="submit" className="h-10 w-full" disabled={pending}>
         Start household
       </Button>
     </form>
@@ -118,7 +118,7 @@ export function JoinHouseholdForm({ defaultCode = "" }: { defaultCode?: string }
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" className="h-10" disabled={pending}>
+      <Button type="submit" className="h-10 w-full" disabled={pending}>
         Join household
       </Button>
     </form>
