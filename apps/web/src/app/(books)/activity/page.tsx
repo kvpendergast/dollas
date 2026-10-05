@@ -1,5 +1,6 @@
 import { formatCents, toIsoDate } from "@dollas/domain";
 import { ImportForm } from "@/components/forms/import-form";
+import { TransactionCorrection } from "@/components/forms/transaction-correction";
 import { TransactionForm } from "@/components/forms/transaction-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,14 +68,27 @@ export default async function ActivityPage() {
               </div>
               {split ? (
                 <ul className="mt-3 space-y-1 border-t border-border pt-2 text-sm">
-                  {item.splits.map((part) => (
-                    <li key={part.categoryName} className="flex justify-between gap-3">
+                  {item.splits.map((part, index) => (
+                    <li key={`${part.categoryId}-${index}`} className="flex justify-between gap-3">
                       <span>{part.categoryName}</span>
                       <span className="tabular-nums">{formatCents(part.amountCents)}</span>
                     </li>
                   ))}
                 </ul>
               ) : null}
+              <TransactionCorrection
+                key={[
+                  item.id,
+                  item.payee,
+                  item.occurredOn,
+                  item.accountId,
+                  item.amountCents,
+                  item.splits.map((part) => `${part.categoryId}:${part.amountCents}`).join(","),
+                ].join("|")}
+                transaction={item}
+                accounts={activity.accounts}
+                categories={activity.categories}
+              />
             </article>
           );
         })}
