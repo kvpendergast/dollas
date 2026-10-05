@@ -11,7 +11,7 @@ export default async function ProjectionPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="font-serif text-4xl">A look ahead</h1>
+        <h1 className="font-serif text-4xl">Spend estimate</h1>
         <p className="text-sm text-muted-foreground">{monthLabel(books.asOf.year, books.asOf.month)} is still open. This is an estimate.</p>
       </div>
       <Card>

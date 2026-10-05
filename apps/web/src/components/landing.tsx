@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 
 const points = [
   "Same books, separate logins. Nobody shares a password.",
-  "Categories that remember the coffee shop.",
   "A look ahead at the month, labeled as an estimate.",
 ];
 

@@ -41,7 +41,7 @@ export default async function HomePage() {
       <Card className="border-primary/20">
         <CardHeader>
           <div className="flex items-center justify-between gap-3">
-            <CardTitle>A look ahead</CardTitle>
+            <CardTitle>Spend estimate</CardTitle>
             <Badge>Estimate</Badge>
           </div>
           <CardDescription>Labeled as an estimate. The month is not finished.</CardDescription>
@@ -64,9 +64,7 @@ export default async function HomePage() {
         <CardContent className="space-y-3">
           {home.categories.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              {home.incomeCents === 0 && home.spentCents === 0
-                ? "No dollas in here yet. Add an account."
-                : "Nothing spent yet this month."}
+              {home.hasAccounts ? "Nothing spent yet this month." : "No dollas in here yet. Add an account."}
             </p>
           ) : null}
           {home.categories.map((category) => (
