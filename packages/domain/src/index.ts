@@ -1,6 +1,7 @@
 export {
   AccountError,
   BankConnectionError,
+  BudgetError,
   ConfigError,
   CsvImportError,
   DomainError,
@@ -221,6 +222,34 @@ export {
   type BudgetStanding,
   type CategoryMonth,
 } from "./plan/budget-status";
+
+export {
+  clearCategoryBudget,
+  copyPreviousMonthBudgets,
+  decideBudgetAmount,
+  formatBudgetMonth,
+  listMonthPlan,
+  parseBudgetMonth,
+  planSections,
+  planThroughDate,
+  previewCopyPreviousMonth,
+  setCategoryBudget,
+  shiftBudgetMonth,
+  UNGROUPED_SECTION_ID,
+  UNGROUPED_SECTION_NAME,
+  type BudgetAmountDecision,
+  type BudgetCategory,
+  type BudgetMonth,
+  type BudgetStore,
+  type CopyBudgetLine,
+  type CopyBudgetPreview,
+  type CopyBudgetResult,
+  type MonthPlan,
+  type PlanCategoryLine,
+  type PlanSection,
+  type SpendSplit,
+  type StoredBudget,
+} from "./budget/service";
 
 export { civilDateInTimeZone, monthLabel, shortMonthLabel, toIsoDate } from "./dates";
 
