@@ -1,3 +1,12 @@
+import {
+  acceptedMailDelivery,
+  MailDeliveryError,
+  planVerificationMail,
+  rejectedMailDelivery,
+  verificationHelpForMember,
+  MEMBER_RESET_MAIL_FAILURE,
+  type MailDeliveryResult,
+} from "@dollas/domain";
 import { Resend } from "resend";
 import { logError, logInfo } from "@/lib/telemetry";
 
@@ -19,25 +28,30 @@ function runningOnVercel(env: Env): boolean {
   return Boolean(env.VERCEL || env.VERCEL_ENV);
 }
 
-function fail(error: Error): never {
-  logError(error);
-  throw error;
-}
-
 function present(env: Env, name: string): string {
   return env[name]?.trim() ?? "";
 }
 
+function mailPlan(env: Env, label: string) {
+  return planVerificationMail({
+    apiKey: present(env, "RESEND_API_KEY"),
+    from: present(env, "RESEND_FROM"),
+    hosted: runningOnVercel(env),
+    label,
+  });
+}
+
 export function verificationEmailHelp(env: Env = process.env): string {
-  const apiKey = present(env, "RESEND_API_KEY");
-  const from = present(env, "RESEND_FROM");
-  if (apiKey && from) {
-    return "Check your inbox for a verification message from dollas and open the link, then come back and sign in.";
-  }
-  if (!runningOnVercel(env)) {
-    return "Resend is not configured, so the verification link is written to the server log. Open it, then come back and sign in.";
-  }
-  return "The verification email could not be sent because Resend is not configured on this server.";
+  const plan = mailPlan(env, "verification email");
+  if (plan.isErr()) return verificationHelpForMember("unavailable");
+  return verificationHelpForMember(plan.value.delivery);
+}
+
+/** Shown on the forgot-password page. Empty when mail can be sent. */
+export function passwordResetEmailHelp(env: Env = process.env): string {
+  const plan = mailPlan(env, "password reset email");
+  if (plan.isOk() && plan.value.delivery === "send") return "";
+  return MEMBER_RESET_MAIL_FAILURE;
 }
 
 function verificationText(url: string): string {
@@ -60,13 +74,6 @@ function resetText(url: string): string {
   ].join("\n");
 }
 
-function missingConfigError(env: Env, kind: MailKind): Error {
-  const missing = ["RESEND_API_KEY", "RESEND_FROM"].filter((name) => !present(env, name));
-  const verb = missing.length === 1 ? "is" : "are";
-  const where = runningOnVercel(env) ? " on Vercel" : "";
-  return new Error(`${missing.join(" and ")} ${verb} required to send ${kind} email${where}.`);
-}
-
 function containsSecret(detail: string, message: VerificationMessage, apiKey: string): boolean {
   if (apiKey && detail.includes(apiKey)) return true;
   if (detail.includes(message.text)) return true;
@@ -76,10 +83,15 @@ function containsSecret(detail: string, message: VerificationMessage, apiKey: st
   });
 }
 
-function resendFailure(providerMessage: string | undefined, message: VerificationMessage, apiKey: string, kind: MailKind): Error {
+function resendFailure(
+  providerMessage: string | undefined,
+  message: VerificationMessage,
+  apiKey: string,
+  kind: MailKind,
+): MailDeliveryError {
   const detail = providerMessage?.trim() ?? "";
   const suffix = detail && !containsSecret(detail, message, apiKey) ? `: ${detail}` : "";
-  return new Error(`Resend could not send the ${kind} email${suffix}.`);
+  return new MailDeliveryError(`Resend could not send the ${kind} email${suffix}.`);
 }
 
 async function sendWithResend(message: VerificationMessage, apiKey: string, kind: MailKind): Promise<void> {
@@ -96,7 +108,7 @@ async function sendWithResend(message: VerificationMessage, apiKey: string, kind
       throw resendFailure(providerMessage, message, apiKey, kind);
     }
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith(`Resend could not send the ${kind} email`)) throw error;
+    if (error instanceof MailDeliveryError) throw error;
     const providerMessage = error instanceof Error ? error.message : undefined;
     throw resendFailure(providerMessage, message, apiKey, kind);
   }
@@ -110,18 +122,23 @@ async function deliverAuthEmail(
     send?: (message: VerificationMessage, apiKey: string) => Promise<void>;
   },
   copy: { subject: string; text: string; devLine: string; devLog: string; sentLog: string },
-): Promise<void> {
+): Promise<MailDeliveryResult> {
   const env = options.env ?? process.env;
   const apiKey = present(env, "RESEND_API_KEY");
   const from = present(env, "RESEND_FROM");
+  const label = kind === "verification" ? "verification email" : "password reset email";
+  const action = kind === "verification" ? "verification-email" : "password-reset-email";
+  const plan = mailPlan(env, label);
 
-  if (!apiKey || !from) {
-    if (!apiKey && !from && !runningOnVercel(env)) {
-      logInfo(copy.devLog, { email: input.email });
-      console.info(copy.devLine);
-      return;
-    }
-    fail(missingConfigError(env, kind));
+  if (plan.isErr()) {
+    logError(plan.error, { action });
+    return rejectedMailDelivery(plan.error);
+  }
+
+  if (plan.value.delivery === "local") {
+    logInfo(copy.devLog, { email: input.email });
+    console.info(copy.devLine);
+    return acceptedMailDelivery();
   }
 
   const message: VerificationMessage = {
@@ -133,11 +150,13 @@ async function deliverAuthEmail(
   try {
     await (options.send ?? ((outgoing, key) => sendWithResend(outgoing, key, kind)))(message, apiKey);
   } catch (error) {
-    const failure = error instanceof Error ? error : new Error(`Resend could not send the ${kind} email.`);
-    if (containsSecret(failure.message, message, apiKey)) fail(resendFailure(undefined, message, apiKey, kind));
-    fail(failure);
+    const failure = error instanceof MailDeliveryError ? error : resendFailure(undefined, message, apiKey, kind);
+    const safe = containsSecret(failure.message, message, apiKey) ? resendFailure(undefined, message, apiKey, kind) : failure;
+    logError(safe, { action });
+    return rejectedMailDelivery(safe);
   }
   logInfo(copy.sentLog, { email: input.email });
+  return acceptedMailDelivery();
 }
 
 export async function deliverVerificationEmail(
@@ -146,8 +165,8 @@ export async function deliverVerificationEmail(
     env?: Env;
     send?: (message: VerificationMessage, apiKey: string) => Promise<void>;
   } = {},
-): Promise<void> {
-  await deliverAuthEmail("verification", input, options, {
+): Promise<MailDeliveryResult> {
+  return deliverAuthEmail("verification", input, options, {
     subject: verificationSubject,
     text: verificationText(input.url),
     devLine: `Verify ${input.email}: ${input.url}`,
@@ -162,8 +181,8 @@ export async function deliverPasswordResetEmail(
     env?: Env;
     send?: (message: VerificationMessage, apiKey: string) => Promise<void>;
   } = {},
-): Promise<void> {
-  await deliverAuthEmail("password reset", input, options, {
+): Promise<MailDeliveryResult> {
+  return deliverAuthEmail("password reset", input, options, {
     subject: resetSubject,
     text: resetText(input.url),
     devLine: `Reset password for ${input.email}: ${input.url}`,

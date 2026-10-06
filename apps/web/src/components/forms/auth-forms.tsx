@@ -3,6 +3,7 @@
 import { cooldownCopy } from "@dollas/domain";
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
+import { GoogleSignInButton } from "@/components/forms/google-sign-in-button";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,7 +61,12 @@ export function SignInForm({ googleEnabled }: { googleEnabled: boolean }) {
           {pending ? "Signing in" : "Sign in"}
         </Button>
       </form>
-      <GoogleButton enabled={googleEnabled} />
+      <GoogleSignInButton
+        enabled={googleEnabled}
+        onSignIn={() => {
+          void authClient.signIn.social({ provider: "google", callbackURL: "/" });
+        }}
+      />
     </div>
   );
 }
@@ -108,7 +114,12 @@ export function SignUpForm({ googleEnabled }: { googleEnabled: boolean }) {
           {pending ? "Creating login" : "Create a login"}
         </Button>
       </form>
-      <GoogleButton enabled={googleEnabled} />
+      <GoogleSignInButton
+        enabled={googleEnabled}
+        onSignIn={() => {
+          void authClient.signIn.social({ provider: "google", callbackURL: "/" });
+        }}
+      />
     </div>
   );
 }
@@ -265,24 +276,3 @@ export function ResendVerificationForm({ defaultEmail }: { defaultEmail: string 
   );
 }
 
-function GoogleButton({ enabled }: { enabled: boolean }) {
-  if (!enabled) {
-    return (
-      <p className="text-xs text-muted-foreground">
-        Google sign-in counts as a verified email. It is not turned on here.
-      </p>
-    );
-  }
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      className="h-10 w-full"
-      onClick={() => {
-        void authClient.signIn.social({ provider: "google", callbackURL: "/" });
-      }}
-    >
-      Continue with Google
-    </Button>
-  );
-}

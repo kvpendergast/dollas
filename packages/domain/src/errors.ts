@@ -12,6 +12,24 @@ export class DomainError extends Error {
   }
 }
 
+/**
+ * Deployer detail for a missing or partial integration setting.
+ * The message may name configuration keys. Members never see it;
+ * callers map it through `memberFacingMessage` and log this object.
+ */
+export class ConfigError extends DomainError {
+  constructor(message: string) {
+    super("config", message);
+  }
+}
+
+/** Provider delivery failed. Detail is for logs; members get a plain next step. */
+export class MailDeliveryError extends DomainError {
+  constructor(message: string) {
+    super("mail_delivery", message);
+  }
+}
+
 export class InvalidMoneyError extends DomainError {
   constructor(message: string) {
     super("invalid_money", message);

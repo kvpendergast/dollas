@@ -1,6 +1,11 @@
 "use server";
 
 import {
+  FORGOT_PASSWORD_MESSAGE,
+  hidesSetupDetail,
+  MEMBER_MAIL_FAILURE,
+  MEMBER_RESET_MAIL_FAILURE,
+  memberFacingMessage,
   RateLimitedError,
   requestPasswordResetNotice,
   resendVerificationNotice,
@@ -31,8 +36,7 @@ export type HouseholdIntent =
   | { mode: "join"; inviteCode: string };
 
 function messageFrom(error: unknown): string {
-  if (error instanceof Error && error.message.trim().length > 0) return error.message;
-  return "Something went wrong. Try again.";
+  return memberFacingMessage(error, MEMBER_MAIL_FAILURE);
 }
 
 export async function signInAction(_state: AuthFormState, formData: FormData): Promise<AuthFormState> {
@@ -45,6 +49,10 @@ export async function signInAction(_state: AuthFormState, formData: FormData): P
     });
   } catch (error) {
     const parts = readAuthError(error);
+    if (hidesSetupDetail(error)) {
+      logError(error, { action: "sign-in" });
+      return { error: messageFrom(error) };
+    }
     const failure = signInFailureFromCode(parts.code, parts.message);
     if (failure.kind === "unverified") {
       logInfo("Sign-in blocked until the email is verified", { action: "sign-in" });
@@ -74,7 +82,13 @@ export async function requestPasswordResetAction(_state: AuthFormState, formData
       });
     },
   });
-  if (result.isErr()) return { error: result.error.message };
+  if (result.isErr()) {
+    if (hidesSetupDetail(result.error)) {
+      logError(result.error, { action: "forgot-password" });
+      return { error: "", notice: FORGOT_PASSWORD_MESSAGE };
+    }
+    return { error: memberFacingMessage(result.error, FORGOT_PASSWORD_MESSAGE) };
+  }
   return { error: "", notice: result.value.message };
 }
 
@@ -98,7 +112,7 @@ export async function resendVerificationAction(_state: AuthFormState, formData: 
   });
   if (result.isErr()) {
     const retryAfterSeconds = result.error instanceof RateLimitedError ? result.error.retryAfterSeconds : undefined;
-    return { error: result.error.message, retryAfterSeconds };
+    return { error: memberFacingMessage(result.error, MEMBER_MAIL_FAILURE), retryAfterSeconds };
   }
   return { error: "", notice: result.value.message, retryAfterSeconds: result.value.retryAfterSeconds };
 }
@@ -118,6 +132,7 @@ export async function resetPasswordAction(_state: AuthFormState, formData: FormD
     });
   } catch (error) {
     logError(error, { action: "reset-password" });
+    if (hidesSetupDetail(error)) return { error: memberFacingMessage(error, MEMBER_RESET_MAIL_FAILURE) };
     return { error: resetPasswordFailure(readAuthError(error).code) };
   }
   redirect("/sign-in?reset=1");

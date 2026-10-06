@@ -1,6 +1,9 @@
+import { MEMBER_MAIL_FAILURE, MEMBER_RESET_MAIL_FAILURE, memberFacingMessage } from "@dollas/domain";
 import assert from "node:assert/strict";
+import { inspect } from "node:util";
 import { describe, it } from "node:test";
-import { deliverPasswordResetEmail, deliverVerificationEmail, verificationEmailHelp } from "./verification-email";
+import { initTelemetry } from "./telemetry";
+import { deliverPasswordResetEmail, deliverVerificationEmail, passwordResetEmailHelp, verificationEmailHelp } from "./verification-email";
 
 const email = "ada@maple.local";
 const url = "http://localhost:3000/api/auth/verify-email?token=seed-token&callbackURL=/welcome";
@@ -70,6 +73,28 @@ function captureConsole(method: "info" | "error" | "log" | "debug") {
       console[method] = original;
     },
   };
+}
+
+function captureDir() {
+  const lines: string[] = [];
+  const original = console.dir;
+  console.dir = (item: unknown) => {
+    lines.push(inspect(item, { depth: 6 }));
+  };
+  return {
+    lines,
+    restore() {
+      console.dir = original;
+    },
+  };
+}
+
+const memberLeak = /GOOGLE_CLIENT_|RESEND_|BETTER_AUTH_|BANK_CONNECTION_KEYS|DATABASE_URL|\bResend\b|not configured|server log/i;
+
+function assertMemberSafe(error: unknown) {
+  const shown = memberFacingMessage(error, MEMBER_MAIL_FAILURE);
+  assert.equal(shown, MEMBER_MAIL_FAILURE);
+  assert.equal(memberLeak.test(shown), false);
 }
 
 function setNodeEnv(value: string | undefined): void {
@@ -153,32 +178,53 @@ describe("verification email", () => {
     }
   });
 
-  it("fails on Vercel when either Resend setting is missing and does not log the link", async () => {
+  it("fails on Vercel when either Resend setting is missing and logs the setting names without the link", async () => {
+    initTelemetry();
     const info = captureConsole("info");
+    const logged = captureDir();
     const fetchLog = captureFetch(() => {
       throw new Error("Resend should not be called");
     });
     try {
-      await assert.rejects(
-        () => deliverVerificationEmail({ email, url }, { env: { VERCEL: "1", RESEND_FROM: from } }),
-        /RESEND_API_KEY is required to send verification email on Vercel/,
+      const missingKey = await deliverVerificationEmail(
+        { email, url },
+        { env: { VERCEL: "1", RESEND_FROM: from } },
       );
-      await assert.rejects(
-        () =>
-          deliverVerificationEmail(
-            { email, url },
-            { env: { VERCEL_ENV: "preview", RESEND_API_KEY: apiKey } },
-          ),
-        /RESEND_FROM is required to send verification email on Vercel/,
+      assert.equal(missingKey.isErr(), true);
+      if (missingKey.isErr()) {
+        assert.match(missingKey.error.message, /RESEND_API_KEY is required to send verification email on Vercel/);
+        assertMemberSafe(missingKey.error);
+      }
+      const missingFrom = await deliverVerificationEmail(
+        { email, url },
+        { env: { VERCEL_ENV: "preview", RESEND_API_KEY: apiKey } },
       );
-      await assert.rejects(
-        () => deliverVerificationEmail({ email, url }, { env: { VERCEL_ENV: "production" } }),
-        /RESEND_API_KEY and RESEND_FROM are required to send verification email on Vercel/,
+      assert.equal(missingFrom.isErr(), true);
+      if (missingFrom.isErr()) {
+        assert.match(missingFrom.error.message, /RESEND_FROM is required to send verification email on Vercel/);
+        assert.equal(missingFrom.error.message.includes(apiKey), false);
+        assertMemberSafe(missingFrom.error);
+      }
+      const missingBoth = await deliverVerificationEmail(
+        { email, url },
+        { env: { VERCEL_ENV: "production" } },
       );
+      assert.equal(missingBoth.isErr(), true);
+      if (missingBoth.isErr()) {
+        assert.match(
+          missingBoth.error.message,
+          /RESEND_API_KEY and RESEND_FROM are required to send verification email on Vercel/,
+        );
+        assertMemberSafe(missingBoth.error);
+      }
       assert.deepEqual(fetchLog.calls, []);
-      assert.equal(info.lines.join("\n").includes(url), false);
+      const recorded = [...info.lines, ...logged.lines].join("\n");
+      assert.equal(recorded.includes(url), false);
+      assert.equal(recorded.includes(apiKey), false);
+      assert.match(logged.lines.join("\n"), /RESEND_API_KEY/);
     } finally {
       info.restore();
+      logged.restore();
       fetchLog.restore();
     }
   });
@@ -186,10 +232,13 @@ describe("verification email", () => {
   it("fails off Vercel when only one Resend setting is set and does not log the link", async () => {
     const info = captureConsole("info");
     try {
-      await assert.rejects(
-        () => deliverVerificationEmail({ email, url }, { env: { RESEND_API_KEY: apiKey } }),
-        /RESEND_FROM is required to send verification email\./,
-      );
+      const result = await deliverVerificationEmail({ email, url }, { env: { RESEND_API_KEY: apiKey } });
+      assert.equal(result.isErr(), true);
+      if (result.isErr()) {
+        assert.match(result.error.message, /RESEND_FROM is required to send verification email\./);
+        assert.equal(result.error.message.includes(apiKey), false);
+        assertMemberSafe(result.error);
+      }
       assert.equal(info.lines.join("\n").includes(url), false);
     } finally {
       info.restore();
@@ -209,21 +258,18 @@ describe("verification email", () => {
     const previousNodeEnv = process.env.NODE_ENV;
     setNodeEnv("production");
     try {
-      await assert.rejects(
-        () =>
-          deliverVerificationEmail(
-            { email, url },
-            { env: { RESEND_API_KEY: apiKey, RESEND_FROM: from, VERCEL_ENV: "production" } },
-          ),
-        (error: unknown) => {
-          assert.equal(error instanceof Error, true);
-          const message = error instanceof Error ? error.message : "";
-          assert.equal(message, "Resend could not send the verification email.");
-          assert.equal(message.includes(url), false);
-          assert.equal(message.includes(apiKey), false);
-          return true;
-        },
+      const result = await deliverVerificationEmail(
+        { email, url },
+        { env: { RESEND_API_KEY: apiKey, RESEND_FROM: from, VERCEL_ENV: "production" } },
       );
+      assert.equal(result.isErr(), true);
+      if (result.isErr()) {
+        assert.equal(result.error instanceof Error, true);
+        assert.equal(result.error.message, "Resend could not send the verification email.");
+        assert.equal(result.error.message.includes(url), false);
+        assert.equal(result.error.message.includes(apiKey), false);
+        assertMemberSafe(result.error);
+      }
       const logged = [...info.lines, ...errorLog.lines].join("\n");
       assert.equal(logged.includes(url), false);
       assert.equal(logged.includes(apiKey), false);
@@ -246,14 +292,15 @@ describe("verification email", () => {
     const previousNodeEnv = process.env.NODE_ENV;
     setNodeEnv("production");
     try {
-      await assert.rejects(
-        () =>
-          deliverVerificationEmail(
-            { email, url },
-            { env: { RESEND_API_KEY: apiKey, RESEND_FROM: from, VERCEL: "1" } },
-          ),
-        /Resend could not send the verification email: The dollas domain is not verified\./,
+      const result = await deliverVerificationEmail(
+        { email, url },
+        { env: { RESEND_API_KEY: apiKey, RESEND_FROM: from, VERCEL: "1" } },
       );
+      assert.equal(result.isErr(), true);
+      if (result.isErr()) {
+        assert.match(result.error.message, /Resend could not send the verification email: The dollas domain is not verified\./);
+        assertMemberSafe(result.error);
+      }
     } finally {
       setNodeEnv(previousNodeEnv);
       fetchLog.restore();
@@ -267,14 +314,15 @@ describe("verification email", () => {
     const previousNodeEnv = process.env.NODE_ENV;
     setNodeEnv("production");
     try {
-      await assert.rejects(
-        () =>
-          deliverVerificationEmail(
-            { email, url },
-            { env: { RESEND_API_KEY: apiKey, RESEND_FROM: from } },
-          ),
-        /Resend could not send the verification email/,
+      const result = await deliverVerificationEmail(
+        { email, url },
+        { env: { RESEND_API_KEY: apiKey, RESEND_FROM: from } },
       );
+      assert.equal(result.isErr(), true);
+      if (result.isErr()) {
+        assert.match(result.error.message, /Resend could not send the verification email/);
+        assertMemberSafe(result.error);
+      }
     } finally {
       setNodeEnv(previousNodeEnv);
       fetchLog.restore();
@@ -292,13 +340,40 @@ describe("verification email", () => {
     assert.equal(help.includes("server log"), false);
   });
 
-  it("mentions the server log only as the local fallback when Resend is not configured", () => {
-    const local = verificationEmailHelp({});
-    assert.match(local, /server log/);
-    assert.match(local, /Resend is not configured/);
-    const hosted = verificationEmailHelp({ VERCEL_ENV: "production" });
-    assert.equal(hosted.includes("server log"), false);
-    assert.match(hosted, /could not be sent/);
+  it("tells a member what to do when mail is not configured, without setup details", () => {
+    for (const help of [
+      verificationEmailHelp({}),
+      verificationEmailHelp({ VERCEL_ENV: "production" }),
+      verificationEmailHelp({ RESEND_API_KEY: apiKey }),
+      verificationEmailHelp({ RESEND_FROM: from, VERCEL: "1" }),
+    ]) {
+      assert.equal(help, MEMBER_MAIL_FAILURE);
+      assert.equal(memberLeak.test(help), false);
+      assert.match(help, /help/);
+    }
+  });
+});
+
+describe("password reset page copy", () => {
+  it("stays quiet when a reset email can be sent", () => {
+    assert.equal(
+      passwordResetEmailHelp({ RESEND_API_KEY: apiKey, RESEND_FROM: from, VERCEL_ENV: "production" }),
+      "",
+    );
+  });
+
+  it("shows the same next step when mail is not configured, without setup details", () => {
+    for (const help of [
+      passwordResetEmailHelp({}),
+      passwordResetEmailHelp({ VERCEL: "1" }),
+      passwordResetEmailHelp({ RESEND_API_KEY: apiKey }),
+      passwordResetEmailHelp({ RESEND_FROM: from, VERCEL_ENV: "preview" }),
+    ]) {
+      assert.equal(help, MEMBER_RESET_MAIL_FAILURE);
+      assert.equal(memberLeak.test(help), false);
+      assert.match(help, /reset link/);
+      assert.match(help, /help/);
+    }
   });
 });
 
@@ -350,6 +425,17 @@ describe("password reset email", () => {
     }
   });
 
+  it("fails on Vercel when mail is not configured and keeps that detail out of member copy", async () => {
+    const result = await deliverPasswordResetEmail({ email, url: resetUrl }, { env: { VERCEL: "1" } });
+    assert.equal(result.isErr(), true);
+    if (result.isErr()) {
+      assert.match(result.error.message, /RESEND_API_KEY and RESEND_FROM are required to send password reset email on Vercel/);
+      assert.equal(result.error.message.includes(resetUrl), false);
+      assert.equal(memberFacingMessage(result.error, MEMBER_RESET_MAIL_FAILURE), MEMBER_RESET_MAIL_FAILURE);
+      assert.equal(memberLeak.test(MEMBER_RESET_MAIL_FAILURE), false);
+    }
+  });
+
   it("keeps the reset link out of a Resend failure", async () => {
     const info = captureConsole("info");
     const errorLog = captureConsole("error");
@@ -359,21 +445,19 @@ describe("password reset email", () => {
     const previousNodeEnv = process.env.NODE_ENV;
     setNodeEnv("production");
     try {
-      await assert.rejects(
-        () =>
-          deliverPasswordResetEmail(
-            { email, url: resetUrl },
-            { env: { RESEND_API_KEY: apiKey, RESEND_FROM: from, VERCEL: "1" } },
-          ),
-        (error: unknown) => {
-          assert.equal(error instanceof Error, true);
-          const message = error instanceof Error ? error.message : "";
-          assert.equal(message, "Resend could not send the password reset email.");
-          assert.equal(message.includes(resetUrl), false);
-          assert.equal(message.includes(apiKey), false);
-          return true;
-        },
+      const result = await deliverPasswordResetEmail(
+        { email, url: resetUrl },
+        { env: { RESEND_API_KEY: apiKey, RESEND_FROM: from, VERCEL: "1" } },
       );
+      assert.equal(result.isErr(), true);
+      if (result.isErr()) {
+        assert.equal(result.error instanceof Error, true);
+        assert.equal(result.error.message, "Resend could not send the password reset email.");
+        assert.equal(result.error.message.includes(resetUrl), false);
+        assert.equal(result.error.message.includes(apiKey), false);
+        assert.equal(memberFacingMessage(result.error, MEMBER_RESET_MAIL_FAILURE), MEMBER_RESET_MAIL_FAILURE);
+        assert.equal(memberLeak.test(memberFacingMessage(result.error, MEMBER_RESET_MAIL_FAILURE)), false);
+      }
       const logged = [...info.lines, ...errorLog.lines].join("\n");
       assert.equal(logged.includes(resetUrl), false);
       assert.equal(logged.includes("reset-token-value"), false);

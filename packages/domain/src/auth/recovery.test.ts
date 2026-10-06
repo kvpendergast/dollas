@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InvalidAuthEmailError, RateLimitedError } from "../errors";
+import { ConfigError, InvalidAuthEmailError, MailDeliveryError, RateLimitedError } from "../errors";
 import {
   FORGOT_PASSWORD_MESSAGE,
   GENERIC_SIGN_IN_MESSAGE,
@@ -94,6 +94,46 @@ describe("forgot password", () => {
     expect(calls).toEqual(["ada@maple.local", "ada@maple.local", "ada@maple.local"]);
   });
 
+  it("keeps the same reply when mail is not configured, for an account and a miss alike", async () => {
+    const logged: unknown[] = [];
+    const time = clockHarness();
+    const configured = forgotten({
+      fail: new ConfigError("RESEND_API_KEY and RESEND_FROM are required to send password reset email on Vercel."),
+    });
+    const missingAccount = forgotten({
+      email: "nobody@maple.local",
+      fail: new ConfigError("RESEND_FROM is required to send password reset email."),
+    });
+    const delivery = forgotten({
+      fail: new MailDeliveryError("Resend could not send the password reset email."),
+    });
+    for (const run of [configured, missingAccount, delivery]) {
+      const result = await run.run;
+      expect(result._unsafeUnwrap()).toEqual({ message: FORGOT_PASSWORD_MESSAGE });
+      const published = JSON.stringify(result._unsafeUnwrap());
+      expect(published).not.toMatch(/RESEND_|GOOGLE_CLIENT|BETTER_AUTH_|BANK_CONNECTION|\bResend\b|not configured|server log/);
+    }
+    const noted = await requestPasswordResetNotice({
+      email: "ada@maple.local",
+      ip: "203.0.113.10",
+      store: new Map(),
+      nowMs: 0,
+      floorMs,
+      clock: time.clock,
+      sleep: time.sleep,
+      onRequestFailure: (error) => {
+        logged.push(error);
+      },
+      requestReset: async () => {
+        throw new ConfigError("RESEND_API_KEY is required to send password reset email.");
+      },
+    });
+    expect(noted._unsafeUnwrap().message).toBe(FORGOT_PASSWORD_MESSAGE);
+    expect(logged[0]).toBeInstanceOf(ConfigError);
+    expect(String((logged[0] as ConfigError).message)).toMatch(/RESEND_API_KEY/);
+    expect(JSON.stringify(noted._unsafeUnwrap())).not.toMatch(/RESEND_API_KEY/);
+  });
+
   it("rejects a blank address before asking for a reset", async () => {
     const calls: string[] = [];
     const { run } = forgotten({ email: "not-an-email", calls });
@@ -181,6 +221,25 @@ describe("resend verification", () => {
     });
     expect(sent._unsafeUnwrap().message).toBe(failed._unsafeUnwrap().message);
     expect(JSON.stringify(failed._unsafeUnwrap()).includes("not found")).toBe(false);
+  });
+
+  it("keeps the same reply when mail is not configured", async () => {
+    const logged: unknown[] = [];
+    const result = await resendVerificationNotice({
+      email: "ada@maple.local",
+      ip: "203.0.113.10",
+      store: new Map(),
+      nowMs: 0,
+      onSendFailure: (error) => {
+        logged.push(error);
+      },
+      send: async () => {
+        throw new ConfigError("RESEND_API_KEY and RESEND_FROM are required to send verification email on Vercel.");
+      },
+    });
+    expect(result._unsafeUnwrap().message).toBe(RESEND_VERIFICATION_MESSAGE);
+    expect(JSON.stringify(result._unsafeUnwrap())).not.toMatch(/RESEND_|GOOGLE_CLIENT|\bResend\b|not configured/);
+    expect(logged[0]).toBeInstanceOf(ConfigError);
   });
 
   it("allows another link after the cooldown window", async () => {
