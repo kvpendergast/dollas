@@ -164,6 +164,8 @@ describe("pendingMigrationTags", () => {
       "0009_bank_connection_grants",
       "0010_ledger_account_archive",
       "0011_transaction_deleted_at",
+      "0012_bank_account",
+      "0013_bank_account_grants",
     ]);
   });
 
@@ -271,6 +273,8 @@ describe("generated schema", () => {
     const bankGrants = await readFile(path.join(folder, "0009_bank_connection_grants.sql"), "utf8");
     const accountArchive = await readFile(path.join(folder, "0010_ledger_account_archive.sql"), "utf8");
     const transactionDeleted = await readFile(path.join(folder, "0011_transaction_deleted_at.sql"), "utf8");
+    const bankAccounts = await readFile(path.join(folder, "0012_bank_account.sql"), "utf8");
+    const bankAccountGrants = await readFile(path.join(folder, "0013_bank_account_grants.sql"), "utf8");
 
     assert.match(books, /"amount_cents" integer/);
     assert.match(books, /"opening_balance_cents" integer/);
@@ -302,6 +306,7 @@ describe("generated schema", () => {
     assert.match(APP_GRANT_SQL, /category_group/);
     assert.match(APP_GRANT_SQL, /payee_category_rule/);
     assert.match(APP_GRANT_SQL, /bank_connection/);
+    assert.match(APP_GRANT_SQL, /bank_account/);
     assert.match(categories, /CREATE TABLE "category_group"/);
     assert.match(categories, /'income', 'expense', 'transfer'/);
     assert.match(categories, /ENABLE ROW LEVEL SECURITY/);
@@ -343,6 +348,22 @@ describe("generated schema", () => {
     assert.equal(/CREATE ROLE/i.test(transactionDeleted), false);
     assert.equal(/ALTER ROLE/i.test(transactionDeleted), false);
     assert.equal(/PASSWORD/i.test(transactionDeleted), false);
+    assert.match(bankAccounts, /CREATE TABLE "bank_account"/);
+    assert.match(bankAccounts, /"balance_cents" integer/);
+    assert.match(bankAccounts, /ENABLE ROW LEVEL SECURITY/);
+    assert.match(bankAccounts, /app_can_access_household/);
+    assert.match(bankAccounts, /transactions_since/);
+    assert.equal(bankAccounts.includes("dollas_app"), false);
+    assert.equal(/CREATE ROLE/i.test(bankAccounts), false);
+    assert.equal(/PASSWORD/i.test(bankAccounts), false);
+    assert.match(bankAccountGrants, /GRANT SELECT, INSERT, UPDATE, DELETE ON bank_account TO dollas_app/);
+    assert.match(bankAccountGrants, /bank account connection must belong to the same household/);
+    assert.match(bankAccountGrants, /bank account ledger account must belong to the same household/);
+    assert.equal(/CREATE ROLE/i.test(bankAccountGrants), false);
+    assert.equal(/ALTER ROLE/i.test(bankAccountGrants), false);
+    assert.equal(/PASSWORD/i.test(bankAccountGrants), false);
+    assert.equal(/SET ROLE/i.test(bankAccountGrants), false);
+    assert.equal(/SET LOCAL ROLE/i.test(bankAccountGrants), false);
   });
 });
 

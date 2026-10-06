@@ -66,7 +66,7 @@ export default async function ActivityPage() {
         <CardHeader>
           <CardTitle>Import a CSV</CardTitle>
           <CardDescription>
-            Bring transactions in from a file on this computer. There is no bank connection and no third-party key.
+            Bring transactions in from a file on this computer. A CSV import does not use a bank connection.
             Importing the same file again does not add duplicates. A deleted row stays deleted: its import fingerprint
             is kept, so that same CSV line does not come back.
           </CardDescription>

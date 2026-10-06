@@ -45,8 +45,14 @@ export type ProviderTransaction = {
 };
 
 export type TransactionQuery = {
+  /** Inclusive civil date. Earlier transactions are left out. */
   since?: string;
   providerAccountId?: string;
+  /**
+   * When true, include transactions the provider still marks pending.
+   * Omitted or false matches SimpleFIN's default and leaves those rows out.
+   */
+  includePending?: boolean;
 };
 
 export interface BankProvider {
@@ -208,6 +214,7 @@ export function createFakeBankProvider(options?: {
       const rows = transactions.filter((row) => {
         if (query.providerAccountId && row.providerAccountId !== query.providerAccountId) return false;
         if (query.since && row.occurredOn < query.since) return false;
+        if (row.pending && !query.includePending) return false;
         return true;
       });
       for (const row of rows) {

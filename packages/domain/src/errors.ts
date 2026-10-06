@@ -87,8 +87,48 @@ export class PayeeCategoryRuleError extends DomainError {
 }
 
 export class ProviderError extends DomainError {
-  constructor(message: string) {
-    super("provider", message);
+  constructor(message: string, code = "provider") {
+    super(code, message);
+  }
+}
+
+export class InvalidSetupTokenError extends ProviderError {
+  constructor(message = "That setup token is not valid. Paste a new one from your bank.") {
+    super(message, "invalid_setup_token");
+  }
+}
+
+export class UsedSetupTokenError extends ProviderError {
+  constructor(message = "That setup token was already used. Create a new one and paste it again.") {
+    super(message, "used_setup_token");
+  }
+}
+
+export class ProviderClaimError extends ProviderError {
+  constructor(
+    message = "The bank could not finish linking. Wait a moment, then paste a new setup token.",
+  ) {
+    super(message, "provider_claim");
+  }
+}
+
+export class ProviderAuthError extends ProviderError {
+  constructor(
+    message = "The bank rejected this connection. Disconnect it and link SimpleFIN again with a new setup token.",
+  ) {
+    super(message, "provider_auth");
+  }
+}
+
+export class ProviderNetworkError extends ProviderError {
+  constructor(message = "Could not reach the bank. Try syncing again.") {
+    super(message, "provider_network");
+  }
+}
+
+export class ProviderSyncError extends ProviderError {
+  constructor(message = "The bank sent accounts Dollas could not read. Try syncing again.") {
+    super(message, "provider_sync");
   }
 }
 

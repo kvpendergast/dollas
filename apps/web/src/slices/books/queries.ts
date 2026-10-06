@@ -201,8 +201,8 @@ export async function loadActivity(books: BooksContext) {
       })
       .from(transaction)
       .innerJoin(ledgerAccount, eq(ledgerAccount.id, transaction.accountId))
-      .innerJoin(transactionSplit, eq(transactionSplit.transactionId, transaction.id))
-      .innerJoin(category, eq(category.id, transactionSplit.categoryId))
+      .leftJoin(transactionSplit, eq(transactionSplit.transactionId, transaction.id))
+      .leftJoin(category, eq(category.id, transactionSplit.categoryId))
       .leftJoin(categoryGroup, eq(categoryGroup.id, category.groupId))
       .where(postedInHousehold(books.householdId));
     const grouped = new Map<
@@ -229,11 +229,13 @@ export async function loadActivity(books: BooksContext) {
         accountArchived: row.accountArchivedAt !== null,
         splits: [],
       };
-      current.splits.push({
-        categoryId: row.categoryId,
-        categoryName: categoryLabel(row.categoryName, row.groupName),
-        amountCents: row.splitCents,
-      });
+      if (row.categoryId && row.categoryName && row.splitCents != null) {
+        current.splits.push({
+          categoryId: row.categoryId,
+          categoryName: categoryLabel(row.categoryName, row.groupName),
+          amountCents: row.splitCents,
+        });
+      }
       grouped.set(row.id, current);
     }
     const transactions = [...grouped.values()].sort((a, b) => {

@@ -1,7 +1,9 @@
-import { accountsForActiveLists, accountsForHistory, formatCents, isAccountType } from "@dollas/domain";
+import { accountsForActiveLists, accountsForHistory, formatCents, isAccountType, SIMPLEFIN_PROVIDER_ID } from "@dollas/domain";
 import { AccountForm } from "@/components/forms/account-form";
 import { AccountControls } from "@/components/forms/account-controls";
 import { DisconnectConnectionForm } from "@/components/forms/disconnect-connection";
+import { SimpleFinLinkForm } from "@/components/forms/simplefin-link";
+import { SyncConnectionForm } from "@/components/forms/sync-connection";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireBooks } from "@/slices/access/guard";
@@ -83,23 +85,46 @@ export default async function AccountsPage() {
         <CardHeader>
           <CardTitle>Bank connections</CardTitle>
           <CardDescription>
-            Disconnect deletes the stored token. Dollas never asks for a bank username or password.
+            Paste a SimpleFIN setup token from your bank. Dollas claims it once and stores the access URL encrypted.
+            Disconnect deletes that token. A bank username or password is not a connection.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           {connections.length === 0 ? (
             <p className="text-sm text-muted-foreground">No bank is connected.</p>
           ) : (
-            connections.map((connection) => (
-              <div key={connection.id} className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="font-serif text-2xl">{connection.label}</p>
-                  <p className="text-xs text-muted-foreground">{connection.providerId}</p>
+            <div className="space-y-4">
+              {connections.map((connection) => (
+                <div key={connection.id} className="space-y-3 rounded-xl bg-background px-4 py-3 ring-1 ring-foreground/10">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-serif text-2xl">{connection.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {connection.providerId}
+                        {connection.transactionsSince ? ` · transactions since ${connection.transactionsSince}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-start gap-2">
+                      {connection.providerId === SIMPLEFIN_PROVIDER_ID ? (
+                        <SyncConnectionForm connectionId={connection.id} />
+                      ) : null}
+                      <DisconnectConnectionForm connectionId={connection.id} label={connection.label} />
+                    </div>
+                  </div>
+                  {connection.accounts.length > 0 ? (
+                    <ul className="space-y-1 text-sm text-muted-foreground">
+                      {connection.accounts.map((account) => (
+                        <li key={account.providerAccountId}>
+                          {account.name} · bank balance {formatCents(account.balanceCents, account.currency)}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
-                <DisconnectConnectionForm connectionId={connection.id} label={connection.label} />
-              </div>
-            ))
+              ))}
+            </div>
           )}
+          <SimpleFinLinkForm />
         </CardContent>
       </Card>
       <Card>
