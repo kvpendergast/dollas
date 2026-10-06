@@ -55,7 +55,7 @@ The seed builds accounts, categories, budgets, and transactions relative to toda
 
 Accounts lists ledger balances and bank connections. Disconnect deletes the stored token. Seed writes one encrypted connection for the in-memory `fake` provider, not a live bank. SimpleFIN is the first real provider and is not implemented yet. Teller and Plaid are not chosen. Synced transactions will reuse the ledger import fingerprint: a bank row is `bank:{provider}:{transaction id}`, which does not collide with a CSV fingerprint, so a later sync stays idempotent with CSV import.
 
-Leave `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` empty unless you want to try Google sign-in. Set `RESEND_API_KEY` and `RESEND_FROM` to email verification links through Resend. The sender is whatever `RESEND_FROM` is set to. Production and preview use `noreply@dollas.kylependergast.com`. When both variables are unset, local development writes the link to the server log.
+Leave `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` empty unless you want to try Google sign-in. Set `RESEND_API_KEY` and `RESEND_FROM` to email verification and password-reset links through Resend. The sender is whatever `RESEND_FROM` is set to. Production and preview use `noreply@dollas.kylependergast.com`. When both variables are unset, local development writes the link to the server log instead of sending mail. OpenTelemetry logs omit the link, the token, and the password.
 
 `DATABASE_URL` is the restricted `dollas_app` role. It cannot bypass row-level security, and it cannot apply schema changes. `DATABASE_MIGRATE_URL` is the table owner, used by `pnpm db:migrate` and `pnpm db:seed`. After those have run, starting the app sees the current Drizzle journal and does not apply anything. Household queries assume `dollas_app` for the transaction, so a forgotten membership check still cannot read another household.
 
@@ -67,7 +67,7 @@ pnpm lint
 pnpm typecheck
 ```
 
-Domain tests cover household access (members only, and unverified email/password stays out) and the partial-month history rule: the current month is not treated as finished, and its year-over-year change is “Not comparable yet” with no dollar delta. Web tests cover startup migrations: an already current schema is a no-op, and startup does not read `DATABASE_MIGRATE_URL` when `DATABASE_URL` or `DATABASE_URL_UNPOOLED` is set. When Postgres is running on localhost, they also check that a non-owner login cannot read another household without a membership predicate, and that the table owner can until the session assumes `dollas_app`. They also cover verification email: Resend sends the link when it is configured, and local development without those variables still writes the link to the server log.
+Domain tests cover household access (members only, and unverified email/password stays out) and the partial-month history rule: the current month is not treated as finished, and its year-over-year change is “Not comparable yet” with no dollar delta. Web tests cover startup migrations: an already current schema is a no-op, and startup does not read `DATABASE_MIGRATE_URL` when `DATABASE_URL` or `DATABASE_URL_UNPOOLED` is set. When Postgres is running on localhost, they also check that a non-owner login cannot read another household without a membership predicate, and that the table owner can until the session assumes `dollas_app`. They also cover verification and password-reset email: Resend sends the link when it is configured, and local development without those variables still writes the link to the server log. Domain tests cover a forgot-password response that stays the same whether or not the address has a login, the resend cooldown, and the unverified sign-in message versus a wrong password.
 
 CI runs a gitleaks secret scan and a code-quality scan (lint, types, and tests).
 
@@ -83,7 +83,7 @@ Set these environment variables in Vercel. Do not commit secret values. `RESEND_
 | `DATABASE_URL_UNPOOLED` | Injected with Neon | Direct Postgres URL for the same owner login. Startup prefers it so schema changes and the migration lock keep one session. |
 | `BETTER_AUTH_SECRET` | Yes | Signs sessions. There is no production fallback. |
 | `BETTER_AUTH_URL` | Yes | Public site origin, including `https://`. |
-| `RESEND_API_KEY` | Yes | Sends email-verification links through Resend. Set on Vercel for production and preview. Do not commit a value. |
+| `RESEND_API_KEY` | Yes | Sends verification and password-reset links through Resend. Set on Vercel for production and preview. Do not commit a value. |
 | `RESEND_FROM` | Yes | From address on those messages. Production and preview set this to `noreply@dollas.kylependergast.com`. The app sends from the value of this variable. |
 | `DATABASE_MIGRATE_URL` | No | Not set on Vercel and not read at startup. Local `pnpm db:migrate` and `pnpm db:seed` still use it. |
 | `GOOGLE_CLIENT_ID` | No | Google sign-in. Counts as a verified email. Set both or neither. |
