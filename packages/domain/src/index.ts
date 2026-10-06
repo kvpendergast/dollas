@@ -11,13 +11,19 @@ export {
   InvalidEstimateError,
   InvalidHistoryError,
   InvalidMoneyError,
+  InvalidSetupTokenError,
   MailDeliveryError,
+  ProviderAuthError,
+  ProviderClaimError,
   ProviderError,
+  ProviderNetworkError,
+  ProviderSyncError,
   RateLimitedError,
   SplitImbalanceError,
   TokenEncryptionError,
   TransactionError,
   UnverifiedEmailError,
+  UsedSetupTokenError,
 } from "./errors";
 
 export {
@@ -238,6 +244,24 @@ export {
   type ProviderTransaction,
   type TransactionQuery,
 } from "./connections/provider";
+
+export {
+  SIMPLEFIN_PROVIDER_ID,
+  createSimpleFinProvider,
+  providerDecimalToCents,
+  type SimpleFinBooks,
+  type SimpleFinProvider,
+} from "./connections/simplefin";
+
+export {
+  defaultTransactionsSince,
+  isIsoDate,
+  planBankSync,
+  type BankSyncPlan,
+  type PlannedBankAccount,
+  type PlannedBankTransaction,
+  type SyncLedgerAccount,
+} from "./connections/sync";
 
 export {
   connectBank,

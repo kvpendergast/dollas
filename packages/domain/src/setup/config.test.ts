@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { ConfigError, MailDeliveryError } from "../errors";
+import { ConfigError, InvalidSetupTokenError, MailDeliveryError, TokenEncryptionError } from "../errors";
 import {
   MEMBER_MAIL_FAILURE,
   MEMBER_RESET_MAIL_FAILURE,
+  MEMBER_SETUP_FAILURE,
   memberFacingMessage,
   planVerificationMail,
   resolveGoogleSignIn,
@@ -85,5 +86,22 @@ describe("member-facing setup copy", () => {
       expect(shown).not.toMatch(leak);
       expect(shown).not.toMatch(/GOOGLE_CLIENT/);
     }
+  });
+
+  it("keeps bank key and access-url detail in the log error, not the member sentence", () => {
+    const missing = new TokenEncryptionError(
+      "BANK_CONNECTION_KEYS is required. Set comma-separated version:base64 entries of 32-byte keys.",
+    );
+    const undecryptable = new TokenEncryptionError("The current connection encryption key is missing.");
+    const accessUrl = new Error("GET https://demo-user:demo-pass@bridge.example/simplefin/accounts failed");
+    for (const error of [missing, undecryptable, accessUrl]) {
+      const shown = memberFacingMessage(error, MEMBER_SETUP_FAILURE);
+      expect(shown).toBe(MEMBER_SETUP_FAILURE);
+      expect(shown).not.toMatch(leak);
+      expect(shown).not.toContain("demo-pass");
+    }
+    const token = new InvalidSetupTokenError();
+    expect(memberFacingMessage(token, MEMBER_SETUP_FAILURE)).toBe(token.message);
+    expect(token.message).toMatch(/Paste a new one/);
   });
 });

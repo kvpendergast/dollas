@@ -21,6 +21,9 @@ describe("redact", () => {
       note: "stored [redacted-token]",
     });
     assert.equal(JSON.stringify(fields).includes(token), false);
+    const accessUrl = "https://demo-user:demo-pass@bridge.example/simplefin/accounts?start-date=1";
+    assert.equal(redactSecrets(`fetched ${accessUrl}`).includes("demo-pass"), false);
+    assert.match(redactSecrets(accessUrl), /\[redacted-url\]/);
     assert.equal(JSON.stringify(fields).includes(ciphertext), false);
     assert.equal(redactSecrets(`token=${token}`).includes(token), false);
   });

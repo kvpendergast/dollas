@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "neverthrow";
-import { ConfigError, DomainError, MailDeliveryError } from "../errors";
+import { ConfigError, DomainError, MailDeliveryError, TokenEncryptionError } from "../errors";
 
 /** Plain next step when the app itself is not ready. No setup instructions. */
 export const MEMBER_SETUP_FAILURE =
@@ -18,7 +18,7 @@ export const MEMBER_MAIL_READY =
   "Check your inbox for a verification message from dollas and open the link, then come back and sign in.";
 
 const SETUP_LEAK =
-  /\b(?:GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET|RESEND_API_KEY|RESEND_FROM|BETTER_AUTH_SECRET|BETTER_AUTH_URL|DATABASE_URL|DATABASE_MIGRATE_URL|DATABASE_URL_UNPOOLED|BANK_CONNECTION_KEYS)\b|\bResend\b|not configured|server log/i;
+  /\b(?:GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET|RESEND_API_KEY|RESEND_FROM|BETTER_AUTH_SECRET|BETTER_AUTH_URL|DATABASE_URL|DATABASE_MIGRATE_URL|DATABASE_URL_UNPOOLED|BANK_CONNECTION_KEYS)\b|\bResend\b|not configured|server log|https?:\/\/[^/\s:@]+:[^/\s@]+@/i;
 
 export type GoogleSignInDecision = {
   enabled: boolean;
@@ -81,7 +81,9 @@ export function verificationHelpForMember(state: MemberMailState): string {
 }
 
 export function hidesSetupDetail(error: unknown): boolean {
-  if (error instanceof ConfigError || error instanceof MailDeliveryError) return true;
+  if (error instanceof ConfigError || error instanceof MailDeliveryError || error instanceof TokenEncryptionError) {
+    return true;
+  }
   const message = error instanceof Error ? error.message : "";
   return SETUP_LEAK.test(message);
 }

@@ -6,6 +6,7 @@ const AUTH_LINK =
 /** Remove connection strings, credential query params, auth links, and sealed bank tokens. */
 export function redactSecrets(value: string): string {
   return value
+    .replace(/[a-z][a-z0-9+.-]*:\/\/[^\s/@]+:[^\s/@]+@[^\s]+/gi, "[redacted-url]")
     .replace(/postgres(?:ql)?:\/\/\S+/gi, "[redacted-url]")
     .replace(AUTH_LINK, "[redacted-link]")
     .replace(/\b(password|pwd|passwd|token|secret)=([^\s&]+)/gi, "$1=[redacted]")

@@ -85,6 +85,20 @@
       "when": 1791243946620,
       "tag": "0011_transaction_deleted_at",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791247348387,
+      "tag": "0012_bank_account",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791247353535,
+      "tag": "0013_bank_account_grants",
+      "breakpoints": true
     }
   ]
 }

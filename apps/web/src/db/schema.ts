@@ -302,6 +302,8 @@ export const bankConnection = pgTable(
     label: text("label").notNull(),
     encryptedAccessToken: text("encrypted_access_token").notNull(),
     keyVersion: integer("key_version").notNull(),
+    /** Inclusive civil date of the first sync. Later syncs keep it so the window does not slide backward. */
+    transactionsSince: date("transactions_since"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
@@ -317,6 +319,43 @@ export const bankConnection = pgTable(
     check("bank_connection_key_version_chk", sql`${table.keyVersion} >= 1`),
     index("bank_connection_household_idx").on(table.householdId),
     pgPolicy("bank_connection_all", {
+      for: "all",
+      using: sql`app_can_access_household(${table.householdId})`,
+      withCheck: sql`app_can_access_household(${table.householdId})`,
+    }),
+  ],
+).enableRLS();
+
+export const bankAccount = pgTable(
+  "bank_account",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    connectionId: uuid("connection_id").references(() => bankConnection.id, { onDelete: "set null" }),
+    providerId: text("provider_id").notNull(),
+    providerAccountId: text("provider_account_id").notNull(),
+    ledgerAccountId: uuid("ledger_account_id")
+      .notNull()
+      .references(() => ledgerAccount.id, { onDelete: "cascade" }),
+    balanceCents: integer("balance_cents").notNull(),
+    currency: text("currency").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique("bank_account_provider_key").on(table.householdId, table.providerId, table.providerAccountId),
+    unique("bank_account_ledger_key").on(table.ledgerAccountId),
+    check("bank_account_provider_chk", sql`${table.providerId} ~ '^[a-z][a-z0-9_-]{0,31}$'`),
+    check(
+      "bank_account_provider_account_chk",
+      sql`char_length(${table.providerAccountId}) between 1 and 200 and ${table.providerAccountId} !~ '[[:cntrl:]]'`,
+    ),
+    check("bank_account_currency_chk", sql`${table.currency} ~ '^[A-Z]{3}$'`),
+    index("bank_account_household_idx").on(table.householdId),
+    index("bank_account_connection_idx").on(table.connectionId),
+    pgPolicy("bank_account_all", {
       for: "all",
       using: sql`app_can_access_household(${table.householdId})`,
       withCheck: sql`app_can_access_household(${table.householdId})`,
@@ -365,4 +404,5 @@ export const schema = {
   transaction,
   transactionSplit,
   bankConnection,
+  bankAccount,
 };
