@@ -250,6 +250,8 @@ export const transaction = pgTable(
     payee: text("payee").notNull(),
     amountCents: integer("amount_cents").notNull(),
     importFingerprint: text("import_fingerprint"),
+    /** Set when a member deletes the transaction. The row and its import fingerprint stay so CSV import does not recreate it. */
+    deletedAt: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [

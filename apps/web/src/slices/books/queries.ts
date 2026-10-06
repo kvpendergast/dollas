@@ -14,7 +14,7 @@ import {
   type HistoryColumn,
   type SpendEstimate,
 } from "@dollas/domain";
-import { and, count, eq, gte, lte, sql } from "drizzle-orm";
+import { and, count, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import { withActor } from "@/db/actor";
 import {
   category,
@@ -30,6 +30,11 @@ import type { BooksContext } from "@/slices/access/guard";
 
 function monthStart(asOf: CivilDate): string {
   return toIsoDate({ year: asOf.year, month: asOf.month, day: 1 });
+}
+
+/** Posted rows only. A deleted transaction keeps its fingerprint but leaves the books. */
+function postedInHousehold(householdId: string) {
+  return and(eq(transaction.householdId, householdId), isNull(transaction.deletedAt));
 }
 
 function effectOf(kind: string, amountCents: number) {
@@ -79,7 +84,7 @@ export async function loadHome(books: BooksContext) {
       .leftJoin(categoryGroup, eq(categoryGroup.id, category.groupId))
       .where(
         and(
-          eq(transaction.householdId, books.householdId),
+          postedInHousehold(books.householdId),
           gte(transaction.occurredOn, start),
           lte(transaction.occurredOn, end),
         ),
@@ -111,7 +116,7 @@ export async function loadHome(books: BooksContext) {
     const accountMovements = await tx
       .select({ accountId: transaction.accountId, amountCents: transaction.amountCents })
       .from(transaction)
-      .where(eq(transaction.householdId, books.householdId));
+      .where(postedInHousehold(books.householdId));
     return { transactions, budgets, accountRows, accountMovements };
   });
   const accounts = rollupAccounts(rows.accountRows, rows.accountMovements);
@@ -199,7 +204,7 @@ export async function loadActivity(books: BooksContext) {
       .innerJoin(transactionSplit, eq(transactionSplit.transactionId, transaction.id))
       .innerJoin(category, eq(category.id, transactionSplit.categoryId))
       .leftJoin(categoryGroup, eq(categoryGroup.id, category.groupId))
-      .where(eq(transaction.householdId, books.householdId));
+      .where(postedInHousehold(books.householdId));
     const grouped = new Map<
       string,
       {
@@ -347,7 +352,7 @@ export async function loadAccounts(books: BooksContext) {
     const movements = await tx
       .select({ accountId: transaction.accountId, amountCents: transaction.amountCents })
       .from(transaction)
-      .where(eq(transaction.householdId, books.householdId));
+      .where(postedInHousehold(books.householdId));
     return rollupAccounts(accounts, movements);
   });
 }
@@ -392,7 +397,7 @@ export async function loadPlan(books: BooksContext) {
       .innerJoin(category, eq(category.id, transactionSplit.categoryId))
       .where(
         and(
-          eq(transaction.householdId, books.householdId),
+          postedInHousehold(books.householdId),
           gte(transaction.occurredOn, start),
           lte(transaction.occurredOn, end),
         ),
@@ -432,7 +437,7 @@ export async function loadHistory(books: BooksContext): Promise<HistoryColumn[]>
       .from(transaction)
       .innerJoin(transactionSplit, eq(transactionSplit.transactionId, transaction.id))
       .innerJoin(category, eq(category.id, transactionSplit.categoryId))
-      .where(eq(transaction.householdId, books.householdId)),
+      .where(postedInHousehold(books.householdId)),
   );
   const expenses = rows.flatMap((row) => {
     const spentCents = effectOf(row.kind, row.amountCents).spentCents;

@@ -14,6 +14,7 @@ export {
   RateLimitedError,
   SplitImbalanceError,
   TokenEncryptionError,
+  TransactionError,
   UnverifiedEmailError,
 } from "./errors";
 
@@ -139,7 +140,29 @@ export {
   type YearOverYear,
 } from "./history/columns";
 
-export { validateSplits, type BalancedSplit, type SplitDraft } from "./activity/splits";
+export {
+  canAddSplit,
+  MAX_TRANSACTION_SPLITS,
+  SPLIT_CONTROL_COPY,
+  SPLIT_LIMIT_MESSAGE,
+  validateSplits,
+  type BalancedSplit,
+  type SplitDraft,
+} from "./activity/splits";
+
+export {
+  directionCategoryNotice,
+  directionDefaultForKind,
+  type DirectionCategoryNotice,
+  type TransactionDirection,
+} from "./activity/direction";
+
+export {
+  deleteTransaction,
+  restoreTransaction,
+  retainedImportFingerprints,
+  type StoredTransaction,
+} from "./activity/delete";
 
 export {
   importCsv,

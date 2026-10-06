@@ -5,12 +5,16 @@ import {
   accountAcceptsCorrection,
   accountAcceptsNewEntry,
   accountsForActiveLists,
+  deleteTransaction,
   importCsv,
   resolveCsvRows,
+  restoreTransaction,
+  retainedImportFingerprints,
+  TransactionError,
   validateSplits,
   type PayeeCategoryRule,
 } from "@dollas/domain";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { withActor } from "@/db/actor";
 import type { AppTx } from "@/db/client";
@@ -53,16 +57,30 @@ export async function importCsvAction(_state: ImportCsvState, formData: FormData
         .from(category)
         .where(eq(category.householdId, books.householdId));
       const existing = await tx
-        .select({ fingerprint: transaction.importFingerprint })
+        .select({
+          householdId: transaction.householdId,
+          fingerprint: transaction.importFingerprint,
+          deletedAt: transaction.deletedAt,
+        })
         .from(transaction)
         .where(and(eq(transaction.householdId, books.householdId), isNotNull(transaction.importFingerprint)));
+      // Deleted rows stay in this list. The same CSV row is not imported again.
       const rules: PayeeCategoryRule[] = await tx
         .select({ pattern: payeeCategoryRule.pattern, categoryId: payeeCategoryRule.categoryId })
         .from(payeeCategoryRule)
         .where(eq(payeeCategoryRule.householdId, books.householdId));
       const outcome = await importCsv(
         text,
-        { rows: existing.flatMap((row) => (row.fingerprint ? [{ fingerprint: row.fingerprint }] : [])) },
+        {
+          rows: retainedImportFingerprints(
+            existing.map((row) => ({
+              householdId: row.householdId,
+              fingerprint: row.fingerprint,
+              deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
+            })),
+            books.householdId,
+          ),
+        },
         (rows) => resolveCsvRows(rows, accounts, categories, rules),
       );
       if (outcome.isErr()) throw outcome.error;
@@ -241,10 +259,10 @@ async function replaceTransaction(
 ): Promise<void> {
   await withActor(userId, async (tx) => {
     const [existing] = await tx
-      .select({ id: transaction.id, accountId: transaction.accountId })
+      .select({ id: transaction.id, accountId: transaction.accountId, deletedAt: transaction.deletedAt })
       .from(transaction)
       .where(and(eq(transaction.id, transactionId), eq(transaction.householdId, householdId)));
-    if (!existing) throw new Error("That transaction is not in this household.");
+    if (!existing || existing.deletedAt) throw new Error("That transaction is not in this household.");
     await requireHouseholdTargets(
       tx,
       householdId,
@@ -252,7 +270,7 @@ async function replaceTransaction(
       draft.splits.map((split) => split.categoryId),
       { kind: "correction", currentAccountId: existing.accountId },
     );
-    // This correction is one transaction. Payee rules stay as they are.
+    // This edit is one transaction. Payee rules stay as they are.
     const updated = await tx
       .update(transaction)
       .set({
@@ -261,7 +279,13 @@ async function replaceTransaction(
         payee: draft.payee,
         amountCents: draft.amountCents,
       })
-      .where(and(eq(transaction.id, transactionId), eq(transaction.householdId, householdId)))
+      .where(
+        and(
+          eq(transaction.id, transactionId),
+          eq(transaction.householdId, householdId),
+          isNull(transaction.deletedAt),
+        ),
+      )
       .returning({ id: transaction.id });
     if (updated.length === 0) throw new Error("That transaction is not in this household.");
     // Replaced in this transaction so the deferred balance trigger sees the final set.
@@ -277,4 +301,70 @@ async function replaceTransaction(
       })),
     );
   });
+}
+
+export async function deleteTransactionAction(transactionId: string): Promise<{ error: string }> {
+  const books = await requireBooks();
+  if (!TRANSACTION_ID.test(transactionId)) return { error: "That transaction is not in this household." };
+  try {
+    await withActor(books.userId, async (tx) => {
+      const current = await loadStored(tx, books.householdId, transactionId);
+      const decision = deleteTransaction(current, books.householdId, new Date().toISOString());
+      if (decision.isErr()) throw decision.error;
+      const stamp = decision.value.deletedAt;
+      if (!stamp) throw new TransactionError("Could not delete that transaction.");
+      // The fingerprint stays. Payee rules are not updated.
+      await tx
+        .update(transaction)
+        .set({ deletedAt: new Date(stamp) })
+        .where(and(eq(transaction.id, transactionId), eq(transaction.householdId, books.householdId)));
+    });
+  } catch (error) {
+    logError(error, { action: "delete-transaction", householdId: books.householdId, transactionId });
+    if (error instanceof DomainError) return { error: error.message };
+    return { error: "Could not delete that transaction." };
+  }
+  revalidateBooks();
+  return { error: "" };
+}
+
+export async function restoreTransactionAction(transactionId: string): Promise<{ error: string }> {
+  const books = await requireBooks();
+  if (!TRANSACTION_ID.test(transactionId)) return { error: "That transaction is not in this household." };
+  try {
+    await withActor(books.userId, async (tx) => {
+      const current = await loadStored(tx, books.householdId, transactionId);
+      const decision = restoreTransaction(current, books.householdId);
+      if (decision.isErr()) throw decision.error;
+      await tx
+        .update(transaction)
+        .set({ deletedAt: null })
+        .where(and(eq(transaction.id, transactionId), eq(transaction.householdId, books.householdId)));
+    });
+  } catch (error) {
+    logError(error, { action: "restore-transaction", householdId: books.householdId, transactionId });
+    if (error instanceof DomainError) return { error: error.message };
+    return { error: "Could not restore that transaction." };
+  }
+  revalidateBooks();
+  return { error: "" };
+}
+
+async function loadStored(tx: AppTx, householdId: string, transactionId: string) {
+  const [row] = await tx
+    .select({
+      id: transaction.id,
+      householdId: transaction.householdId,
+      importFingerprint: transaction.importFingerprint,
+      deletedAt: transaction.deletedAt,
+    })
+    .from(transaction)
+    .where(and(eq(transaction.id, transactionId), eq(transaction.householdId, householdId)));
+  if (!row) return null;
+  return {
+    id: row.id,
+    householdId: row.householdId,
+    importFingerprint: row.importFingerprint,
+    deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
+  };
 }
