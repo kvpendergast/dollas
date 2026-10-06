@@ -1,13 +1,15 @@
-import { accountsForActiveLists, accountsForHistory, formatCents, isAccountType, SIMPLEFIN_PROVIDER_ID } from "@dollas/domain";
+import { accountsForActiveLists, accountsForHistory, formatCents, isAccountType, PLAID_PROVIDER_ID, SIMPLEFIN_PROVIDER_ID } from "@dollas/domain";
 import { AccountForm } from "@/components/forms/account-form";
 import { AccountControls } from "@/components/forms/account-controls";
 import { DisconnectConnectionForm } from "@/components/forms/disconnect-connection";
+import { PlaidLinkForm } from "@/components/forms/plaid-link";
 import { SimpleFinLinkForm } from "@/components/forms/simplefin-link";
 import { SyncConnectionForm } from "@/components/forms/sync-connection";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireBooks } from "@/slices/access/guard";
 import { loadAccounts, type AccountListItem } from "@/slices/books/queries";
+import { plaidLinkEnabled } from "@/slices/connections/plaid-config";
 import { loadBankConnections } from "@/slices/connections/queries";
 
 function AccountCard({ account }: { account: AccountListItem }) {
@@ -46,6 +48,7 @@ function AccountCard({ account }: { account: AccountListItem }) {
 
 export default async function AccountsPage() {
   const books = await requireBooks();
+  const plaidEnabled = plaidLinkEnabled();
   const [accounts, connections] = await Promise.all([loadAccounts(books), loadBankConnections(books)]);
   const listed = accounts.filter((account) => isAccountType(account.type));
   const active = accountsForActiveLists(listed, books.householdId);
@@ -85,8 +88,9 @@ export default async function AccountsPage() {
         <CardHeader>
           <CardTitle>Bank connections</CardTitle>
           <CardDescription>
-            Paste a SimpleFIN setup token from your bank. Dollas claims it once and stores the access URL encrypted.
-            Disconnect deletes that token. A bank username or password is not a connection.
+            {plaidEnabled
+              ? "Connect SimpleFIN, Plaid, or both. Each connection stores a provider token encrypted. A bank username or password is not a connection."
+              : "Paste a SimpleFIN setup token from your bank. Dollas claims it once and stores the access URL encrypted. Disconnect deletes that token. A bank username or password is not a connection."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -105,7 +109,7 @@ export default async function AccountsPage() {
                       </p>
                     </div>
                     <div className="flex flex-wrap items-start gap-2">
-                      {connection.providerId === SIMPLEFIN_PROVIDER_ID ? (
+                      {connection.providerId === SIMPLEFIN_PROVIDER_ID || connection.providerId === PLAID_PROVIDER_ID ? (
                         <SyncConnectionForm connectionId={connection.id} />
                       ) : null}
                       <DisconnectConnectionForm connectionId={connection.id} label={connection.label} />
@@ -124,7 +128,19 @@ export default async function AccountsPage() {
               ))}
             </div>
           )}
-          <SimpleFinLinkForm />
+          <div className="space-y-3">
+            <h3 className="font-serif text-xl">SimpleFIN</h3>
+            <SimpleFinLinkForm />
+          </div>
+          {plaidEnabled ? (
+            <div className="space-y-3 border-t border-foreground/10 pt-6">
+              <h3 className="font-serif text-xl">Plaid</h3>
+              <p className="text-sm text-muted-foreground">
+                Link a bank through Plaid. It can sit beside a SimpleFIN connection, on a different account.
+              </p>
+              <PlaidLinkForm enabled />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
       <Card>

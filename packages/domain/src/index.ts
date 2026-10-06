@@ -262,12 +262,30 @@ export {
 } from "./connections/simplefin";
 
 export {
+  PLAID_PROVIDER_ID,
+  createPlaidProvider,
+  plaidAmountToCents,
+  plaidApiHost,
+  plaidHistoryDays,
+  resolvePlaidConfig,
+  type PlaidConfigDecision,
+  type PlaidCredentials,
+  type PlaidEnv,
+  type PlaidProvider,
+  type PlaidSyncSnapshot,
+} from "./connections/plaid";
+
+export {
   defaultTransactionsSince,
   isIsoDate,
   planBankSync,
+  planPlaidSync,
   type BankSyncPlan,
   type PlannedBankAccount,
+  type PlannedBankRemoval,
   type PlannedBankTransaction,
+  type PlannedBankUpdate,
+  type PlaidSyncPlan,
   type SyncLedgerAccount,
 } from "./connections/sync";
 

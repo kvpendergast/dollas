@@ -333,6 +333,12 @@ export const bankConnection = pgTable(
     keyVersion: integer("key_version").notNull(),
     /** Inclusive civil date of the first sync. Later syncs keep it so the window does not slide backward. */
     transactionsSince: date("transactions_since"),
+    /**
+     * Opaque Plaid `/transactions/sync` cursor. Null until the first successful
+     * Plaid sync. Other providers leave it null. The table already has row-level
+     * security and the dollas_app grants from 0009.
+     */
+    syncCursor: text("sync_cursor"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
@@ -346,6 +352,10 @@ export const bankConnection = pgTable(
       sql`${table.encryptedAccessToken} ~ '^v[1-9][0-9]{0,8}[.][A-Za-z0-9_-]{16,}[.][A-Za-z0-9_-]{16,}$'`,
     ),
     check("bank_connection_key_version_chk", sql`${table.keyVersion} >= 1`),
+    check(
+      "bank_connection_sync_cursor_chk",
+      sql`${table.syncCursor} is null or (char_length(${table.syncCursor}) between 1 and 8192 and ${table.syncCursor} !~ '[[:cntrl:]]')`,
+    ),
     index("bank_connection_household_idx").on(table.householdId),
     pgPolicy("bank_connection_all", {
       for: "all",

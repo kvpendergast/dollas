@@ -113,6 +113,20 @@
       "when": 1791251179946,
       "tag": "0015_csv_import_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791251786859,
+      "tag": "0016_plaid_sync_cursor",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791251799446,
+      "tag": "0017_plaid_sync_cursor_grants",
+      "breakpoints": true
     }
   ]
 }

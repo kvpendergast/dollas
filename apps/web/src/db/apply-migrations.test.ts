@@ -168,6 +168,8 @@ describe("pendingMigrationTags", () => {
       "0013_bank_account_grants",
       "0014_csv_import_batch",
       "0015_csv_import_grants",
+      "0016_plaid_sync_cursor",
+      "0017_plaid_sync_cursor_grants",
     ]);
   });
 
@@ -279,6 +281,8 @@ describe("generated schema", () => {
     const bankAccountGrants = await readFile(path.join(folder, "0013_bank_account_grants.sql"), "utf8");
     const csvImportBatch = await readFile(path.join(folder, "0014_csv_import_batch.sql"), "utf8");
     const csvImportGrants = await readFile(path.join(folder, "0015_csv_import_grants.sql"), "utf8");
+    const plaidCursor = await readFile(path.join(folder, "0016_plaid_sync_cursor.sql"), "utf8");
+    const plaidCursorGrants = await readFile(path.join(folder, "0017_plaid_sync_cursor_grants.sql"), "utf8");
 
     assert.match(books, /"amount_cents" integer/);
     assert.match(books, /"opening_balance_cents" integer/);
@@ -384,6 +388,17 @@ describe("generated schema", () => {
     assert.equal(/PASSWORD/i.test(csvImportGrants), false);
     assert.equal(/SET ROLE/i.test(csvImportGrants), false);
     assert.equal(/SET LOCAL ROLE/i.test(csvImportGrants), false);
+    assert.match(plaidCursor, /ADD COLUMN "sync_cursor" text/);
+    assert.match(plaidCursor, /bank_connection_sync_cursor_chk/);
+    assert.equal(plaidCursor.includes("dollas_app"), false);
+    assert.equal(/CREATE ROLE/i.test(plaidCursor), false);
+    assert.equal(/PASSWORD/i.test(plaidCursor), false);
+    assert.match(plaidCursorGrants, /GRANT SELECT, INSERT, UPDATE, DELETE ON bank_connection TO dollas_app/);
+    assert.equal(/CREATE ROLE/i.test(plaidCursorGrants), false);
+    assert.equal(/ALTER ROLE/i.test(plaidCursorGrants), false);
+    assert.equal(/PASSWORD/i.test(plaidCursorGrants), false);
+    assert.equal(/SET ROLE/i.test(plaidCursorGrants), false);
+    assert.equal(/SET LOCAL ROLE/i.test(plaidCursorGrants), false);
   });
 });
 
