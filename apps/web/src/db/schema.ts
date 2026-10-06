@@ -236,6 +236,32 @@ export const categoryBudget = pgTable(
   ],
 ).enableRLS();
 
+/**
+ * One committed CSV import. Undo hard-deletes the transactions that carry this
+ * id. A member delete sets transaction.deleted_at instead and keeps the row.
+ */
+export const csvImport = pgTable(
+  "csv_import",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    addedCount: integer("added_count").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    undoneAt: timestamp("undone_at", { withTimezone: true, mode: "date" }),
+  },
+  (table) => [
+    check("csv_import_added_count_chk", sql`${table.addedCount} >= 0`),
+    index("csv_import_household_created_idx").on(table.householdId, table.createdAt),
+    pgPolicy("csv_import_all", {
+      for: "all",
+      using: sql`app_can_access_household(${table.householdId})`,
+      withCheck: sql`app_can_access_household(${table.householdId})`,
+    }),
+  ],
+).enableRLS();
+
 export const transaction = pgTable(
   "transaction",
   {
@@ -250,12 +276,15 @@ export const transaction = pgTable(
     payee: text("payee").notNull(),
     amountCents: integer("amount_cents").notNull(),
     importFingerprint: text("import_fingerprint"),
+    /** Set only on rows this CSV import created. Manual entries and bank sync leave it empty. */
+    importBatchId: uuid("import_batch_id").references(() => csvImport.id, { onDelete: "set null" }),
     /** Set when a member deletes the transaction. The row and its import fingerprint stay so CSV import does not recreate it. */
     deletedAt: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
     index("transaction_household_date_idx").on(table.householdId, table.occurredOn),
+    index("transaction_import_batch_idx").on(table.importBatchId),
     unique("transaction_import_fingerprint_key").on(table.householdId, table.importFingerprint),
     pgPolicy("transaction_all", {
       for: "all",
@@ -401,6 +430,7 @@ export const schema = {
   category,
   categoryBudget,
   payeeCategoryRule,
+  csvImport,
   transaction,
   transactionSplit,
   bankConnection,

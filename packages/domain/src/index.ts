@@ -191,12 +191,20 @@ export {
 } from "./activity/delete";
 
 export {
+  CSV_IMPORT_MAX_CHARS,
+  csvTooLargeMessage,
   importCsv,
+  previewCsvImport,
   resolveCsvRows,
   type CsvLedger,
+  type CsvPreview,
+  type CsvPreviewRow,
+  type CsvRowStatus,
   type PlannedCsvRow,
   type ResolvedCsvRow,
 } from "./import/csv";
+
+export { transactionsRemovedByUndo, type ImportBatchTransaction } from "./import/undo";
 
 export {
   definePayeeCategoryRule,

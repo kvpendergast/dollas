@@ -5,6 +5,7 @@ import { PayeeRules } from "@/components/forms/payee-rule-form";
 import { TransactionForm } from "@/components/forms/transaction-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireBooks } from "@/slices/access/guard";
+import { loadCsvImportPanel } from "@/slices/activity/import-csv";
 import { PAYEE_RULES_APPLY_TO } from "@/slices/activity/payee-rule-copy";
 import { loadActivity } from "@/slices/books/queries";
 
@@ -25,7 +26,7 @@ function editAccounts<T extends { id: string; name: string; archivedAt: string |
 
 export default async function ActivityPage() {
   const books = await requireBooks();
-  const activity = await loadActivity(books);
+  const [activity, csvImports] = await Promise.all([loadActivity(books), loadCsvImportPanel()]);
   const newEntryAccounts = accountsForActiveLists(activity.accounts, books.householdId);
   return (
     <div className="space-y-6">
@@ -64,13 +65,13 @@ export default async function ActivityPage() {
         <CardHeader>
           <CardTitle>Import a CSV</CardTitle>
           <CardDescription>
-            Bring transactions in from a file on this computer. A CSV import does not use a bank connection.
-            Importing the same file again does not add duplicates. A deleted row stays deleted: its import fingerprint
-            is kept, so that same CSV line does not come back.
+            Preview the rows before they are added. Importing the same file again adds nothing. A transaction you
+            delete stays deleted, and that line is not added again. Undo removes only the transactions that import
+            added, so you can import the file again after that.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ImportForm />
+          <ImportForm batches={csvImports.open} undoneNotice={csvImports.undoneNotice} />
         </CardContent>
       </Card>
       {activity.transactions.length === 0 ? (

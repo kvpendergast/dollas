@@ -166,6 +166,8 @@ describe("pendingMigrationTags", () => {
       "0011_transaction_deleted_at",
       "0012_bank_account",
       "0013_bank_account_grants",
+      "0014_csv_import_batch",
+      "0015_csv_import_grants",
     ]);
   });
 
@@ -275,6 +277,8 @@ describe("generated schema", () => {
     const transactionDeleted = await readFile(path.join(folder, "0011_transaction_deleted_at.sql"), "utf8");
     const bankAccounts = await readFile(path.join(folder, "0012_bank_account.sql"), "utf8");
     const bankAccountGrants = await readFile(path.join(folder, "0013_bank_account_grants.sql"), "utf8");
+    const csvImportBatch = await readFile(path.join(folder, "0014_csv_import_batch.sql"), "utf8");
+    const csvImportGrants = await readFile(path.join(folder, "0015_csv_import_grants.sql"), "utf8");
 
     assert.match(books, /"amount_cents" integer/);
     assert.match(books, /"opening_balance_cents" integer/);
@@ -307,6 +311,7 @@ describe("generated schema", () => {
     assert.match(APP_GRANT_SQL, /payee_category_rule/);
     assert.match(APP_GRANT_SQL, /bank_connection/);
     assert.match(APP_GRANT_SQL, /bank_account/);
+    assert.match(APP_GRANT_SQL, /csv_import/);
     assert.match(categories, /CREATE TABLE "category_group"/);
     assert.match(categories, /'income', 'expense', 'transfer'/);
     assert.match(categories, /ENABLE ROW LEVEL SECURITY/);
@@ -364,6 +369,21 @@ describe("generated schema", () => {
     assert.equal(/PASSWORD/i.test(bankAccountGrants), false);
     assert.equal(/SET ROLE/i.test(bankAccountGrants), false);
     assert.equal(/SET LOCAL ROLE/i.test(bankAccountGrants), false);
+    assert.match(csvImportBatch, /CREATE TABLE "csv_import"/);
+    assert.match(csvImportBatch, /ENABLE ROW LEVEL SECURITY/);
+    assert.match(csvImportBatch, /app_can_access_household/);
+    assert.match(csvImportBatch, /ADD COLUMN "import_batch_id" uuid/);
+    assert.equal(csvImportBatch.includes("dollas_app"), false);
+    assert.equal(/CREATE ROLE/i.test(csvImportBatch), false);
+    assert.equal(/ALTER ROLE/i.test(csvImportBatch), false);
+    assert.equal(/PASSWORD/i.test(csvImportBatch), false);
+    assert.match(csvImportGrants, /GRANT SELECT, INSERT, UPDATE, DELETE ON csv_import TO dollas_app/);
+    assert.match(csvImportGrants, /import batch must belong to the same household/);
+    assert.equal(/CREATE ROLE/i.test(csvImportGrants), false);
+    assert.equal(/ALTER ROLE/i.test(csvImportGrants), false);
+    assert.equal(/PASSWORD/i.test(csvImportGrants), false);
+    assert.equal(/SET ROLE/i.test(csvImportGrants), false);
+    assert.equal(/SET LOCAL ROLE/i.test(csvImportGrants), false);
   });
 });
 

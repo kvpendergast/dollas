@@ -3,7 +3,8 @@ import { CsvImportError } from "../errors";
 import { parseDollarInput, type Cents } from "../money/cents";
 import { matchingPayeeRule, type PayeeCategoryRule } from "../rules/payee-category";
 
-const MAX_CSV_CHARS = 1_000_000;
+/** Character limit for one CSV import. The upload refuses a larger file with the same sentence. */
+export const CSV_IMPORT_MAX_CHARS = 1_000_000;
 const MAX_ROWS = 5_000;
 const MAX_COLUMNS = 20;
 const MAX_PAYEE = 200;
@@ -34,8 +35,34 @@ export type CsvLedger = {
 export type CsvImportOutcome<Row extends { fingerprint: string }> = {
   addedRows: readonly Row[];
   added: number;
+  already: number;
   parsedRows: number;
 };
+
+export type CsvRowStatus = "new" | "already";
+
+export type CsvPreviewRow<Row extends { fingerprint: string }> = Row & {
+  status: CsvRowStatus;
+};
+
+export type CsvPreview<Row extends { fingerprint: string }> = {
+  rows: readonly CsvPreviewRow<Row>[];
+  newCount: number;
+  alreadyCount: number;
+  parsedRows: number;
+};
+
+/**
+ * Member-facing limit. The number is the real parser cap, written out so the
+ * screen does not show a constant name or a setup instruction.
+ */
+export function csvTooLargeMessage(): string {
+  const limit =
+    CSV_IMPORT_MAX_CHARS === 1_000_000
+      ? "one million characters"
+      : `${new Intl.NumberFormat("en-US").format(CSV_IMPORT_MAX_CHARS)} characters`;
+  return `That CSV is too large. The limit is ${limit}.`;
+}
 
 type CsvRecord = {
   line: number;
@@ -46,7 +73,10 @@ type CsvRecord = {
  * Import CSV rows into a household ledger. The same file imported again
  * contributes nothing: each row's fingerprint is the file contents plus its
  * position, so identical lines in one file stay distinct and a second pass
- * matches them all.
+ * matches them all. A fingerprint still on a soft-deleted row counts as
+ * already imported. Undo of an import is separate: it hard-deletes only the
+ * rows that batch created, which drops those fingerprints so the file can be
+ * imported again.
  */
 export function importCsv(
   csv: string,
@@ -62,16 +92,65 @@ export async function importCsv<Row extends { fingerprint: string }>(
   ledger: CsvLedger,
   adapt?: (rows: readonly PlannedCsvRow[]) => Result<readonly Row[], CsvImportError>,
 ): Promise<Result<CsvImportOutcome<Row>, CsvImportError>> {
+  const prepared = await prepareCsvImport(csv, ledger, adapt);
+  if (prepared.isErr()) return err(prepared.error);
+  return ok({
+    addedRows: prepared.value.added,
+    added: prepared.value.added.length,
+    already: prepared.value.already.length,
+    parsedRows: prepared.value.parsedRows,
+  });
+}
+
+/**
+ * Parse a CSV and compare it to fingerprints already in the books, including
+ * soft-deleted rows. Nothing is written. `already` rows must not be inserted.
+ */
+export function previewCsvImport(
+  csv: string,
+  ledger: CsvLedger,
+): Promise<Result<CsvPreview<PlannedCsvRow>, CsvImportError>>;
+export function previewCsvImport<Row extends { fingerprint: string }>(
+  csv: string,
+  ledger: CsvLedger,
+  adapt: (rows: readonly PlannedCsvRow[]) => Result<readonly Row[], CsvImportError>,
+): Promise<Result<CsvPreview<Row>, CsvImportError>>;
+export async function previewCsvImport<Row extends { fingerprint: string }>(
+  csv: string,
+  ledger: CsvLedger,
+  adapt?: (rows: readonly PlannedCsvRow[]) => Result<readonly Row[], CsvImportError>,
+): Promise<Result<CsvPreview<Row>, CsvImportError>> {
+  const prepared = await prepareCsvImport(csv, ledger, adapt);
+  if (prepared.isErr()) return err(prepared.error);
+  return ok({
+    rows: prepared.value.marked,
+    newCount: prepared.value.added.length,
+    alreadyCount: prepared.value.already.length,
+    parsedRows: prepared.value.parsedRows,
+  });
+}
+
+async function prepareCsvImport<Row extends { fingerprint: string }>(
+  csv: string,
+  ledger: CsvLedger,
+  adapt?: (rows: readonly PlannedCsvRow[]) => Result<readonly Row[], CsvImportError>,
+): Promise<
+  Result<
+    {
+      marked: CsvPreviewRow<Row>[];
+      added: Row[];
+      already: Row[];
+      parsedRows: number;
+    },
+    CsvImportError
+  >
+> {
   const planned = await planCsvImport(csv);
   if (planned.isErr()) return err(planned.error);
   const adapted = adapt ? adapt(planned.value) : ok(planned.value as unknown as readonly Row[]);
   if (adapted.isErr()) return err(adapted.error);
-  const merged = importCsvInto(ledger, adapted.value);
-  return ok({
-    addedRows: merged,
-    added: merged.length,
-    parsedRows: planned.value.length,
-  });
+  const classified = classifyAgainstLedger(ledger, adapted.value);
+  return ok({ ...classified, parsedRows: planned.value.length });
 }
 
 export function resolveCsvRows(
@@ -107,23 +186,30 @@ export function resolveCsvRows(
   return ok(resolved);
 }
 
-function importCsvInto<Row extends { fingerprint: string }>(
+function classifyAgainstLedger<Row extends { fingerprint: string }>(
   ledger: CsvLedger,
   rows: readonly Row[],
-): Row[] {
+): { marked: CsvPreviewRow<Row>[]; added: Row[]; already: Row[] } {
   const known = new Set(ledger.rows.map((row) => row.fingerprint));
+  const marked: CsvPreviewRow<Row>[] = [];
   const added: Row[] = [];
+  const already: Row[] = [];
   for (const row of rows) {
-    if (known.has(row.fingerprint)) continue;
+    if (known.has(row.fingerprint)) {
+      already.push(row);
+      marked.push({ ...row, status: "already" });
+      continue;
+    }
     known.add(row.fingerprint);
     added.push(row);
+    marked.push({ ...row, status: "new" });
   }
-  return added;
+  return { marked, added, already };
 }
 
 async function planCsvImport(csv: string): Promise<Result<PlannedCsvRow[], CsvImportError>> {
-  if (csv.length > MAX_CSV_CHARS) {
-    return err(new CsvImportError("That CSV is too large."));
+  if (csv.length > CSV_IMPORT_MAX_CHARS) {
+    return err(new CsvImportError(csvTooLargeMessage()));
   }
   const table = parseCsvTable(csv);
   if (table.isErr()) return err(table.error);
