@@ -8,7 +8,8 @@ import { getDb } from "@/db/client";
 import { schema, user } from "@/db/schema";
 import { redactSecrets } from "@/lib/redact";
 import { logError, logInfo } from "@/lib/telemetry";
-import { deliverPasswordResetEmail, deliverVerificationEmail } from "@/lib/verification-email";
+import { recordMailFailure } from "@/lib/mail-attempt";
+import { deliverEmailChangeEmail, deliverPasswordResetEmail, deliverVerificationEmail } from "@/lib/verification-email";
 
 /** Matches the reset email copy: the link expires in an hour and Better Auth deletes it on use. */
 const RESET_PASSWORD_EXPIRES_IN_SECONDS = 60 * 60;
@@ -89,6 +90,13 @@ function createAuth() {
       rateLimit: {
         enabled: true,
       },
+      // A verified address stays in place until the new one is confirmed.
+      // updateEmailWithoutVerification stays off.
+      user: {
+        changeEmail: {
+          enabled: true,
+        },
+      },
       emailAndPassword: {
         enabled: true,
         requireEmailVerification: true,
@@ -103,8 +111,13 @@ function createAuth() {
         sendOnSignIn: true,
         autoSignInAfterVerification: true,
         sendVerificationEmail: async ({ user: accountUser, url }) => {
-          const sent = await deliverVerificationEmail({ email: accountUser.email, url });
+          // Change-email sends this callback with the new address and the
+          // current verified flag still true. The user row is not updated yet.
+          const sent = accountUser.emailVerified
+            ? await deliverEmailChangeEmail({ email: accountUser.email, url })
+            : await deliverVerificationEmail({ email: accountUser.email, url });
           if (sent.isErr()) {
+            recordMailFailure(sent.error);
             throw new Error(memberFacingMessage(sent.error, MEMBER_MAIL_FAILURE));
           }
         },

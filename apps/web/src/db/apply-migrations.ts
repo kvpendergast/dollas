@@ -49,6 +49,12 @@ BEGIN
   GRANT EXECUTE ON FUNCTION create_household(text) TO dollas_app;
   GRANT EXECUTE ON FUNCTION accept_invite(text) TO dollas_app;
   GRANT EXECUTE ON FUNCTION create_invite() TO dollas_app;
+  REVOKE ALL ON FUNCTION leave_household(text) FROM PUBLIC;
+  REVOKE ALL ON FUNCTION transfer_household_ownership(text, text) FROM PUBLIC;
+  REVOKE ALL ON FUNCTION delete_household(text, text) FROM PUBLIC;
+  GRANT EXECUTE ON FUNCTION leave_household(text) TO dollas_app;
+  GRANT EXECUTE ON FUNCTION transfer_household_ownership(text, text) TO dollas_app;
+  GRANT EXECUTE ON FUNCTION delete_household(text, text) TO dollas_app;
   GRANT dollas_app TO current_user;
 END
 $$;
