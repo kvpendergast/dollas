@@ -122,8 +122,7 @@ export async function undoCsvImportAction(_state: UndoImportState, formData: For
     });
     revalidateBooks();
     if (removed === 0) return { error: "", message: "That import had no transactions left to remove." };
-    const label = removed === 1 ? "transaction" : "transactions";
-    return { error: "", message: `Removed ${removed} ${label} from that import. You can import that file again.` };
+    return { error: "", message: removedImportMessage(removed) };
   } catch (error) {
     logError(error, { action: "undo-csv-import", householdId: books.householdId });
     if (error instanceof DomainError) {
@@ -133,10 +132,15 @@ export async function undoCsvImportAction(_state: UndoImportState, formData: For
   }
 }
 
-export async function loadOpenCsvImports(): Promise<OpenCsvImport[]> {
+export type CsvImportPanel = {
+  open: OpenCsvImport[];
+  undoneNotice: string;
+};
+
+export async function loadCsvImportPanel(): Promise<CsvImportPanel> {
   const books = await requireBooks();
   const rows = await withActor(books.userId, async (tx) => {
-    return tx
+    const open = await tx
       .select({
         id: csvImport.id,
         addedCount: csvImport.addedCount,
@@ -146,12 +150,27 @@ export async function loadOpenCsvImports(): Promise<OpenCsvImport[]> {
       .where(and(eq(csvImport.householdId, books.householdId), isNull(csvImport.undoneAt)))
       .orderBy(desc(csvImport.createdAt))
       .limit(100);
+    const [latest] = await tx
+      .select({ addedCount: csvImport.addedCount, undoneAt: csvImport.undoneAt })
+      .from(csvImport)
+      .where(eq(csvImport.householdId, books.householdId))
+      .orderBy(desc(csvImport.createdAt))
+      .limit(1);
+    return { open, latest: latest ?? null };
   });
-  return rows.map((row) => ({
-    id: row.id,
-    addedCount: row.addedCount,
-    createdAt: row.createdAt.toISOString(),
-  }));
+  return {
+    open: rows.open.map((row) => ({
+      id: row.id,
+      addedCount: row.addedCount,
+      createdAt: row.createdAt.toISOString(),
+    })),
+    undoneNotice: rows.latest?.undoneAt ? removedImportMessage(rows.latest.addedCount) : "",
+  };
+}
+
+function removedImportMessage(count: number): string {
+  const label = count === 1 ? "transaction" : "transactions";
+  return `Removed ${count} ${label} from that import. You can import that file again.`;
 }
 
 async function previewCsv(formData: FormData): Promise<ImportCsvState> {

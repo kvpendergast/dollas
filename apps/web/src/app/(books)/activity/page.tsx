@@ -5,7 +5,7 @@ import { PayeeRules } from "@/components/forms/payee-rule-form";
 import { TransactionForm } from "@/components/forms/transaction-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireBooks } from "@/slices/access/guard";
-import { loadOpenCsvImports } from "@/slices/activity/import-csv";
+import { loadCsvImportPanel } from "@/slices/activity/import-csv";
 import { PAYEE_RULES_APPLY_TO } from "@/slices/activity/payee-rule-copy";
 import { loadActivity } from "@/slices/books/queries";
 
@@ -26,7 +26,7 @@ function editAccounts<T extends { id: string; name: string; archivedAt: string |
 
 export default async function ActivityPage() {
   const books = await requireBooks();
-  const [activity, imports] = await Promise.all([loadActivity(books), loadOpenCsvImports()]);
+  const [activity, csvImports] = await Promise.all([loadActivity(books), loadCsvImportPanel()]);
   const newEntryAccounts = accountsForActiveLists(activity.accounts, books.householdId);
   return (
     <div className="space-y-6">
@@ -71,7 +71,7 @@ export default async function ActivityPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ImportForm batches={imports} />
+          <ImportForm batches={csvImports.open} undoneNotice={csvImports.undoneNotice} />
         </CardContent>
       </Card>
       {activity.transactions.length === 0 ? (

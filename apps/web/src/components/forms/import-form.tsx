@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { useFormStatus } from "react-dom";
+import { useActionState, useState, startTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,14 +14,28 @@ import {
 const initial = { error: "", message: "", preview: null };
 const undoInitial = { error: "", message: "" };
 
-export function ImportForm({ batches }: { batches: OpenCsvImport[] }) {
+export function ImportForm({ batches, undoneNotice }: { batches: OpenCsvImport[]; undoneNotice: string }) {
   const [state, action, pending] = useActionState(importCsvAction, initial);
   const [stamp, setStamp] = useState("");
+  const [intent, setIntent] = useState("");
   const preview = state.preview && state.preview.stamp === stamp ? state.preview : null;
 
   return (
     <div className="space-y-6">
-      <form action={action} className="space-y-3">
+      <form
+        className="space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const formData = new FormData(event.currentTarget);
+          const submitter = event.nativeEvent.submitter;
+          const nextIntent = submitter instanceof HTMLButtonElement ? submitter.value : "preview";
+          if (nextIntent) formData.set("intent", nextIntent);
+          setIntent(nextIntent);
+          startTransition(() => {
+            action(formData);
+          });
+        }}
+      >
         <p className="text-sm text-muted-foreground">
           Columns are date, payee, amount, account, and category. Amounts are dollars and cents. Negative amounts are
           expenses and positive amounts are income. Account names have to match this household. A payee rule sets the
@@ -58,33 +71,22 @@ export function ImportForm({ batches }: { batches: OpenCsvImport[] }) {
         ) : null}
         {preview ? <ImportPreviewTable preview={preview} /> : null}
         <div className="flex flex-wrap gap-2">
-          <PreviewButton pending={pending} />
-          {preview && preview.newCount > 0 ? <CommitButton count={preview.newCount} pending={pending} /> : null}
+          <Button type="submit" name="intent" value="preview" className="h-10" disabled={pending}>
+            {pending && intent === "preview" ? "Checking" : "Preview import"}
+          </Button>
+          {preview && preview.newCount > 0 ? (
+            <Button type="submit" name="intent" value="commit" variant="secondary" className="h-10" disabled={pending}>
+              {pending && intent === "commit"
+                ? "Importing"
+                : preview.newCount === 1
+                  ? "Import 1 new transaction"
+                  : `Import ${preview.newCount} new transactions`}
+            </Button>
+          ) : null}
         </div>
       </form>
-      <OpenImports batches={batches} />
+      <OpenImports batches={batches} undoneNotice={undoneNotice} />
     </div>
-  );
-}
-
-function PreviewButton({ pending }: { pending: boolean }) {
-  const status = useFormStatus();
-  const busy = status.pending && status.data?.get("intent") === "preview";
-  return (
-    <Button type="submit" name="intent" value="preview" className="h-10" disabled={pending || status.pending}>
-      {busy ? "Checking" : "Preview import"}
-    </Button>
-  );
-}
-
-function CommitButton({ count, pending }: { count: number; pending: boolean }) {
-  const status = useFormStatus();
-  const busy = status.pending && status.data?.get("intent") === "commit";
-  const label = count === 1 ? "Import 1 new transaction" : `Import ${count} new transactions`;
-  return (
-    <Button type="submit" name="intent" value="commit" variant="secondary" className="h-10" disabled={pending || status.pending}>
-      {busy ? "Importing" : label}
-    </Button>
   );
 }
 
@@ -150,9 +152,10 @@ function ImportPreviewTable({ preview }: { preview: ImportPreview }) {
   );
 }
 
-function OpenImports({ batches }: { batches: OpenCsvImport[] }) {
-  const [notice, setNotice] = useState("");
-  if (batches.length === 0 && notice.length === 0) return null;
+function OpenImports({ batches, undoneNotice }: { batches: OpenCsvImport[]; undoneNotice: string }) {
+  const [state, action, pending] = useActionState(undoCsvImportAction, undoInitial);
+  const notice = state.message || undoneNotice;
+  if (batches.length === 0 && !notice && !state.error) return null;
   return (
     <section aria-label="Imports you can undo" className="space-y-3">
       <div>
@@ -163,6 +166,11 @@ function OpenImports({ batches }: { batches: OpenCsvImport[] }) {
           as they are.
         </p>
       </div>
+      {state.error ? (
+        <p role="alert" className="text-sm text-over">
+          {state.error}
+        </p>
+      ) : null}
       {notice ? (
         <p role="status" className="text-sm text-muted-foreground">
           {notice}
@@ -172,7 +180,7 @@ function OpenImports({ batches }: { batches: OpenCsvImport[] }) {
         <ul className="divide-y divide-border">
           {batches.map((batch) => (
             <li key={batch.id} className="py-3 first:pt-0 last:pb-0">
-              <UndoImport batch={batch} onDone={setNotice} />
+              <UndoImport batch={batch} action={action} pending={pending} />
             </li>
           ))}
         </ul>
@@ -181,13 +189,17 @@ function OpenImports({ batches }: { batches: OpenCsvImport[] }) {
   );
 }
 
-function UndoImport({ batch, onDone }: { batch: OpenCsvImport; onDone: (message: string) => void }) {
-  const [state, action, pending] = useActionState(undoCsvImportAction, undoInitial);
+function UndoImport({
+  batch,
+  action,
+  pending,
+}: {
+  batch: OpenCsvImport;
+  action: (payload: FormData) => void;
+  pending: boolean;
+}) {
   const count = batch.addedCount === 1 ? "1 transaction" : `${batch.addedCount} transactions`;
   const when = batch.createdAt.slice(0, 10);
-  useEffect(() => {
-    if (state.message) onDone(state.message);
-  }, [onDone, state.message]);
   return (
     <form action={action} className="flex flex-wrap items-center justify-between gap-3">
       <input type="hidden" name="batchId" value={batch.id} />
@@ -197,16 +209,6 @@ function UndoImport({ batch, onDone }: { batch: OpenCsvImport; onDone: (message:
       <Button type="submit" variant="outline" className="h-10" disabled={pending}>
         {pending ? "Undoing" : "Undo import"}
       </Button>
-      {state.error ? (
-        <p role="alert" className="w-full text-sm text-over">
-          {state.error}
-        </p>
-      ) : null}
-      {state.message ? (
-        <p role="status" className="w-full text-sm text-muted-foreground">
-          {state.message}
-        </p>
-      ) : null}
     </form>
   );
 }
