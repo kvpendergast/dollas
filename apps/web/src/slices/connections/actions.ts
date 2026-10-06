@@ -1,6 +1,12 @@
 "use server";
 
-import { createQueryBankConnectionStore, disconnectBank, DomainError, ProviderError } from "@dollas/domain";
+import {
+  createQueryBankConnectionStore,
+  disconnectBank,
+  DomainError,
+  memberFacingMessage,
+  ProviderError,
+} from "@dollas/domain";
 import { revalidatePath } from "next/cache";
 import { withActor } from "@/db/actor";
 import { logError } from "@/lib/telemetry";
@@ -20,7 +26,7 @@ export async function disconnectBankConnectionAction(_state: { error: string }, 
     keys = requireBankConnectionKeys();
   } catch (error) {
     logError(error, { action: "disconnect-bank", householdId: books.householdId, connectionId });
-    if (error instanceof DomainError) return { error: error.message };
+    if (error instanceof DomainError) return { error: memberFacingMessage(error, "Could not disconnect that bank.") };
     return { error: "Could not disconnect that bank." };
   }
   try {
@@ -40,7 +46,7 @@ export async function disconnectBankConnectionAction(_state: { error: string }, 
         householdId: books.householdId,
         connectionId,
       });
-      return { error: outcome.error.message };
+      return { error: memberFacingMessage(outcome.error, "Could not disconnect that bank.") };
     }
     if (!outcome.value.providerRevoked) {
       logError(new ProviderError("Disconnected locally. The provider did not confirm revocation."), {
@@ -51,7 +57,7 @@ export async function disconnectBankConnectionAction(_state: { error: string }, 
     }
   } catch (error) {
     logError(error, { action: "disconnect-bank", householdId: books.householdId, connectionId });
-    if (error instanceof DomainError) return { error: error.message };
+    if (error instanceof DomainError) return { error: memberFacingMessage(error, "Could not disconnect that bank.") };
     return { error: "Could not disconnect that bank." };
   }
   revalidatePath("/accounts");

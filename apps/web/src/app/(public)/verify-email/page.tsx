@@ -1,3 +1,4 @@
+import { MEMBER_MAIL_FAILURE } from "@dollas/domain";
 import Link from "next/link";
 import { ResendVerificationForm } from "@/components/forms/auth-forms";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +18,8 @@ export default async function VerifyEmailPage({
 }) {
   const params = await searchParams;
   const email = first(params.email).trim().slice(0, 254);
+  const help = verificationEmailHelp();
+  const mailFailed = help === MEMBER_MAIL_FAILURE;
   return (
     <Card>
       <CardHeader>
@@ -26,7 +29,9 @@ export default async function VerifyEmailPage({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 text-sm text-muted-foreground">
-        <p>{verificationEmailHelp()}</p>
+        <p role={mailFailed ? "alert" : undefined} className={mailFailed ? "text-over" : undefined}>
+          {help}
+        </p>
         <ResendVerificationForm defaultEmail={email} />
         <Link href="/sign-in" className="inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline">
           Back to sign in

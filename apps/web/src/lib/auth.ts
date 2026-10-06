@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
+import { ConfigError, MEMBER_MAIL_FAILURE, memberFacingMessage, resolveGoogleSignIn } from "@dollas/domain";
 import { eq } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db/client";
@@ -12,9 +13,25 @@ import { deliverPasswordResetEmail, deliverVerificationEmail } from "@/lib/verif
 /** Matches the reset email copy: the link expires in an hour and Better Auth deletes it on use. */
 const RESET_PASSWORD_EXPIRES_IN_SECONDS = 60 * 60;
 
-const googleClientId = process.env.GOOGLE_CLIENT_ID;
-const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
-export const googleAuthEnabled = Boolean(googleClientId && googleClientSecret);
+type Env = Record<string, string | undefined>;
+
+let reportedIncompleteGoogle = false;
+
+/** Server decision. The client receives only this boolean, never the credentials. */
+export function googleSignInEnabled(env: Env = process.env): boolean {
+  const decision = resolveGoogleSignIn({
+    clientId: env.GOOGLE_CLIENT_ID ?? "",
+    clientSecret: env.GOOGLE_CLIENT_SECRET ?? "",
+  });
+  if (decision.isErr()) {
+    if (!reportedIncompleteGoogle) {
+      reportedIncompleteGoogle = true;
+      logError(decision.error, { action: "google-sign-in" });
+    }
+    return false;
+  }
+  return decision.value.enabled;
+}
 
 function authBaseURL() {
   if (process.env.BETTER_AUTH_URL) return process.env.BETTER_AUTH_URL;
@@ -28,18 +45,15 @@ function authBaseURL() {
 function authSecret() {
   if (process.env.BETTER_AUTH_SECRET) return process.env.BETTER_AUTH_SECRET;
   if (process.env.VERCEL_ENV) {
-    throw new Error("BETTER_AUTH_SECRET is required");
+    throw new ConfigError("BETTER_AUTH_SECRET is required");
   }
   return "dollas-local-dev-secret";
 }
 
 function deliverResetLinkLater(email: string, url: string): Promise<void> {
   const task = async () => {
-    try {
-      await deliverPasswordResetEmail({ email, url });
-    } catch (error) {
-      logError(error, { action: "password-reset-email" });
-    }
+    const sent = await deliverPasswordResetEmail({ email, url });
+    if (sent.isErr()) return;
   };
   try {
     after(task);
@@ -89,14 +103,17 @@ function createAuth() {
         sendOnSignIn: true,
         autoSignInAfterVerification: true,
         sendVerificationEmail: async ({ user: accountUser, url }) => {
-          await deliverVerificationEmail({ email: accountUser.email, url });
+          const sent = await deliverVerificationEmail({ email: accountUser.email, url });
+          if (sent.isErr()) {
+            throw new Error(memberFacingMessage(sent.error, MEMBER_MAIL_FAILURE));
+          }
         },
       },
-      socialProviders: googleAuthEnabled
+      socialProviders: googleSignInEnabled()
         ? {
             google: {
-              clientId: googleClientId ?? "",
-              clientSecret: googleClientSecret ?? "",
+              clientId: process.env.GOOGLE_CLIENT_ID?.trim() ?? "",
+              clientSecret: process.env.GOOGLE_CLIENT_SECRET?.trim() ?? "",
             },
           }
         : undefined,

@@ -7,6 +7,7 @@ import {
   accountsForActiveLists,
   deleteTransaction,
   importCsv,
+  memberFacingMessage,
   resolveCsvRows,
   restoreTransaction,
   retainedImportFingerprints,
@@ -135,7 +136,7 @@ export async function importCsvAction(_state: ImportCsvState, formData: FormData
     return { error: "", message: `Imported ${inserted} ${label}.` };
   } catch (error) {
     logError(error, { action: "import-csv", householdId: books.householdId });
-    if (error instanceof DomainError) return { error: error.message, message: "" };
+    if (error instanceof DomainError) return { error: memberFacingMessage(error, "Could not import that CSV."), message: "" };
     return { error: "Could not import that CSV.", message: "" };
   }
 }
@@ -190,7 +191,7 @@ function correctionError(error: unknown): string {
   if (`${message} ${cause}`.includes("category splits must add up")) {
     return "Category splits must add up to the transaction amount.";
   }
-  return message || "Could not save that transaction.";
+  return memberFacingMessage(error, "Could not save that transaction.");
 }
 
 export async function createTransactionAction(_state: { error: string }, formData: FormData) {
@@ -228,7 +229,7 @@ export async function createTransactionAction(_state: { error: string }, formDat
     });
   } catch (error) {
     logError(error, { action: "create-transaction", householdId: books.householdId });
-    return { error: error instanceof Error ? error.message : "Could not save that transaction." };
+    return { error: memberFacingMessage(error, "Could not save that transaction.") };
   }
   revalidateBooks();
   return { error: "" };
@@ -321,7 +322,7 @@ export async function deleteTransactionAction(transactionId: string): Promise<{ 
     });
   } catch (error) {
     logError(error, { action: "delete-transaction", householdId: books.householdId, transactionId });
-    if (error instanceof DomainError) return { error: error.message };
+    if (error instanceof DomainError) return { error: memberFacingMessage(error, "Could not delete that transaction.") };
     return { error: "Could not delete that transaction." };
   }
   revalidateBooks();
@@ -343,7 +344,7 @@ export async function restoreTransactionAction(transactionId: string): Promise<{
     });
   } catch (error) {
     logError(error, { action: "restore-transaction", householdId: books.householdId, transactionId });
-    if (error instanceof DomainError) return { error: error.message };
+    if (error instanceof DomainError) return { error: memberFacingMessage(error, "Could not restore that transaction.") };
     return { error: "Could not restore that transaction." };
   }
   revalidateBooks();

@@ -1,6 +1,7 @@
 export {
   AccountError,
   BankConnectionError,
+  ConfigError,
   CsvImportError,
   DomainError,
   HouseholdAccessError,
@@ -10,6 +11,7 @@ export {
   InvalidEstimateError,
   InvalidHistoryError,
   InvalidMoneyError,
+  MailDeliveryError,
   ProviderError,
   RateLimitedError,
   SplitImbalanceError,
@@ -64,6 +66,24 @@ export {
   type LedgerAccount,
   type OpeningBalanceInput,
 } from "./accounts/ledger";
+
+export {
+  acceptedMailDelivery,
+  hidesSetupDetail,
+  type MailDeliveryResult,
+  MEMBER_MAIL_FAILURE,
+  MEMBER_MAIL_READY,
+  MEMBER_RESET_MAIL_FAILURE,
+  MEMBER_SETUP_FAILURE,
+  memberFacingMessage,
+  planVerificationMail,
+  rejectedMailDelivery,
+  resolveGoogleSignIn,
+  verificationHelpForMember,
+  type GoogleSignInDecision,
+  type MemberMailState,
+  type VerificationMailPlan,
+} from "./setup/config";
 
 export {
   categoryBooksEffect,

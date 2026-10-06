@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { SignUpForm } from "@/components/forms/auth-forms";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { googleAuthEnabled } from "@/lib/auth";
+import { googleSignInEnabled } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ export default function SignUpPage() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <SignUpForm googleEnabled={googleAuthEnabled} />
+        <SignUpForm googleEnabled={googleSignInEnabled()} />
         <p className="text-sm text-muted-foreground">
           Already have a login?{" "}
           <Link href="/sign-in" className="text-primary underline-offset-4 hover:underline">

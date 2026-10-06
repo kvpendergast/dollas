@@ -1,5 +1,6 @@
 "use server";
 
+import { memberFacingMessage } from "@dollas/domain";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { sql } from "drizzle-orm";
@@ -24,7 +25,7 @@ export async function startHouseholdAction(_state: AuthFormState, formData: Form
     if (!idFrom(rows)) return { error: "The household was not created." };
   } catch (error) {
     logError(error, { action: "create-household", userId: ctx.actor.userId });
-    return { error: error instanceof Error ? error.message : "Could not start that household." };
+    return { error: memberFacingMessage(error, "Could not start that household.") };
   }
   await clearHouseholdIntent();
   revalidatePath("/");
@@ -40,7 +41,7 @@ export async function joinHouseholdAction(_state: AuthFormState, formData: FormD
     if (!idFrom(rows)) return { error: "That invite code is not active." };
   } catch (error) {
     logError(error, { action: "accept-invite", userId: ctx.actor.userId });
-    return { error: error instanceof Error ? error.message : "Could not join with that invite." };
+    return { error: memberFacingMessage(error, "Could not join with that invite.") };
   }
   await clearHouseholdIntent();
   revalidatePath("/");
