@@ -144,6 +144,12 @@ export class BankConnectionError extends DomainError {
   }
 }
 
+export class BudgetError extends DomainError {
+  constructor(message: string) {
+    super("budget", message);
+  }
+}
+
 export class AccountError extends DomainError {
   constructor(message: string) {
     super("account", message);
