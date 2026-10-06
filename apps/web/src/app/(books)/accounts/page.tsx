@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requireBooks } from "@/slices/access/guard";
 import { loadAccounts, type AccountListItem } from "@/slices/books/queries";
 import { plaidLinkEnabled } from "@/slices/connections/plaid-config";
-import { loadBankConnections } from "@/slices/connections/queries";
+import { listBankConnections } from "@/slices/connections/service";
 
 function AccountCard({ account }: { account: AccountListItem }) {
   const owed = account.type === "credit" && account.balanceCents < 0;
@@ -49,7 +49,7 @@ function AccountCard({ account }: { account: AccountListItem }) {
 export default async function AccountsPage() {
   const books = await requireBooks();
   const plaidEnabled = plaidLinkEnabled();
-  const [accounts, connections] = await Promise.all([loadAccounts(books), loadBankConnections(books)]);
+  const [accounts, connections] = await Promise.all([loadAccounts(books), listBankConnections(books)]);
   const listed = accounts.filter((account) => isAccountType(account.type));
   const active = accountsForActiveLists(listed, books.householdId);
   const archived = accountsForHistory(listed, books.householdId).filter((account) => account.archivedAt !== null);

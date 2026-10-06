@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { withActor } from "@/db/actor";
 import { bankAccount, bankConnection, ledgerAccount } from "@/db/schema";
-import type { BooksContext } from "@/slices/access/guard";
 
 export type BankConnectionAccount = {
   providerAccountId: string;
@@ -18,7 +17,10 @@ export type BankConnectionListItem = {
   accounts: BankConnectionAccount[];
 };
 
-export async function loadBankConnections(books: BooksContext): Promise<BankConnectionListItem[]> {
+export async function loadBankConnections(books: {
+  userId: string;
+  householdId: string;
+}): Promise<BankConnectionListItem[]> {
   return withActor(books.userId, async (tx) => {
     const connections = await tx
       .select({
