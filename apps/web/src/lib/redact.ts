@@ -1,10 +1,13 @@
 const CIPHERTEXT = /v[1-9][0-9]{0,8}\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/g;
 const SECRET_ATTRIBUTE = /(token|password|passwd|secret|cipher|credential|authorization|api[-_]?key)/i;
+const AUTH_LINK =
+  /https?:\/\/\S*(?:\/reset-password\/[A-Za-z0-9._~-]+|\/verify-email\?\S*token=)\S*/gi;
 
-/** Remove connection strings, credential query params, and sealed bank tokens. */
+/** Remove connection strings, credential query params, auth links, and sealed bank tokens. */
 export function redactSecrets(value: string): string {
   return value
     .replace(/postgres(?:ql)?:\/\/\S+/gi, "[redacted-url]")
+    .replace(AUTH_LINK, "[redacted-link]")
     .replace(/\b(password|pwd|passwd|token|secret)=([^\s&]+)/gi, "$1=[redacted]")
     .replace(CIPHERTEXT, "[redacted-token]");
 }

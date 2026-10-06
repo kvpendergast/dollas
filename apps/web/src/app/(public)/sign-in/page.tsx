@@ -5,7 +5,18 @@ import { googleAuthEnabled } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export default function SignInPage() {
+function resetDone(value: string | string[] | undefined): boolean {
+  if (Array.isArray(value)) return value.includes("1");
+  return value === "1";
+}
+
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ reset?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const saved = resetDone(params.reset);
   return (
     <Card>
       <CardHeader>
@@ -13,6 +24,7 @@ export default function SignInPage() {
         <CardDescription>Welcome back. The books are where you left them.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {saved ? <p className="text-sm text-foreground">Password saved. Sign in with the new one.</p> : null}
         <SignInForm googleEnabled={googleAuthEnabled} />
         <p className="text-sm text-muted-foreground">
           New here?{" "}

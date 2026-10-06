@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { deliverVerificationEmail, verificationEmailHelp } from "./verification-email";
+import { deliverPasswordResetEmail, deliverVerificationEmail, verificationEmailHelp } from "./verification-email";
 
 const email = "ada@maple.local";
 const url = "http://localhost:3000/api/auth/verify-email?token=seed-token&callbackURL=/welcome";
@@ -299,5 +299,89 @@ describe("verification email", () => {
     const hosted = verificationEmailHelp({ VERCEL_ENV: "production" });
     assert.equal(hosted.includes("server log"), false);
     assert.match(hosted, /could not be sent/);
+  });
+});
+
+const resetUrl = "http://localhost:3000/api/auth/reset-password/reset-token-value?callbackURL=%2Freset-password";
+
+describe("password reset email", () => {
+  it("sends the link through Resend and does not write it to the server log", async () => {
+    const info = captureConsole("info");
+    const errorLog = captureConsole("error");
+    const fetchLog = captureFetch(() => jsonResponse(200, { id: "email_reset" }));
+    const previousNodeEnv = process.env.NODE_ENV;
+    setNodeEnv("production");
+    try {
+      await deliverPasswordResetEmail(
+        { email, url: resetUrl },
+        { env: { RESEND_API_KEY: apiKey, RESEND_FROM: from, VERCEL_ENV: "production", VERCEL: "1" } },
+      );
+      assert.equal(fetchLog.calls.length, 1);
+      const call = fetchLog.calls[0];
+      assert.equal(call?.body.from, from);
+      assert.deepEqual(recipient(call?.body.to), [email]);
+      assert.match(String(call?.body.subject), /password/i);
+      assert.equal(String(call?.body.text).includes(resetUrl), true);
+      assert.match(String(call?.body.text), /works once/);
+      const logged = [...info.lines, ...errorLog.lines].join("\n");
+      assert.equal(logged.includes(resetUrl), false);
+      assert.equal(logged.includes("reset-token-value"), false);
+      assert.equal(logged.includes(apiKey), false);
+    } finally {
+      setNodeEnv(previousNodeEnv);
+      info.restore();
+      errorLog.restore();
+      fetchLog.restore();
+    }
+  });
+
+  it("writes the reset link to the server log when Resend is unset off Vercel", async () => {
+    const info = captureConsole("info");
+    const fetchLog = captureFetch(() => {
+      throw new Error("Resend should not be called");
+    });
+    try {
+      await deliverPasswordResetEmail({ email, url: resetUrl }, { env: {} });
+      assert.deepEqual(fetchLog.calls, []);
+      assert.deepEqual(info.lines, [`Reset password for ${email}: ${resetUrl}`]);
+    } finally {
+      info.restore();
+      fetchLog.restore();
+    }
+  });
+
+  it("keeps the reset link out of a Resend failure", async () => {
+    const info = captureConsole("info");
+    const errorLog = captureConsole("error");
+    const fetchLog = captureFetch(() =>
+      jsonResponse(422, { message: `Invalid from address. Body was ${resetUrl} using ${apiKey}` }),
+    );
+    const previousNodeEnv = process.env.NODE_ENV;
+    setNodeEnv("production");
+    try {
+      await assert.rejects(
+        () =>
+          deliverPasswordResetEmail(
+            { email, url: resetUrl },
+            { env: { RESEND_API_KEY: apiKey, RESEND_FROM: from, VERCEL: "1" } },
+          ),
+        (error: unknown) => {
+          assert.equal(error instanceof Error, true);
+          const message = error instanceof Error ? error.message : "";
+          assert.equal(message, "Resend could not send the password reset email.");
+          assert.equal(message.includes(resetUrl), false);
+          assert.equal(message.includes(apiKey), false);
+          return true;
+        },
+      );
+      const logged = [...info.lines, ...errorLog.lines].join("\n");
+      assert.equal(logged.includes(resetUrl), false);
+      assert.equal(logged.includes("reset-token-value"), false);
+    } finally {
+      setNodeEnv(previousNodeEnv);
+      info.restore();
+      errorLog.restore();
+      fetchLog.restore();
+    }
   });
 });

@@ -91,3 +91,18 @@ export class AccountError extends DomainError {
     super("account", message);
   }
 }
+
+export class InvalidAuthEmailError extends DomainError {
+  constructor(message = "Enter the email you use for the books.") {
+    super("invalid_auth_email", message);
+  }
+}
+
+export class RateLimitedError extends DomainError {
+  readonly retryAfterSeconds: number;
+
+  constructor(retryAfterSeconds: number, message: string) {
+    super("rate_limited", message);
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}

@@ -2,10 +2,15 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import { getDb } from "@/db/client";
 import { schema, user } from "@/db/schema";
-import { logInfo } from "@/lib/telemetry";
-import { deliverVerificationEmail } from "@/lib/verification-email";
+import { redactSecrets } from "@/lib/redact";
+import { logError, logInfo } from "@/lib/telemetry";
+import { deliverPasswordResetEmail, deliverVerificationEmail } from "@/lib/verification-email";
+
+/** Matches the reset email copy: the link expires in an hour and Better Auth deletes it on use. */
+const RESET_PASSWORD_EXPIRES_IN_SECONDS = 60 * 60;
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -28,6 +33,23 @@ function authSecret() {
   return "dollas-local-dev-secret";
 }
 
+function deliverResetLinkLater(email: string, url: string): Promise<void> {
+  const task = async () => {
+    try {
+      await deliverPasswordResetEmail({ email, url });
+    } catch (error) {
+      logError(error, { action: "password-reset-email" });
+    }
+  };
+  try {
+    after(task);
+  } catch (error) {
+    logError(error, { action: "password-reset-schedule" });
+    return task();
+  }
+  return Promise.resolve();
+}
+
 function createAuth() {
   return betterAuth({
       appName: "dollas",
@@ -38,9 +60,29 @@ function createAuth() {
         schema,
         camelCase: true,
       }),
+      logger: {
+        log(level, message, ...args) {
+          const text = typeof message === "string" ? message : "";
+          if (/user not found/i.test(text)) return;
+          const safe = typeof message === "string" ? redactSecrets(message) : message;
+          if (level === "error") console.error(safe, ...args);
+          else if (level === "warn") console.warn(safe, ...args);
+          else console.info(safe, ...args);
+        },
+      },
+      // HTTP routes are limited per IP. Server actions call auth.api directly, which
+      // skips this hook, so the auth slice also limits resend and reset per email and IP.
+      rateLimit: {
+        enabled: true,
+      },
       emailAndPassword: {
         enabled: true,
         requireEmailVerification: true,
+        revokeSessionsOnPasswordReset: true,
+        resetPasswordTokenExpiresIn: RESET_PASSWORD_EXPIRES_IN_SECONDS,
+        sendResetPassword: async ({ user: accountUser, url }) => {
+          await deliverResetLinkLater(accountUser.email, url);
+        },
       },
       emailVerification: {
         sendOnSignUp: true,
