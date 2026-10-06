@@ -134,6 +134,20 @@
       "when": 1791253600000,
       "tag": "0018_household_membership",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791254974559,
+      "tag": "0019_csv_column_mapping",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791254987567,
+      "tag": "0020_csv_column_mapping_grants",
+      "breakpoints": true
     }
   ]
 }

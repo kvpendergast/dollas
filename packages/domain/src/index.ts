@@ -225,6 +225,39 @@ export {
 export { transactionsRemovedByUndo, type ImportBatchTransaction } from "./import/undo";
 
 export {
+  inspectCsvImport,
+  lookupSavedMapping,
+  mappingSignature,
+  parseCsvAmount,
+  type AccountMode,
+  type AmountMode,
+  type ColumnMapping,
+  type CsvInspection,
+  type DateOrder,
+  type SavedCsvMapping,
+} from "./import/mapping";
+
+export {
+  commitMappedImport,
+  previewMappedImport,
+  proposeCsvMapping,
+  type CommitMappedImportResult,
+} from "./import/service";
+
+export type { CsvImportStore, ImportWrite, ImportWriteResult, MappingWrite } from "./import/store";
+
+export {
+  mappedTransactionSchema,
+  validateMappedImport,
+  type CellError,
+  type CommitCsvRow,
+  type MappedField,
+  type MappedImportContext,
+  type MappedPreviewRow,
+  type MappedValidation,
+} from "./import/validate";
+
+export {
   definePayeeCategoryRule,
   matchingPayeeRule,
   payeeRuleKey,

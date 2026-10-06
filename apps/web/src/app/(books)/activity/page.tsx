@@ -71,7 +71,11 @@ export default async function ActivityPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ImportForm batches={csvImports.open} undoneNotice={csvImports.undoneNotice} />
+          <ImportForm
+            accounts={newEntryAccounts.map((account) => ({ id: account.id, name: account.name }))}
+            batches={csvImports.open}
+            undoneNotice={csvImports.undoneNotice}
+          />
         </CardContent>
       </Card>
       {activity.transactions.length === 0 ? (

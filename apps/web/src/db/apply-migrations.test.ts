@@ -171,6 +171,8 @@ describe("pendingMigrationTags", () => {
       "0016_plaid_sync_cursor",
       "0017_plaid_sync_cursor_grants",
       "0018_household_membership",
+      "0019_csv_column_mapping",
+      "0020_csv_column_mapping_grants",
     ]);
   });
 
@@ -285,6 +287,8 @@ describe("generated schema", () => {
     const plaidCursor = await readFile(path.join(folder, "0016_plaid_sync_cursor.sql"), "utf8");
     const plaidCursorGrants = await readFile(path.join(folder, "0017_plaid_sync_cursor_grants.sql"), "utf8");
     const membership = await readFile(path.join(folder, "0018_household_membership.sql"), "utf8");
+    const csvMapping = await readFile(path.join(folder, "0019_csv_column_mapping.sql"), "utf8");
+    const csvMappingGrants = await readFile(path.join(folder, "0020_csv_column_mapping_grants.sql"), "utf8");
 
     assert.match(books, /"amount_cents" integer/);
     assert.match(books, /"opening_balance_cents" integer/);
@@ -318,6 +322,7 @@ describe("generated schema", () => {
     assert.match(APP_GRANT_SQL, /bank_connection/);
     assert.match(APP_GRANT_SQL, /bank_account/);
     assert.match(APP_GRANT_SQL, /csv_import/);
+    assert.match(APP_GRANT_SQL, /csv_column_mapping/);
     assert.match(categories, /CREATE TABLE "category_group"/);
     assert.match(categories, /'income', 'expense', 'transfer'/);
     assert.match(categories, /ENABLE ROW LEVEL SECURITY/);
@@ -417,6 +422,20 @@ describe("generated schema", () => {
     assert.match(APP_GRANT_SQL, /GRANT EXECUTE ON FUNCTION transfer_household_ownership\(text, text\) TO dollas_app/);
     assert.match(APP_GRANT_SQL, /GRANT EXECUTE ON FUNCTION delete_household\(text, text\) TO dollas_app/);
     assert.equal(/CREATE ROLE/i.test(APP_GRANT_SQL), false);
+    assert.match(csvMapping, /CREATE TABLE "csv_column_mapping"/);
+    assert.match(csvMapping, /ENABLE ROW LEVEL SECURITY/);
+    assert.match(csvMapping, /app_can_access_household/);
+    assert.match(csvMapping, /ADD COLUMN "note" text/);
+    assert.equal(csvMapping.includes("dollas_app"), false);
+    assert.equal(/CREATE ROLE/i.test(csvMapping), false);
+    assert.equal(/PASSWORD/i.test(csvMapping), false);
+    assert.match(csvMappingGrants, /GRANT SELECT, INSERT, UPDATE, DELETE ON csv_column_mapping TO dollas_app/);
+    assert.match(csvMappingGrants, /csv mapping account must belong to the same household/);
+    assert.equal(/CREATE ROLE/i.test(csvMappingGrants), false);
+    assert.equal(/ALTER ROLE/i.test(csvMappingGrants), false);
+    assert.equal(/PASSWORD/i.test(csvMappingGrants), false);
+    assert.equal(/SET ROLE/i.test(csvMappingGrants), false);
+    assert.equal(/SET LOCAL ROLE/i.test(csvMappingGrants), false);
   });
 });
 

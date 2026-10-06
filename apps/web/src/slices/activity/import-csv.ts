@@ -4,51 +4,58 @@ import {
   CSV_IMPORT_MAX_CHARS,
   CsvImportError,
   DomainError,
-  accountsForActiveLists,
+  commitMappedImport,
   csvTooLargeMessage,
   formatCents,
-  importCsv,
   memberFacingMessage,
-  previewCsvImport,
-  resolveCsvRows,
-  retainedImportFingerprints,
+  previewMappedImport,
+  proposeCsvMapping,
   transactionsRemovedByUndo,
-  validateSplits,
-  type CsvPreview,
-  type PayeeCategoryRule,
-  type ResolvedCsvRow,
+  type ColumnMapping,
+  type CsvInspection,
+  type DateOrder,
+  type MappedPreviewRow,
 } from "@dollas/domain";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { withActor } from "@/db/actor";
-import type { AppTx } from "@/db/client";
-import { category, csvImport, ledgerAccount, payeeCategoryRule, transaction, transactionSplit } from "@/db/schema";
+import { csvImport, transaction } from "@/db/schema";
 import { logError } from "@/lib/telemetry";
 import { requireBooks } from "@/slices/access/guard";
+import { csvImportStore } from "./csv-import-store";
 
 const BATCH_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+export type ImportInspection = CsvInspection;
+
+export type ImportPreviewCell = {
+  field: string;
+  text: string;
+  message: string | null;
+};
+
 export type ImportPreviewRow = {
   line: number;
-  occurredOn: string;
-  payee: string;
-  amount: string;
-  accountName: string;
-  categoryName: string;
-  status: "new" | "already";
+  status: "ready" | "error" | "duplicate";
+  cells: ImportPreviewCell[];
 };
 
 export type ImportPreview = {
   stamp: string;
-  newCount: number;
-  alreadyCount: number;
-  parsedRows: number;
+  readyCount: number;
+  errorCount: number;
+  duplicateCount: number;
   rows: ImportPreviewRow[];
 };
+
+export type ImportStage = "upload" | "map" | "preview";
 
 export type ImportCsvState = {
   error: string;
   message: string;
+  stage: ImportStage;
+  stamp: string;
+  inspection: ImportInspection | null;
   preview: ImportPreview | null;
 };
 
@@ -60,10 +67,20 @@ export type OpenCsvImport = {
   createdAt: string;
 };
 
+const initialState: ImportCsvState = {
+  error: "",
+  message: "",
+  stage: "upload",
+  stamp: "",
+  inspection: null,
+  preview: null,
+};
+
 export async function importCsvAction(_state: ImportCsvState, formData: FormData): Promise<ImportCsvState> {
-  const intent = String(formData.get("intent") ?? "preview");
+  const intent = String(formData.get("intent") ?? "inspect");
   if (intent === "commit") return commitCsv(formData);
-  return previewCsv(formData);
+  if (intent === "preview") return previewCsv(formData);
+  return inspectCsv(formData);
 }
 
 export async function undoCsvImportAction(_state: UndoImportState, formData: FormData): Promise<UndoImportState> {
@@ -173,107 +190,126 @@ function removedImportMessage(count: number): string {
   return `Removed ${count} ${label} from that import. You can import that file again.`;
 }
 
+async function inspectCsv(formData: FormData): Promise<ImportCsvState> {
+  const books = await requireBooks();
+  const file = await readCsvFile(formData);
+  if ("error" in file) return { ...initialState, error: file.error, stamp: fileStamp(formData) };
+
+  try {
+    const inspection = await withActor(books.userId, async (tx) => {
+      const store = csvImportStore(tx);
+      const proposed = await proposeCsvMapping(store, {
+        householdId: books.householdId,
+        csv: file.text,
+        hasHeader: headerChoice(formData),
+      });
+      if (proposed.isErr()) throw proposed.error;
+      if (!proposed.value.reusedSavedMapping) return { inspection: proposed.value, preview: null as ImportPreview | null };
+      const validated = await previewMappedImport(store, {
+        householdId: books.householdId,
+        csv: file.text,
+        mapping: proposed.value.mapping,
+      });
+      if (validated.isErr()) return { inspection: proposed.value, preview: null, error: validated.error };
+      return { inspection: proposed.value, preview: presentPreview(validated.value, file.stamp) };
+    });
+    if ("error" in inspection && inspection.error) {
+      return {
+        error: memberFacingMessage(inspection.error, "Could not import that CSV."),
+        message: "",
+        stage: "map",
+        stamp: file.stamp,
+        inspection: inspection.inspection,
+        preview: null,
+      };
+    }
+    return {
+      error: "",
+      message: "",
+      stage: inspection.preview ? "preview" : "map",
+      stamp: file.stamp,
+      inspection: inspection.inspection,
+      preview: inspection.preview,
+    };
+  } catch (error) {
+    logError(error, { action: "inspect-csv", householdId: books.householdId });
+    return { ...initialState, error: importFailure(error), stamp: file.stamp };
+  }
+}
+
 async function previewCsv(formData: FormData): Promise<ImportCsvState> {
   const books = await requireBooks();
   const file = await readCsvFile(formData);
-  if ("error" in file) return { error: file.error, message: "", preview: null };
+  if ("error" in file) return { ...initialState, error: file.error, stamp: fileStamp(formData) };
+  const mapping = readMapping(formData);
 
   try {
-    const preview = await withActor(books.userId, async (tx) => {
-      const context = await loadImportContext(tx, books.householdId);
-      const outcome = await previewCsvImport(file.text, { rows: context.ledger }, (rows) =>
-        resolveCsvRows(rows, context.accounts, context.categories, context.rules),
-      );
-      if (outcome.isErr()) throw outcome.error;
-      return presentPreview(outcome.value, context.accounts, context.categories, file.stamp);
+    const view = await withActor(books.userId, async (tx) => {
+      const store = csvImportStore(tx);
+      const proposed = await proposeCsvMapping(store, {
+        householdId: books.householdId,
+        csv: file.text,
+        hasHeader: mapping.hasHeader,
+      });
+      if (proposed.isErr()) throw proposed.error;
+      const validated = await previewMappedImport(store, {
+        householdId: books.householdId,
+        csv: file.text,
+        mapping,
+      });
+      if (validated.isErr()) return { inspection: proposed.value, error: validated.error };
+      return { inspection: proposed.value, preview: presentPreview(validated.value, file.stamp) };
     });
-    return { error: "", message: "", preview };
+    if ("error" in view) {
+      return {
+        error: memberFacingMessage(view.error, "Could not import that CSV."),
+        message: "",
+        stage: "map",
+        stamp: file.stamp,
+        inspection: view.inspection,
+        preview: null,
+      };
+    }
+    return { error: "", message: "", stage: "preview", stamp: file.stamp, inspection: view.inspection, preview: view.preview };
   } catch (error) {
     logError(error, { action: "preview-csv", householdId: books.householdId });
-    return { error: importFailure(error), message: "", preview: null };
+    return { ...initialState, error: importFailure(error), stamp: file.stamp };
   }
 }
 
 async function commitCsv(formData: FormData): Promise<ImportCsvState> {
   const books = await requireBooks();
   const file = await readCsvFile(formData);
-  if ("error" in file) return { error: file.error, message: "", preview: null };
+  if ("error" in file) return { ...initialState, error: file.error, stamp: fileStamp(formData) };
+  const mapping = readMapping(formData);
 
   try {
     const inserted = await withActor(books.userId, async (tx) => {
-      const context = await loadImportContext(tx, books.householdId);
-      const outcome = await importCsv(file.text, { rows: context.ledger }, (rows) =>
-        resolveCsvRows(rows, context.accounts, context.categories, context.rules),
-      );
+      const store = csvImportStore(tx);
+      const outcome = await commitMappedImport(store, {
+        householdId: books.householdId,
+        csv: file.text,
+        mapping,
+        remember: true,
+      });
       if (outcome.isErr()) throw outcome.error;
-      if (outcome.value.added === 0) return 0;
-
-      const drafts = outcome.value.addedRows.map((row) => {
-        const balanced = validateSplits(row.amountCents, [
-          { categoryId: row.categoryId, amountCents: row.amountCents },
-        ]);
-        if (balanced.isErr()) throw balanced.error;
-        return { row, splits: balanced.value };
-      });
-      const [batch] = await tx
-        .insert(csvImport)
-        .values({ householdId: books.householdId, addedCount: drafts.length })
-        .returning({ id: csvImport.id });
-      if (!batch) throw new CsvImportError("Could not import that CSV.");
-
-      const saved = await tx
-        .insert(transaction)
-        .values(
-          drafts.map((draft) => ({
-            householdId: books.householdId,
-            accountId: draft.row.accountId,
-            occurredOn: draft.row.occurredOn,
-            payee: draft.row.payee,
-            amountCents: draft.row.amountCents,
-            importFingerprint: draft.row.fingerprint,
-            importBatchId: batch.id,
-          })),
-        )
-        .onConflictDoNothing({ target: [transaction.householdId, transaction.importFingerprint] })
-        .returning({ id: transaction.id, fingerprint: transaction.importFingerprint });
-      const idByFingerprint = new Map(
-        saved.flatMap((row) => (row.fingerprint ? [[row.fingerprint, row.id] as const] : [])),
-      );
-      if (idByFingerprint.size === 0) {
-        await tx
-          .delete(csvImport)
-          .where(and(eq(csvImport.id, batch.id), eq(csvImport.householdId, books.householdId)));
-        return 0;
-      }
-      if (idByFingerprint.size !== drafts.length) {
-        await tx
-          .update(csvImport)
-          .set({ addedCount: idByFingerprint.size })
-          .where(and(eq(csvImport.id, batch.id), eq(csvImport.householdId, books.householdId)));
-      }
-      const splits = drafts.flatMap((draft) => {
-        const transactionId = idByFingerprint.get(draft.row.fingerprint);
-        if (!transactionId) return [];
-        return draft.splits.map((split) => ({
-          transactionId,
-          householdId: books.householdId,
-          categoryId: split.categoryId,
-          amountCents: split.amountCents,
-        }));
-      });
-      if (splits.length > 0) await tx.insert(transactionSplit).values(splits);
-      return idByFingerprint.size;
+      return outcome.value;
     });
     revalidateBooks();
-    if (inserted === 0) {
-      return { error: "", message: "That CSV was already imported. No new transactions.", preview: null };
-    }
-    const label = inserted === 1 ? "transaction" : "transactions";
-    return { error: "", message: `Imported ${inserted} ${label}.`, preview: null };
+    return { ...initialState, message: commitMessage(inserted.added, inserted.errorCount), stamp: file.stamp };
   } catch (error) {
     logError(error, { action: "import-csv", householdId: books.householdId });
-    return { error: importFailure(error), message: "", preview: null };
+    return { ...initialState, error: importFailure(error), stamp: file.stamp };
   }
+}
+
+function commitMessage(added: number, errorCount: number): string {
+  if (added === 0 && errorCount === 0) return "That CSV was already imported. No new transactions.";
+  if (added === 0) return "Nothing new to import. Those rows have errors or are already in the books.";
+  const label = added === 1 ? "transaction" : "transactions";
+  if (errorCount === 0) return `Imported ${added} ${label}.`;
+  const skipped = errorCount === 1 ? "1 row with errors" : `${errorCount} rows with errors`;
+  return `Imported ${added} ${label}. Skipped ${skipped}.`;
 }
 
 function importFailure(error: unknown): string {
@@ -286,80 +322,69 @@ async function readCsvFile(formData: FormData): Promise<{ error: string } | { te
   if (!(file instanceof File) || file.size === 0) return { error: "Choose a CSV file." };
   if (file.size > CSV_IMPORT_MAX_CHARS) return { error: csvTooLargeMessage() };
   const text = await file.text();
-  const stamp = String(formData.get("stamp") ?? "").slice(0, 500);
-  return { text, stamp };
+  if (text.length > CSV_IMPORT_MAX_CHARS) return { error: csvTooLargeMessage() };
+  return { text, stamp: fileStamp(formData) };
 }
 
-async function loadImportContext(tx: AppTx, householdId: string) {
-  const accountRows = await tx
-    .select({
-      id: ledgerAccount.id,
-      name: ledgerAccount.name,
-      householdId: ledgerAccount.householdId,
-      archivedAt: ledgerAccount.archivedAt,
-    })
-    .from(ledgerAccount)
-    .where(eq(ledgerAccount.householdId, householdId));
-  const accounts = accountsForActiveLists(
-    accountRows.map((row) => ({
-      ...row,
-      archivedAt: row.archivedAt ? row.archivedAt.toISOString() : null,
-    })),
-    householdId,
-  ).map((row) => ({ id: row.id, name: row.name }));
-  const categories = await tx
-    .select({ id: category.id, name: category.name })
-    .from(category)
-    .where(eq(category.householdId, householdId));
-  const existing = await tx
-    .select({
-      householdId: transaction.householdId,
-      fingerprint: transaction.importFingerprint,
-      deletedAt: transaction.deletedAt,
-    })
-    .from(transaction)
-    .where(eq(transaction.householdId, householdId));
-  // Deleted rows stay in this list. The same CSV row is not imported again.
-  const rules: PayeeCategoryRule[] = await tx
-    .select({ pattern: payeeCategoryRule.pattern, categoryId: payeeCategoryRule.categoryId })
-    .from(payeeCategoryRule)
-    .where(eq(payeeCategoryRule.householdId, householdId));
+function fileStamp(formData: FormData): string {
+  return String(formData.get("stamp") ?? "").slice(0, 500);
+}
+
+function headerChoice(formData: FormData): boolean | undefined {
+  if (!formData.has("hasHeader")) return undefined;
+  return formData.get("hasHeader") === "1";
+}
+
+function readMapping(formData: FormData): ColumnMapping {
+  const dateOrderRaw = String(formData.get("dateOrder") ?? "");
+  const fixedAccountId = String(formData.get("fixedAccountId") ?? "").trim();
   return {
-    accounts,
-    categories,
-    rules,
-    ledger: retainedImportFingerprints(
-      existing.map((row) => ({
-        householdId: row.householdId,
-        fingerprint: row.fingerprint,
-        deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
-      })),
-      householdId,
-    ),
+    hasHeader: formData.get("hasHeader") === "1",
+    dateColumn: optionalIndex(formData, "dateColumn"),
+    payeeColumn: optionalIndex(formData, "payeeColumn"),
+    amountMode: formData.get("amountMode") === "debit_credit" ? "debit_credit" : "signed",
+    amountColumn: optionalIndex(formData, "amountColumn"),
+    debitColumn: optionalIndex(formData, "debitColumn"),
+    creditColumn: optionalIndex(formData, "creditColumn"),
+    flipSign: formData.get("flipSign") === "1",
+    dateOrder: isDateOrder(dateOrderRaw) ? dateOrderRaw : null,
+    accountMode: formData.get("accountMode") === "column" ? "column" : "fixed",
+    accountColumn: optionalIndex(formData, "accountColumn"),
+    fixedAccountId: fixedAccountId.length > 0 ? fixedAccountId : null,
+    categoryColumn: optionalIndex(formData, "categoryColumn"),
+    notesColumn: optionalIndex(formData, "notesColumn"),
   };
 }
 
+function isDateOrder(value: string): value is DateOrder {
+  return value === "ymd" || value === "mdy" || value === "dmy";
+}
+
+function optionalIndex(formData: FormData, name: string): number | null {
+  const raw = String(formData.get(name) ?? "");
+  if (raw.length === 0) return null;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 0 || value > 63) return null;
+  return value;
+}
+
 function presentPreview(
-  outcome: CsvPreview<ResolvedCsvRow>,
-  accounts: readonly { id: string; name: string }[],
-  categories: readonly { id: string; name: string }[],
+  outcome: { readyCount: number; errorCount: number; duplicateCount: number; rows: MappedPreviewRow[] },
   stamp: string,
 ): ImportPreview {
-  const accountName = new Map(accounts.map((account) => [account.id, account.name]));
-  const categoryName = new Map(categories.map((item) => [item.id, item.name]));
   return {
     stamp,
-    newCount: outcome.newCount,
-    alreadyCount: outcome.alreadyCount,
-    parsedRows: outcome.parsedRows,
+    readyCount: outcome.readyCount,
+    errorCount: outcome.errorCount,
+    duplicateCount: outcome.duplicateCount,
     rows: outcome.rows.map((row) => ({
       line: row.line,
-      occurredOn: row.occurredOn,
-      payee: row.payee,
-      amount: formatCents(row.amountCents),
-      accountName: accountName.get(row.accountId) ?? row.accountName,
-      categoryName: categoryName.get(row.categoryId) ?? row.categoryName,
       status: row.status,
+      cells: row.cells.map((cell) => ({
+        field: cell.field,
+        text: cell.field === "amount" && row.amountCents != null && cell.message == null ? formatCents(row.amountCents) : cell.text,
+        message: cell.message,
+      })),
     })),
   };
 }

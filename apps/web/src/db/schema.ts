@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, type AnyColumn } from "drizzle-orm";
 import {
   boolean,
   check,
@@ -262,6 +262,65 @@ export const csvImport = pgTable(
   ],
 ).enableRLS();
 
+const columnIndex = (name: string, value: AnyColumn) =>
+  check(name, sql`${value} is null or (${value} between 0 and 63)`);
+
+/**
+ * A remembered CSV column mapping. Header files are keyed by header signature.
+ * A no-header file that uses one account is keyed with that account so the
+ * next file from the same place can skip the mapper.
+ */
+export const csvColumnMapping = pgTable(
+  "csv_column_mapping",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    headerSignature: text("header_signature").notNull(),
+    ledgerAccountId: uuid("ledger_account_id").references(() => ledgerAccount.id, { onDelete: "cascade" }),
+    hasHeader: boolean("has_header").notNull(),
+    dateColumn: integer("date_column"),
+    payeeColumn: integer("payee_column"),
+    amountMode: text("amount_mode").notNull(),
+    amountColumn: integer("amount_column"),
+    debitColumn: integer("debit_column"),
+    creditColumn: integer("credit_column"),
+    flipSign: boolean("flip_sign").notNull().default(false),
+    dateOrder: text("date_order"),
+    accountMode: text("account_mode").notNull(),
+    accountColumn: integer("account_column"),
+    categoryColumn: integer("category_column"),
+    notesColumn: integer("notes_column"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique("csv_column_mapping_signature_key").on(table.householdId, table.headerSignature),
+    index("csv_column_mapping_account_idx").on(table.householdId, table.ledgerAccountId),
+    check("csv_column_mapping_signature_chk", sql`char_length(${table.headerSignature}) between 1 and 80`),
+    check("csv_column_mapping_amount_mode_chk", sql`${table.amountMode} in ('signed', 'debit_credit')`),
+    check("csv_column_mapping_account_mode_chk", sql`${table.accountMode} in ('column', 'fixed')`),
+    check(
+      "csv_column_mapping_date_order_chk",
+      sql`${table.dateOrder} is null or ${table.dateOrder} in ('ymd', 'mdy', 'dmy')`,
+    ),
+    columnIndex("csv_column_mapping_date_chk", table.dateColumn),
+    columnIndex("csv_column_mapping_payee_chk", table.payeeColumn),
+    columnIndex("csv_column_mapping_amount_chk", table.amountColumn),
+    columnIndex("csv_column_mapping_debit_chk", table.debitColumn),
+    columnIndex("csv_column_mapping_credit_chk", table.creditColumn),
+    columnIndex("csv_column_mapping_account_col_chk", table.accountColumn),
+    columnIndex("csv_column_mapping_category_chk", table.categoryColumn),
+    columnIndex("csv_column_mapping_notes_chk", table.notesColumn),
+    pgPolicy("csv_column_mapping_all", {
+      for: "all",
+      using: sql`app_can_access_household(${table.householdId})`,
+      withCheck: sql`app_can_access_household(${table.householdId})`,
+    }),
+  ],
+).enableRLS();
+
 export const transaction = pgTable(
   "transaction",
   {
@@ -278,6 +337,8 @@ export const transaction = pgTable(
     importFingerprint: text("import_fingerprint"),
     /** Set only on rows this CSV import created. Manual entries and bank sync leave it empty. */
     importBatchId: uuid("import_batch_id").references(() => csvImport.id, { onDelete: "set null" }),
+    /** Optional note from a mapped CSV column. Blank notes are stored as null. */
+    note: text("note"),
     /** Set when a member deletes the transaction. The row and its import fingerprint stay so CSV import does not recreate it. */
     deletedAt: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
@@ -286,6 +347,7 @@ export const transaction = pgTable(
     index("transaction_household_date_idx").on(table.householdId, table.occurredOn),
     index("transaction_import_batch_idx").on(table.importBatchId),
     unique("transaction_import_fingerprint_key").on(table.householdId, table.importFingerprint),
+    check("transaction_note_chk", sql`${table.note} is null or char_length(${table.note}) <= 500`),
     pgPolicy("transaction_all", {
       for: "all",
       using: sql`app_can_access_household(${table.householdId})`,
@@ -441,6 +503,7 @@ export const schema = {
   categoryBudget,
   payeeCategoryRule,
   csvImport,
+  csvColumnMapping,
   transaction,
   transactionSplit,
   bankConnection,
