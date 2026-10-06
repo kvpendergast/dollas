@@ -2,6 +2,8 @@ import { err, ok, type Result } from "neverthrow";
 import { CsvImportError } from "../errors";
 import { parseDollarInput, type Cents } from "../money/cents";
 import { matchingPayeeRule, type PayeeCategoryRule } from "../rules/payee-category";
+import { fingerprintNormalizedRows } from "./fingerprint";
+import { parseCsvTable, type CsvRecord } from "./parse";
 
 /** Character limit for one CSV import. The upload refuses a larger file with the same sentence. */
 export const CSV_IMPORT_MAX_CHARS = 1_000_000;
@@ -63,11 +65,6 @@ export function csvTooLargeMessage(): string {
       : `${new Intl.NumberFormat("en-US").format(CSV_IMPORT_MAX_CHARS)} characters`;
   return `That CSV is too large. The limit is ${limit}.`;
 }
-
-type CsvRecord = {
-  line: number;
-  cells: string[];
-};
 
 /**
  * Import CSV rows into a household ledger. The same file imported again
@@ -239,14 +236,11 @@ async function planCsvImport(csv: string): Promise<Result<PlannedCsvRow[], CsvIm
     draft.push(parsed.value);
   }
 
-  const canonical = JSON.stringify(
-    draft.map((row) => [row.occurredOn, row.payee, row.amountCents, row.accountName, row.categoryName]),
-  );
-  const contentSha256 = await sha256Hex(canonical);
+  const fingerprints = await fingerprintNormalizedRows(draft);
   return ok(
     draft.map((row, index) => ({
       ...row,
-      fingerprint: `${contentSha256}:${index}`,
+      fingerprint: fingerprints[index] ?? "",
     })),
   );
 }
@@ -315,65 +309,6 @@ function headerIndex(cells: string[]): Result<Record<ColumnName, number>, CsvImp
   return ok(columns);
 }
 
-function parseCsvTable(raw: string): Result<CsvRecord[], CsvImportError> {
-  const source = raw.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const records: CsvRecord[] = [];
-  let cells: string[] = [];
-  let field = "";
-  let inQuotes = false;
-  let line = 1;
-  let fieldStart = 1;
-  for (let i = 0; i < source.length; i += 1) {
-    const char = source[i];
-    if (inQuotes) {
-      if (char === '"') {
-        if (source[i + 1] === '"') {
-          field += '"';
-          i += 1;
-          continue;
-        }
-        inQuotes = false;
-        continue;
-      }
-      if (char === "\n") line += 1;
-      field += char;
-      continue;
-    }
-    if (char === '"') {
-      if (field.length > 0) {
-        return err(new CsvImportError(`Row ${line}: Quotes have to wrap a whole field.`));
-      }
-      inQuotes = true;
-      continue;
-    }
-    if (char === ",") {
-      cells.push(field.trim());
-      field = "";
-      continue;
-    }
-    if (char === "\n") {
-      cells.push(field.trim());
-      if (cells.some((cell) => cell.length > 0)) {
-        records.push({ line: fieldStart, cells });
-      }
-      cells = [];
-      field = "";
-      line += 1;
-      fieldStart = line;
-      continue;
-    }
-    field += char;
-  }
-  if (inQuotes) return err(new CsvImportError("A quoted field was left open."));
-  if (field.length > 0 || cells.length > 0) {
-    cells.push(field.trim());
-    if (cells.some((cell) => cell.length > 0)) {
-      records.push({ line: fieldStart, cells });
-    }
-  }
-  return ok(records);
-}
-
 function parseIsoDate(value: string): string | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return null;
@@ -403,42 +338,3 @@ function matchName(
   return err(new CsvImportError(`Row ${line}: More than one ${label} is named "${name}".`));
 }
 
-type SubtleDigest = {
-  digest(algorithm: string, data: Uint8Array): Promise<ArrayBuffer>;
-};
-
-async function sha256Hex(value: string): Promise<string> {
-  const subtle = (globalThis as { crypto?: { subtle?: SubtleDigest } }).crypto?.subtle;
-  if (!subtle) {
-    throw new CsvImportError("Could not fingerprint that CSV.");
-  }
-  const digest = await subtle.digest("SHA-256", utf8Bytes(value));
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-function utf8Bytes(value: string): Uint8Array {
-  const bytes: number[] = [];
-  for (let i = 0; i < value.length; i += 1) {
-    let code = value.charCodeAt(i);
-    if (code >= 0xd800 && code <= 0xdbff && i + 1 < value.length) {
-      const next = value.charCodeAt(i + 1);
-      if (next >= 0xdc00 && next <= 0xdfff) {
-        code = 0x10000 + ((code - 0xd800) << 10) + (next - 0xdc00);
-        i += 1;
-      }
-    }
-    if (code < 0x80) bytes.push(code);
-    else if (code < 0x800) bytes.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
-    else if (code < 0x10000) {
-      bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
-    } else {
-      bytes.push(
-        0xf0 | (code >> 18),
-        0x80 | ((code >> 12) & 0x3f),
-        0x80 | ((code >> 6) & 0x3f),
-        0x80 | (code & 0x3f),
-      );
-    }
-  }
-  return new Uint8Array(bytes);
-}
