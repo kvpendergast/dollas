@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { signOutAction } from "@/slices/auth/actions";
+import { AccountMenu } from "./account-menu";
 import { PhoneNav } from "./phone-nav";
 import { Sidebar } from "./sidebar";
 
@@ -21,6 +22,7 @@ export function BooksShell({
               <p className="text-sm text-muted-foreground">{householdName}</p>
             </div>
             <div className="flex items-center gap-3 text-sm">
+              <AccountMenu />
               <Link href="/household" className="text-primary underline-offset-4 hover:underline">
                 Invite
               </Link>

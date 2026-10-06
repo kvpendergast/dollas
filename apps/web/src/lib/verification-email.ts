@@ -23,6 +23,7 @@ type MailKind = "verification" | "password reset";
 
 const verificationSubject = "Verify your email for dollas";
 const resetSubject = "Reset your dollas password";
+const emailChangeSubject = "Confirm your new email for dollas";
 
 function runningOnVercel(env: Env): boolean {
   return Boolean(env.VERCEL || env.VERCEL_ENV);
@@ -61,6 +62,17 @@ function verificationText(url: string): string {
     url,
     "",
     "If you did not create an account, you can ignore this message.",
+  ].join("\n");
+}
+
+function emailChangeText(url: string): string {
+  return [
+    "Confirm this email for your dollas login.",
+    "",
+    url,
+    "",
+    "Your previous email stays the one you sign in with until you open this link.",
+    "If you did not ask to change it, you can ignore this message.",
   ].join("\n");
 }
 
@@ -172,6 +184,22 @@ export async function deliverVerificationEmail(
     devLine: `Verify ${input.email}: ${input.url}`,
     devLog: "Verification link written to the dev log",
     sentLog: "Verification email sent",
+  });
+}
+
+export async function deliverEmailChangeEmail(
+  input: { email: string; url: string },
+  options: {
+    env?: Env;
+    send?: (message: VerificationMessage, apiKey: string) => Promise<void>;
+  } = {},
+): Promise<MailDeliveryResult> {
+  return deliverAuthEmail("verification", input, options, {
+    subject: emailChangeSubject,
+    text: emailChangeText(input.url),
+    devLine: `Confirm new email ${input.email}: ${input.url}`,
+    devLog: "Email change link written to the dev log",
+    sentLog: "Email change verification sent",
   });
 }
 

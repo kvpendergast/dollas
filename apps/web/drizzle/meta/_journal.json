@@ -127,6 +127,13 @@
       "when": 1791251799446,
       "tag": "0017_plaid_sync_cursor_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791253600000,
+      "tag": "0018_household_membership",
+      "breakpoints": true
     }
   ]
 }

@@ -14,8 +14,7 @@ const icons = {
   History: BarChart3,
 } as const;
 
-export function PhoneNav() {
-  const pathname = usePathname();
+export function PhoneTabBar({ pathname }: { pathname: string }) {
   return (
     <nav
       aria-label="Phone"
@@ -41,4 +40,9 @@ export function PhoneNav() {
       </ul>
     </nav>
   );
+}
+
+export function PhoneNav() {
+  const pathname = usePathname();
+  return <PhoneTabBar pathname={pathname} />;
 }

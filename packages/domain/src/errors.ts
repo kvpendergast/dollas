@@ -50,6 +50,20 @@ export class HouseholdAccessError extends DomainError {
   }
 }
 
+/** A membership change the member can correct. The message is safe to show. */
+export class MembershipError extends DomainError {
+  constructor(message: string) {
+    super("membership", message);
+  }
+}
+
+/** The only owner tried to leave. Hand off or delete the household first. */
+export class LastOwnerError extends DomainError {
+  constructor(message = "You are the last owner. Hand ownership to another member, or delete the household, before you leave.") {
+    super("last_owner", message);
+  }
+}
+
 export class SplitImbalanceError extends DomainError {
   constructor(message: string) {
     super("split_imbalance", message);

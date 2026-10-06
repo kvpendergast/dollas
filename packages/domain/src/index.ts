@@ -6,6 +6,8 @@ export {
   CsvImportError,
   DomainError,
   HouseholdAccessError,
+  LastOwnerError,
+  MembershipError,
   InvalidAuthEmailError,
   InvalidCategoryError,
   PayeeCategoryRuleError,
@@ -153,6 +155,21 @@ export {
   type HouseholdRole,
   type Membership,
 } from "./household/access";
+
+export {
+  DELETE_CONFIRMATION_MESSAGE,
+  LAST_OWNER_MESSAGE,
+  NOT_A_MEMBER_MESSAGE,
+  householdRowsInScope,
+  planDeleteHousehold,
+  planLeaveHousehold,
+  planProfileName,
+  planTransferOwnership,
+  signInMethod,
+  type HouseholdSeat,
+  type ScopedHouseholdRow,
+  type SignInMethod,
+} from "./household/membership";
 
 export {
   buildSpendingHistory,

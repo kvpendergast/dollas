@@ -1,9 +1,9 @@
 "use client";
 
-import { BarChart3, Home, Landmark, List, Tags, WalletCards } from "lucide-react";
+import { BarChart3, Home, Landmark, List, Settings, Tags, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { bookNav, isNavActive } from "./nav";
+import { desktopNav, isNavActive } from "./nav";
 
 const icons = {
   Home,
@@ -12,7 +12,33 @@ const icons = {
   Categories: Tags,
   Plan: WalletCards,
   History: BarChart3,
+  Settings,
 } as const;
+
+export function DesktopNav({ pathname }: { pathname: string }) {
+  return (
+    <nav aria-label="Books" className="mt-8">
+      <ul className="space-y-1">
+        {desktopNav.map((item) => {
+          const Icon = icons[item.label];
+          const active = isNavActive(pathname, item.href);
+          return (
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${active ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+              >
+                <Icon aria-hidden="true" className="size-4" />
+                {item.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -22,26 +48,7 @@ export function Sidebar() {
         dollas
       </Link>
       <p className="mt-1 text-xs text-muted-foreground">One pile of dollas.</p>
-      <nav aria-label="Books" className="mt-8">
-        <ul className="space-y-1">
-          {bookNav.map((item) => {
-            const Icon = icons[item.label];
-            const active = isNavActive(pathname, item.href);
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${active ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-                >
-                  <Icon aria-hidden="true" className="size-4" />
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+      <DesktopNav pathname={pathname} />
     </aside>
   );
 }

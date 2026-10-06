@@ -170,6 +170,7 @@ describe("pendingMigrationTags", () => {
       "0015_csv_import_grants",
       "0016_plaid_sync_cursor",
       "0017_plaid_sync_cursor_grants",
+      "0018_household_membership",
     ]);
   });
 
@@ -283,6 +284,7 @@ describe("generated schema", () => {
     const csvImportGrants = await readFile(path.join(folder, "0015_csv_import_grants.sql"), "utf8");
     const plaidCursor = await readFile(path.join(folder, "0016_plaid_sync_cursor.sql"), "utf8");
     const plaidCursorGrants = await readFile(path.join(folder, "0017_plaid_sync_cursor_grants.sql"), "utf8");
+    const membership = await readFile(path.join(folder, "0018_household_membership.sql"), "utf8");
 
     assert.match(books, /"amount_cents" integer/);
     assert.match(books, /"opening_balance_cents" integer/);
@@ -399,6 +401,22 @@ describe("generated schema", () => {
     assert.equal(/PASSWORD/i.test(plaidCursorGrants), false);
     assert.equal(/SET ROLE/i.test(plaidCursorGrants), false);
     assert.equal(/SET LOCAL ROLE/i.test(plaidCursorGrants), false);
+    assert.match(membership, /CREATE OR REPLACE FUNCTION leave_household\(p_household_id text\)/);
+    assert.match(membership, /CREATE OR REPLACE FUNCTION transfer_household_ownership\(p_household_id text, p_member_id text\)/);
+    assert.match(membership, /CREATE OR REPLACE FUNCTION delete_household\(p_household_id text, p_confirmation text\)/);
+    assert.match(membership, /DELETE FROM transaction WHERE household_id = hid/);
+    assert.match(membership, /DELETE FROM household WHERE id = hid/);
+    assert.match(membership, /GRANT EXECUTE ON FUNCTION leave_household\(text\) TO dollas_app/);
+    assert.match(membership, /GRANT EXECUTE ON FUNCTION delete_household\(text, text\) TO dollas_app/);
+    assert.equal(/CREATE ROLE/i.test(membership), false);
+    assert.equal(/ALTER ROLE/i.test(membership), false);
+    assert.equal(/PASSWORD/i.test(membership), false);
+    assert.equal(/SET ROLE/i.test(membership), false);
+    assert.equal(/SET LOCAL ROLE/i.test(membership), false);
+    assert.match(APP_GRANT_SQL, /GRANT EXECUTE ON FUNCTION leave_household\(text\) TO dollas_app/);
+    assert.match(APP_GRANT_SQL, /GRANT EXECUTE ON FUNCTION transfer_household_ownership\(text, text\) TO dollas_app/);
+    assert.match(APP_GRANT_SQL, /GRANT EXECUTE ON FUNCTION delete_household\(text, text\) TO dollas_app/);
+    assert.equal(/CREATE ROLE/i.test(APP_GRANT_SQL), false);
   });
 });
 
