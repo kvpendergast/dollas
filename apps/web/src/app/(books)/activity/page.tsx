@@ -5,6 +5,7 @@ import { PayeeRules } from "@/components/forms/payee-rule-form";
 import { TransactionForm } from "@/components/forms/transaction-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireBooks } from "@/slices/access/guard";
+import { PAYEE_RULES_APPLY_TO } from "@/slices/activity/payee-rule-copy";
 import { loadActivity } from "@/slices/books/queries";
 
 function editAccounts<T extends { id: string; name: string; archivedAt: string | null }>(
@@ -53,10 +54,7 @@ export default async function ActivityPage() {
       <Card>
         <CardHeader>
           <CardTitle>Payee rules</CardTitle>
-          <CardDescription>
-            When a payee on a new import contains this text, that transaction uses this category. A longer match wins.
-            Editing or deleting one transaction does not change the rule.
-          </CardDescription>
+          <CardDescription>{PAYEE_RULES_APPLY_TO}</CardDescription>
         </CardHeader>
         <CardContent>
           <PayeeRules rules={activity.payeeRules} categories={activity.categories} />
