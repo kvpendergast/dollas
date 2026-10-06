@@ -4,6 +4,7 @@ import { ProviderSyncError } from "../errors";
 import type { AccountType } from "../accounts/ledger";
 import { isCents, type Cents } from "../money/cents";
 import { matchingPayeeRule, type PayeeCategoryRule } from "../rules/payee-category";
+import { PLAID_PROVIDER_ID } from "./plaid";
 import {
   providerTransactionFingerprint,
   type ProviderAccount,
@@ -72,6 +73,11 @@ export function planBankSync(input: {
   transactions: readonly ProviderTransaction[];
   ledgerAccounts: readonly SyncLedgerAccount[];
   links: readonly SyncAccountLink[];
+  /**
+   * Ledger accounts already linked to another provider. Name matching will not
+   * claim them, so SimpleFIN and Plaid can both be connected on different accounts.
+   */
+  reservedLedgerIds?: readonly string[];
   imported: readonly { householdId: string; fingerprint: string | null; deletedAt: string | null }[];
   rules: readonly PayeeCategoryRule[];
   /** Used when no payee rule matches. The books require every transaction to have a category split. */
@@ -91,7 +97,10 @@ export function planBankSync(input: {
   }
   const ledger = input.ledgerAccounts.filter((account) => account.householdId === input.householdId);
   const linkByProvider = new Map(input.links.map((link) => [link.providerAccountId, link.ledgerAccountId]));
-  const linkedLedgerIds = new Set(input.links.map((link) => link.ledgerAccountId));
+  const linkedLedgerIds = new Set([
+    ...input.links.map((link) => link.ledgerAccountId),
+    ...(input.reservedLedgerIds ?? []),
+  ]);
   const transactionsByAccount = new Map<string, ProviderTransaction[]>();
   for (const transaction of input.transactions) {
     if (transaction.pending) continue;
@@ -185,6 +194,131 @@ export function defaultTransactionsSince(now: Date, days = 90): string {
   const utc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   utc.setUTCDate(utc.getUTCDate() - days);
   return utc.toISOString().slice(0, 10);
+}
+
+export type PlannedBankUpdate = {
+  fingerprint: string;
+  occurredOn: string;
+  payee: string;
+  amountCents: Cents;
+};
+
+export type PlannedBankRemoval = {
+  fingerprint: string;
+};
+
+export type PlaidSyncPlan = {
+  accounts: PlannedBankAccount[];
+  added: PlannedBankTransaction[];
+  updated: PlannedBankUpdate[];
+  removed: PlannedBankRemoval[];
+};
+
+/**
+ * Plan a Plaid `/transactions/sync` page onto the books.
+ * Added rows use `bank:plaid:{transaction id}` and skip any fingerprint already
+ * stored, including one a member deleted. Modified rows update a visible
+ * transaction and do not clear `deleted_at`. Removed rows hide a visible
+ * transaction. A later sync that lists the same id again does not bring it back.
+ */
+export function planPlaidSync(input: {
+  householdId: string;
+  accounts: readonly ProviderAccount[];
+  added: readonly ProviderTransaction[];
+  modified: readonly ProviderTransaction[];
+  removed: readonly string[];
+  ledgerAccounts: readonly SyncLedgerAccount[];
+  links: readonly SyncAccountLink[];
+  reservedLedgerIds?: readonly string[];
+  imported: readonly { householdId: string; fingerprint: string | null; deletedAt: string | null }[];
+  rules: readonly PayeeCategoryRule[];
+  fallbacks?: { incomeCategoryId: string; expenseCategoryId: string };
+}): Result<PlaidSyncPlan, ProviderSyncError> {
+  const known = knownFingerprints(input.imported, input.householdId);
+  const removedIds = new Set(input.removed);
+  const fresh = new Map<string, ProviderTransaction>();
+  for (const transaction of input.added) {
+    if (transaction.pending || transaction.amountCents === 0) continue;
+    if (removedIds.has(transaction.providerTransactionId)) continue;
+    fresh.set(transaction.providerTransactionId, transaction);
+  }
+  const liveEdits: ProviderTransaction[] = [];
+  for (const transaction of input.modified) {
+    if (transaction.pending || transaction.amountCents === 0) continue;
+    if (removedIds.has(transaction.providerTransactionId)) continue;
+    const fingerprint = providerTransactionFingerprint(PLAID_PROVIDER_ID, transaction.providerTransactionId);
+    if (fingerprint.isErr()) return err(new ProviderSyncError());
+    const state = known.get(fingerprint.value);
+    if (!state) {
+      fresh.set(transaction.providerTransactionId, transaction);
+      continue;
+    }
+    if (state.deleted) continue;
+    liveEdits.push(transaction);
+  }
+
+  const planned = planBankSync({
+    providerId: PLAID_PROVIDER_ID,
+    householdId: input.householdId,
+    accounts: input.accounts,
+    transactions: [...fresh.values()],
+    ledgerAccounts: input.ledgerAccounts,
+    links: input.links,
+    reservedLedgerIds: input.reservedLedgerIds,
+    imported: input.imported,
+    rules: input.rules,
+    fallbacks: input.fallbacks,
+  });
+  if (planned.isErr()) return err(planned.error);
+
+  const addedFingerprints = new Set(planned.value.transactions.map((row) => row.fingerprint));
+  const updated: PlannedBankUpdate[] = [];
+  for (const transaction of liveEdits) {
+    if (!isCents(transaction.amountCents) || !ISO_DATE.test(transaction.occurredOn)) {
+      return err(new ProviderSyncError());
+    }
+    const fingerprint = providerTransactionFingerprint(PLAID_PROVIDER_ID, transaction.providerTransactionId);
+    if (fingerprint.isErr()) return err(new ProviderSyncError());
+    if (addedFingerprints.has(fingerprint.value)) continue;
+    updated.push({
+      fingerprint: fingerprint.value,
+      occurredOn: transaction.occurredOn,
+      payee: normalizePayee(transaction.payee),
+      amountCents: transaction.amountCents,
+    });
+  }
+
+  const removed: PlannedBankRemoval[] = [];
+  const seenRemovals = new Set<string>();
+  for (const providerTransactionId of input.removed) {
+    const fingerprint = providerTransactionFingerprint(PLAID_PROVIDER_ID, providerTransactionId);
+    if (fingerprint.isErr()) continue;
+    if (seenRemovals.has(fingerprint.value) || addedFingerprints.has(fingerprint.value)) continue;
+    seenRemovals.add(fingerprint.value);
+    const state = known.get(fingerprint.value);
+    if (!state || state.deleted) continue;
+    removed.push({ fingerprint: fingerprint.value });
+  }
+
+  return ok({
+    accounts: planned.value.accounts,
+    added: planned.value.transactions,
+    updated,
+    removed,
+  });
+}
+
+function knownFingerprints(
+  imported: readonly { householdId: string; fingerprint: string | null; deletedAt: string | null }[],
+  householdId: string,
+): Map<string, { deleted: boolean }> {
+  const known = new Map<string, { deleted: boolean }>();
+  if (householdId.trim().length === 0) return known;
+  for (const row of imported) {
+    if (row.householdId !== householdId || row.fingerprint == null || row.fingerprint.length === 0) continue;
+    known.set(row.fingerprint, { deleted: row.deletedAt != null });
+  }
+  return known;
 }
 
 export function isIsoDate(value: string): boolean {

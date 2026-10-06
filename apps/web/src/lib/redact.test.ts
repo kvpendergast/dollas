@@ -26,6 +26,12 @@ describe("redact", () => {
     assert.match(redactSecrets(accessUrl), /\[redacted-url\]/);
     assert.equal(JSON.stringify(fields).includes(ciphertext), false);
     assert.equal(redactSecrets(`token=${token}`).includes(token), false);
+    const plaidAccess = "access-sandbox-test-token-value";
+    const plaidPublic = "public-production-test-token-value";
+    const scrubbed = redactSecrets(`exchanged ${plaidAccess} for ${plaidPublic}`);
+    assert.equal(scrubbed.includes(plaidAccess), false);
+    assert.equal(scrubbed.includes(plaidPublic), false);
+    assert.match(scrubbed, /\[redacted-token\]/);
   });
 
   it("drops password reset and verification links", () => {

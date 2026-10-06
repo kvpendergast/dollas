@@ -13,7 +13,7 @@ import {
 const secretKey = "re_live_secret_value";
 const clientSecret = "google-client-secret-value";
 
-const leak = /GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET|RESEND_API_KEY|RESEND_FROM|BETTER_AUTH_|BANK_CONNECTION_KEYS|DATABASE_URL|\bResend\b|not configured|server log|Vercel/i;
+const leak = /GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET|RESEND_API_KEY|RESEND_FROM|BETTER_AUTH_|BANK_CONNECTION_KEYS|DATABASE_URL|PLAID_CLIENT_ID|PLAID_SECRET|PLAID_ENV|\bResend\b|not configured|server log|Vercel/i;
 
 describe("member-facing setup copy", () => {
   it("maps mail config errors to a next step without env var names", () => {

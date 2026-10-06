@@ -1,17 +1,11 @@
 "use server";
 
 import {
-  BankConnectionError,
   connectBank,
   createQueryBankConnectionStore,
-  decryptToken,
   defaultTransactionsSince,
-  disconnectBank,
   isIsoDate,
-  ProviderError,
   SIMPLEFIN_PROVIDER_ID,
-  type BankProvider,
-  type SimpleFinProvider,
 } from "@dollas/domain";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -19,13 +13,17 @@ import { withActor } from "@/db/actor";
 import { bankConnection } from "@/db/schema";
 import { logError, logInfo } from "@/lib/telemetry";
 import { requireBooks } from "@/slices/access/guard";
-import { applyBankSync } from "./apply";
 import { requireBankConnectionKeys } from "./keys";
 import { memberBankMessage } from "./messages";
 import { bankProviderRegistry } from "./registry";
+import {
+  createPlaidLinkToken,
+  disconnectBankConnection,
+  exchangePlaidPublicToken,
+  syncBankConnection,
+  type BankServiceResult,
+} from "./service";
 import { drizzleBankConnectionQueries } from "./store";
-
-const CONNECTION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type BankFormState = { error: string; message: string };
 
@@ -89,163 +87,53 @@ export async function linkSimpleFinAction(_state: BankFormState, formData: FormD
 export async function syncBankConnectionAction(_state: BankFormState, formData: FormData): Promise<BankFormState> {
   const books = await requireBooks();
   const connectionId = String(formData.get("connectionId") ?? "");
-  if (!CONNECTION_ID.test(connectionId)) return { error: "That connection is not valid.", message: "" };
-  let keys;
-  try {
-    keys = requireBankConnectionKeys();
-  } catch (error) {
-    logError(error, { action: "sync-simplefin", householdId: books.householdId, connectionId });
-    return { error: memberBankMessage(error, "Could not sync that bank."), message: "" };
-  }
-
-  let loaded: { providerId: string; encryptedAccessToken: string; transactionsSince: string | null };
-  try {
-    loaded = await withActor(books.userId, async (tx) => {
-      const store = createQueryBankConnectionStore(drizzleBankConnectionQueries(tx));
-      const existing = await store.get(books.householdId, connectionId);
-      if (existing.isErr()) throw existing.error;
-      if (!existing.value) throw new BankConnectionError("That bank connection is not in this household.");
-      const [meta] = await tx
-        .select({ transactionsSince: bankConnection.transactionsSince })
-        .from(bankConnection)
-        .where(and(eq(bankConnection.id, connectionId), eq(bankConnection.householdId, books.householdId)));
-      return {
-        providerId: existing.value.providerId,
-        encryptedAccessToken: existing.value.encryptedAccessToken,
-        transactionsSince: meta?.transactionsSince ?? null,
-      };
-    });
-  } catch (error) {
-    logError(error, { action: "sync-simplefin", householdId: books.householdId, connectionId });
-    return { error: memberBankMessage(error, "Could not sync that bank."), message: "" };
-  }
-  if (loaded.providerId !== SIMPLEFIN_PROVIDER_ID) {
-    return { error: "Sync is available for SimpleFIN connections.", message: "" };
-  }
-
-  const plain = await decryptToken(loaded.encryptedAccessToken, keys, { householdId: books.householdId });
-  if (plain.isErr()) {
-    logError(plain.error, { action: "sync-simplefin", householdId: books.householdId, connectionId });
-    return { error: memberBankMessage(plain.error, "Could not sync that bank."), message: "" };
-  }
-  const since =
-    loaded.transactionsSince && isIsoDate(loaded.transactionsSince)
-      ? loaded.transactionsSince
-      : defaultTransactionsSince(new Date());
-  const provider = bankProviderRegistry().select(SIMPLEFIN_PROVIDER_ID);
-  if (provider.isErr() || !isSimpleFin(provider.value)) {
-    const error = provider.isErr() ? provider.error : new ProviderError("Could not sync that bank.");
-    logError(error, { action: "sync-simplefin", householdId: books.householdId, connectionId });
-    return { error: "Could not sync that bank.", message: "" };
-  }
-
-  logInfo("simplefin.sync.started", { action: "sync-simplefin", householdId: books.householdId, connectionId });
-  let snapshot;
-  try {
-    snapshot = await provider.value.readBooks({ accessToken: plain.value }, { since, includePending: false });
-  } catch (error) {
-    logError(error, { action: "sync-simplefin", householdId: books.householdId, connectionId });
-    return { error: memberBankMessage(error, "Could not sync that bank."), message: "" };
-  }
-  if (snapshot.isErr()) {
-    logError(snapshot.error, { action: "sync-simplefin", householdId: books.householdId, connectionId });
-    return { error: memberBankMessage(snapshot.error, "Could not sync that bank."), message: "" };
-  }
-  if (snapshot.value.noticeCount > 0) {
-    logInfo("simplefin.sync.notices", {
-      action: "sync-simplefin",
-      householdId: books.householdId,
-      connectionId,
-      notices: String(snapshot.value.noticeCount),
-    });
-  }
-  const synced = snapshot.value;
-  if (synced.accounts.length === 0) {
-    return {
-      error: "The bank did not return any accounts. Check the connection at your bank, then try syncing again.",
-      message: "",
-    };
-  }
-
-  try {
-    const written = await withActor(books.userId, (tx) =>
-      applyBankSync(tx, {
-        householdId: books.householdId,
-        connectionId,
-        since,
-        accounts: synced.accounts,
-        transactions: synced.transactions,
-      }),
-    );
-    logInfo("simplefin.sync.finished", {
-      action: "sync-simplefin",
-      householdId: books.householdId,
-      connectionId,
-      accounts: String(written.accounts),
-      transactions: String(written.transactions),
-    });
-    revalidateBooks();
-    return { error: "", message: syncMessage(written.accounts, written.transactions) };
-  } catch (error) {
-    logError(error, { action: "sync-simplefin", householdId: books.householdId, connectionId });
-    return { error: memberBankMessage(error, "Could not sync that bank."), message: "" };
-  }
+  const outcome = await syncBankConnection(books, connectionId);
+  if (!outcome.ok) return { error: shown(outcome, "Could not sync that bank."), message: "" };
+  revalidateBooks();
+  return { error: "", message: syncMessage(outcome.value) };
 }
 
 export async function disconnectBankConnectionAction(_state: { error: string }, formData: FormData) {
   const books = await requireBooks();
   const connectionId = String(formData.get("connectionId") ?? "");
-  if (!CONNECTION_ID.test(connectionId)) return { error: "That connection is not valid." };
-  let keys;
-  try {
-    keys = requireBankConnectionKeys();
-  } catch (error) {
-    logError(error, { action: "disconnect-bank", householdId: books.householdId, connectionId });
-    return { error: memberBankMessage(error, "Could not disconnect that bank.") };
-  }
-  try {
-    const outcome = await withActor(books.userId, (tx) =>
-      disconnectBank(
-        {
-          registry: bankProviderRegistry(),
-          store: createQueryBankConnectionStore(drizzleBankConnectionQueries(tx)),
-          keys,
-        },
-        { householdId: books.householdId, connectionId },
-      ),
-    );
-    if (outcome.isErr()) {
-      logError(outcome.error, {
-        action: "disconnect-bank",
-        householdId: books.householdId,
-        connectionId,
-      });
-      return { error: memberBankMessage(outcome.error, "Could not disconnect that bank.") };
-    }
-    if (!outcome.value.providerRevoked) {
-      logError(new ProviderError("Disconnected locally. The provider did not confirm revocation."), {
-        action: "disconnect-bank",
-        householdId: books.householdId,
-        connectionId,
-      });
-    }
-  } catch (error) {
-    logError(error, { action: "disconnect-bank", householdId: books.householdId, connectionId });
-    return { error: memberBankMessage(error, "Could not disconnect that bank.") };
-  }
+  const outcome = await disconnectBankConnection(books, connectionId);
+  if (!outcome.ok) return { error: shown(outcome, "Could not disconnect that bank.") };
   revalidatePath("/accounts");
   return { error: "" };
 }
 
-function isSimpleFin(provider: BankProvider): provider is SimpleFinProvider {
-  return provider.id === SIMPLEFIN_PROVIDER_ID && "readBooks" in provider;
+export async function createPlaidLinkTokenAction(sinceRaw: string): Promise<{ error: string; linkToken: string }> {
+  const books = await requireBooks();
+  const created = await createPlaidLinkToken(books, sinceRaw);
+  if (!created.ok) return { error: shown(created, "Could not link that bank."), linkToken: "" };
+  return { error: "", linkToken: created.value.linkToken };
 }
 
-function syncMessage(accounts: number, transactions: number): string {
-  const accountLabel = accounts === 1 ? "account" : "accounts";
-  if (transactions === 0) return `Updated ${accounts} ${accountLabel}. No new transactions.`;
-  const transactionLabel = transactions === 1 ? "transaction" : "transactions";
-  return `Synced ${accounts} ${accountLabel} and added ${transactions} ${transactionLabel}.`;
+export async function linkPlaidAction(publicToken: string, label: string, sinceRaw: string): Promise<BankFormState> {
+  const books = await requireBooks();
+  const linked = await exchangePlaidPublicToken(books, publicToken, label, sinceRaw);
+  if (!linked.ok) return { error: shown(linked, "Could not link that bank."), message: "" };
+  revalidateBooks();
+  return { error: "", message: "Plaid is linked. Sync to bring in accounts and transactions." };
+}
+
+function shown(outcome: Extract<BankServiceResult<unknown>, { ok: false }>, fallback: string): string {
+  return outcome.memberMessage ?? memberBankMessage(outcome.error, fallback);
+}
+
+function syncMessage(written: { accounts: number; transactions: number; updated: number; removed: number }): string {
+  const accountLabel = written.accounts === 1 ? "account" : "accounts";
+  if (written.transactions === 0 && written.updated === 0 && written.removed === 0) {
+    return `Updated ${written.accounts} ${accountLabel}. No new transactions.`;
+  }
+  const parts = [`Synced ${written.accounts} ${accountLabel}`];
+  if (written.transactions > 0) {
+    parts.push(`added ${written.transactions} ${written.transactions === 1 ? "transaction" : "transactions"}`);
+  }
+  if (written.updated > 0) parts.push(`updated ${written.updated}`);
+  if (written.removed > 0) parts.push(`hid ${written.removed} removed by the bank`);
+  if (parts.length === 1) return `${parts[0]}.`;
+  return `${parts[0]} and ${parts.slice(1).join(", ")}.`;
 }
 
 function revalidateBooks() {

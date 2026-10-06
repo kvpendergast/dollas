@@ -9,7 +9,7 @@ const CREDENTIAL_KEY = /^(password|passwd|passcode|pin|username|user|user_name)$
 /**
  * What the household pastes or what a provider client flow returns.
  * There is no username or password field. SimpleFIN uses a one-time setup
- * token; a later Teller or Plaid adapter can exchange its own opaque token.
+ * token. Plaid exchanges a public token from Link.
  */
 export type ProviderSetup = {
   token: string;

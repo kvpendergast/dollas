@@ -1,0 +1,2 @@
+ALTER TABLE "bank_connection" ADD COLUMN "sync_cursor" text;--> statement-breakpoint
+ALTER TABLE "bank_connection" ADD CONSTRAINT "bank_connection_sync_cursor_chk" CHECK ("bank_connection"."sync_cursor" is null or (char_length("bank_connection"."sync_cursor") between 1 and 8192 and "bank_connection"."sync_cursor" !~ '[[:cntrl:]]'));
