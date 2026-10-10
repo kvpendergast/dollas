@@ -35,6 +35,7 @@ function shown(item: ListedTransaction) {
     deleted: item.deleted,
     bank_backed: item.bankBacked,
     bank_matched: item.bankMatched,
+    recurring_item: item.recurring ? { id: item.recurring.id, name: item.recurring.name } : null,
     splits: item.splits.map((split) => ({ category_id: split.categoryId, category_name: split.categoryName, amount_cents: split.amountCents })),
   };
 }
@@ -60,7 +61,7 @@ export const transactionTools = [
   tool({
     name: "list_transactions",
     title: "List transactions",
-    description: `Transactions in the household books, newest first, with their category splits. ${SIGN} bank_backed means the bank reported the charge; bank_matched means sync matched it to a CSV or manual entry (see separate_bank_match). Filter by account, category, date range, or payee text.`,
+    description: `Transactions in the household books, newest first, with their category splits. ${SIGN} bank_backed means the bank reported the charge; bank_matched means sync matched it to a CSV or manual entry (see separate_bank_match). recurring_item is the bill or paycheck it is linked to, if any. Filter by account, category, date range, or payee text.`,
     access: "read",
     input: {
       account_id: uuidInput("Account").optional(),
