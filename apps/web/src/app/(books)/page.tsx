@@ -6,12 +6,23 @@ import { Landing } from "@/components/landing";
 import { getActorContext, requireBooks } from "@/slices/access/guard";
 import { loadHome } from "@/slices/books/queries";
 
+function estimateParts(
+  estimate: { spentSoFarCents: number; recurringExpectedCents: number; paceCents: number },
+  money: (cents: number) => string,
+): string {
+  const parts = [`${money(estimate.spentSoFarCents)} spent so far`];
+  if (estimate.recurringExpectedCents > 0) parts.push(`${money(estimate.recurringExpectedCents)} in recurring bills still due`);
+  if (estimate.paceCents > 0) parts.push(`${money(estimate.paceCents)} of everyday spending ahead`);
+  return `${parts.join(" + ")}.`;
+}
+
 export default async function HomePage() {
   const ctx = await getActorContext();
   if (!ctx) return <Landing />;
   const books = await requireBooks();
   const home = await loadHome(books);
   const leftTone = home.leftCents < 0 ? "text-over" : "text-income";
+  const money = (cents: number) => formatCents(cents, books.currency);
   return (
     <div className="space-y-6">
       <div>
@@ -57,15 +68,18 @@ export default async function HomePage() {
             <CardTitle>Spend estimate</CardTitle>
             <Badge>Estimate</Badge>
           </div>
-          <CardDescription>Labeled as an estimate. The month is not finished.</CardDescription>
+          <CardDescription>Where this month is probably headed. The month is not finished.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="font-serif text-5xl tabular-nums">{formatCents(home.estimate.estimateCents)}</p>
+          <p className="font-serif text-5xl tabular-nums">{money(home.estimate.estimateCents)}</p>
+          <p className="text-sm text-muted-foreground tabular-nums">{estimateParts(home.estimate, money)}</p>
           <p className="text-sm text-muted-foreground">
-            {formatCents(home.estimate.spentSoFarCents)} spent across {home.estimate.daysElapsed} of {home.estimate.daysInMonth} days.
+            {home.estimate.paceBasis === "not_enough_history"
+              ? "Not enough history yet for an everyday pace, so this counts recurring bills only."
+              : `About ${money(home.estimate.dailyPaceCents)} a day of everyday spending.`}
           </p>
-          <Link href="/projection" className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
-            See the estimate
+          <Link href="/estimate" className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
+            See the breakdown and next month
           </Link>
         </CardContent>
       </Card>

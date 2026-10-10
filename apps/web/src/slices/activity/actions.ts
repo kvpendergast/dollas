@@ -18,7 +18,7 @@ function revalidateBooks() {
   revalidatePath("/");
   revalidatePath("/plan");
   revalidatePath("/history");
-  revalidatePath("/projection");
+  revalidatePath("/estimate");
 }
 
 function done(result: { ok: true } | { ok: false; memberMessage: string }) {

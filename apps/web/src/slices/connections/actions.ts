@@ -70,5 +70,5 @@ function revalidateBooks() {
   revalidatePath("/");
   revalidatePath("/plan");
   revalidatePath("/history");
-  revalidatePath("/projection");
+  revalidatePath("/estimate");
 }

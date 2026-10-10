@@ -278,7 +278,20 @@ export {
   type PayeeCategoryRule,
 } from "./rules/payee-category";
 
-export { estimateMonthSpend, type SpendEstimate } from "./projection/estimate";
+export {
+  PACE_MIN_HISTORY_DAYS,
+  PACE_TRAILING_DAYS,
+  buildSpendEstimate,
+  estimateWindowStart,
+  type EstimateCategory,
+  type EstimateCategoryLine,
+  type EstimateMonth,
+  type EstimatePace,
+  type EstimateRecurringItem,
+  type EstimateSplit,
+  type PaceBasis,
+  type SpendEstimate,
+} from "./projection/spend-estimate";
 
 export {
   budgetStanding,

@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import postgres from "postgres";
 import { encryptToken, parseTokenKeyRing } from "@dollas/domain";
 import { withActor } from "./actor";
-import { assertAppRoleSubjectToRls, migrateWithUrl } from "./apply-migrations";
+import { MIGRATION_LOCK, assertAppRoleSubjectToRls, migrateWithUrl } from "./apply-migrations";
 import { openAppDatabase } from "./client";
 import { bankConnection, household, transaction } from "./schema";
 
@@ -51,19 +51,27 @@ describe("row-level security login", () => {
     try {
       const app = openAppDatabase(OWNER_URL, 1);
       closeApp = () => app.close();
-      const appRole = await owner<{ n: string }[]>`
-        select count(*)::text as n from pg_roles where rolname = 'dollas_app'
-      `;
-      if (appRole[0]?.n === "0") {
-        await owner.unsafe("CREATE ROLE dollas_app LOGIN PASSWORD 'dollas' NOSUPERUSER NOBYPASSRLS");
-      } else {
-        await owner.unsafe("ALTER ROLE dollas_app WITH LOGIN PASSWORD 'dollas' NOSUPERUSER NOBYPASSRLS");
-      }
-      const probeRole = await owner<{ n: string }[]>`
-        select count(*)::text as n from pg_roles where rolname = 'rls_table_owner'
-      `;
-      if (probeRole[0]?.n === "0") {
-        await owner.unsafe("CREATE ROLE rls_table_owner NOLOGIN NOSUPERUSER NOBYPASSRLS");
+      // Other test files migrate (and grant to dollas_app) in parallel under the
+      // migration lock; altering the role outside it can fail with "tuple
+      // concurrently updated".
+      await owner`select pg_advisory_lock(${MIGRATION_LOCK[0]}, ${MIGRATION_LOCK[1]})`;
+      try {
+        const appRole = await owner<{ n: string }[]>`
+          select count(*)::text as n from pg_roles where rolname = 'dollas_app'
+        `;
+        if (appRole[0]?.n === "0") {
+          await owner.unsafe("CREATE ROLE dollas_app LOGIN PASSWORD 'dollas' NOSUPERUSER NOBYPASSRLS");
+        } else {
+          await owner.unsafe("ALTER ROLE dollas_app WITH LOGIN PASSWORD 'dollas' NOSUPERUSER NOBYPASSRLS");
+        }
+        const probeRole = await owner<{ n: string }[]>`
+          select count(*)::text as n from pg_roles where rolname = 'rls_table_owner'
+        `;
+        if (probeRole[0]?.n === "0") {
+          await owner.unsafe("CREATE ROLE rls_table_owner NOLOGIN NOSUPERUSER NOBYPASSRLS");
+        }
+      } finally {
+        await owner`select pg_advisory_unlock(${MIGRATION_LOCK[0]}, ${MIGRATION_LOCK[1]})`;
       }
       await migrateWithUrl(OWNER_URL, {
         env: { DATABASE_URL: APP_URL },

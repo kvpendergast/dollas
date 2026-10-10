@@ -4,7 +4,6 @@ import {
   buildSpendingHistory,
   categoryBooksEffect,
   compareCatalogOrder,
-  estimateMonthSpend,
   homeAccountTotalCents,
   isAccountType,
   summarizeCategoryMonth,
@@ -12,7 +11,6 @@ import {
   type AccountType,
   type CivilDate,
   type HistoryColumn,
-  type SpendEstimate,
 } from "@dollas/domain";
 import { and, asc, count, eq, gte, isNull, lte } from "drizzle-orm";
 import { withActor } from "@/db/actor";
@@ -28,6 +26,7 @@ import {
 import type { BooksContext } from "@/slices/access/guard";
 import { listPayeeRules } from "@/slices/activity/payee-rule-service";
 import { listHouseholdTransactions } from "@/slices/activity/transactions";
+import { loadSpendEstimate } from "./estimate";
 
 function monthStart(asOf: CivilDate): string {
   return toIsoDate({ year: asOf.year, month: asOf.month, day: 1 });
@@ -151,8 +150,7 @@ export async function loadHome(books: BooksContext) {
     )
     .sort((a, b) => b.spentCents - a.spentCents);
   const budgetedCents = rows.budgets.reduce((sum, row) => sum + row.amountCents, 0);
-  const estimateResult = estimateMonthSpend({ spentSoFarCents: spentCents, asOf: books.asOf });
-  if (estimateResult.isErr()) throw estimateResult.error;
+  const estimate = await loadSpendEstimate(books);
   return {
     incomeCents,
     spentCents,
@@ -161,7 +159,16 @@ export async function loadHome(books: BooksContext) {
     categories: categories.slice(0, 5),
     hasAccounts: accountsForActiveLists(accounts, books.householdId).length > 0,
     accountBalanceCents: accountTotal.value,
-    estimate: estimateResult.value satisfies SpendEstimate,
+    /** Home's estimate card: the same numbers as the Spend estimate page and get_spend_estimate. */
+    estimate: {
+      estimateCents: estimate.thisMonth.estimateCents,
+      spentSoFarCents: estimate.thisMonth.spentSoFarCents,
+      recurringExpectedCents: estimate.thisMonth.recurringExpectedCents,
+      paceCents: estimate.thisMonth.paceCents,
+      dailyPaceCents: estimate.pace.dailyCents,
+      paceBasis: estimate.pace.basis,
+      nextMonthEstimateCents: estimate.nextMonth.estimateCents,
+    },
   };
 }
 
@@ -357,7 +364,3 @@ export async function loadCategoryCatalog(books: BooksContext) {
   });
 }
 
-export async function loadProjection(books: BooksContext) {
-  const home = await loadHome(books);
-  return home.estimate;
-}

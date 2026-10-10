@@ -23,7 +23,7 @@ function revalidateCategoryViews() {
   revalidatePath("/activity");
   revalidatePath("/plan");
   revalidatePath("/history");
-  revalidatePath("/projection");
+  revalidatePath("/estimate");
   revalidatePath("/");
 }
 
