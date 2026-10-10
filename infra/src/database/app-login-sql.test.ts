@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { appDatabaseUrl, appDirectUrl, loadAppLoginSql, pooledHost, renderAppLoginSql } from "./app-login-sql";
-import { parseTargets } from "../config";
+import { parseTargets } from "../settings";
 
 const STRONG = "A".repeat(20) + "b".repeat(20) + "12345678";
 const OWNER = "postgresql://neondb_owner:owner-secret@ep-quiet-sky-123456.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
