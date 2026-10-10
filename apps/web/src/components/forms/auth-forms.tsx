@@ -21,11 +21,13 @@ import { joinHouseholdAction, startHouseholdAction } from "@/slices/household/ac
 
 const initial: AuthFormState = { error: "" };
 
-export function SignInForm({ googleEnabled }: { googleEnabled: boolean }) {
+export function SignInForm({ googleEnabled, invite }: { googleEnabled: boolean; invite?: string }) {
   const [state, action, pending] = useActionState(signInAction, initial);
+  const returnTo = invite ? `/invite/${invite}` : "/";
   return (
     <div className="space-y-4">
       <form action={action} className="space-y-3">
+        {invite ? <input type="hidden" name="invite" value={invite} /> : null}
         <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>
           <Input id="email" name="email" type="email" autoComplete="email" required />
@@ -64,18 +66,26 @@ export function SignInForm({ googleEnabled }: { googleEnabled: boolean }) {
       <GoogleSignInButton
         enabled={googleEnabled}
         onSignIn={() => {
-          void authClient.signIn.social({ provider: "google", callbackURL: "/" });
+          void authClient.signIn.social({ provider: "google", callbackURL: returnTo });
         }}
       />
     </div>
   );
 }
 
-export function SignUpForm({ googleEnabled }: { googleEnabled: boolean }) {
+export function SignUpForm({
+  googleEnabled,
+  invite,
+}: {
+  googleEnabled: boolean;
+  invite?: { token: string; maskedEmail: string };
+}) {
   const [state, action, pending] = useActionState(signUpAction, initial);
+  const returnTo = invite ? `/invite/${invite.token}` : "/";
   return (
     <div className="space-y-4">
       <form action={action} className="space-y-3">
+        {invite ? <input type="hidden" name="invite" value={invite.token} /> : null}
         <div className="space-y-1.5">
           <Label htmlFor="name">Your name</Label>
           <Input id="name" name="name" autoComplete="name" required />
@@ -83,28 +93,23 @@ export function SignUpForm({ googleEnabled }: { googleEnabled: boolean }) {
         <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>
           <Input id="email" name="email" type="email" autoComplete="email" required />
+          {invite ? (
+            <p className="text-xs text-muted-foreground">Use the address the invite was sent to ({invite.maskedEmail}).</p>
+          ) : null}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="password">Password</Label>
           <Input id="password" name="password" type="password" autoComplete="new-password" minLength={8} required />
         </div>
-        <fieldset className="space-y-3 rounded-xl border border-border p-3">
-          <legend className="px-1 text-sm font-medium">The books</legend>
-          <label className="flex items-start gap-2 text-sm">
-            <input type="radio" name="mode" value="start" defaultChecked className="mt-1" />
-            <span className="flex-1 space-y-1.5">
-              <span className="block">Start a household</span>
-              <Input name="householdName" placeholder="Household name" aria-label="Household name" />
-            </span>
-          </label>
-          <label className="flex items-start gap-2 text-sm">
-            <input type="radio" name="mode" value="join" className="mt-1" />
-            <span className="flex-1 space-y-1.5">
-              <span className="block">Join with an invite</span>
-              <Input name="inviteCode" placeholder="Invite code" aria-label="Invite code" autoCapitalize="characters" />
-            </span>
-          </label>
-        </fieldset>
+        {invite ? null : (
+          <div className="space-y-1.5">
+            <Label htmlFor="householdName">Household name</Label>
+            <Input id="householdName" name="householdName" placeholder="The Maple house" required />
+            <p className="text-xs text-muted-foreground">
+              Joining someone&apos;s books? Open the invite link they emailed you instead.
+            </p>
+          </div>
+        )}
         {state.error ? (
           <p role="alert" className="text-sm text-over">
             {state.error}
@@ -117,7 +122,7 @@ export function SignUpForm({ googleEnabled }: { googleEnabled: boolean }) {
       <GoogleSignInButton
         enabled={googleEnabled}
         onSignIn={() => {
-          void authClient.signIn.social({ provider: "google", callbackURL: "/" });
+          void authClient.signIn.social({ provider: "google", callbackURL: returnTo });
         }}
       />
     </div>
@@ -144,13 +149,13 @@ export function StartHouseholdForm({ defaultName = "" }: { defaultName?: string 
   );
 }
 
-export function JoinHouseholdForm({ defaultCode = "" }: { defaultCode?: string }) {
+export function JoinHouseholdForm() {
   const [state, action, pending] = useActionState(joinHouseholdAction, initial);
   return (
     <form action={action} className="space-y-3">
       <div className="space-y-1.5">
-        <Label htmlFor="inviteCode">Invite code</Label>
-        <Input id="inviteCode" name="inviteCode" defaultValue={defaultCode} autoCapitalize="characters" required />
+        <Label htmlFor="inviteLink">Invite link</Label>
+        <Input id="inviteLink" name="inviteLink" placeholder="https://…/invite/…" autoComplete="off" required />
       </div>
       {state.error ? (
         <p role="alert" className="text-sm text-over">
@@ -158,7 +163,7 @@ export function JoinHouseholdForm({ defaultCode = "" }: { defaultCode?: string }
         </p>
       ) : null}
       <Button type="submit" className="h-10 w-full" disabled={pending}>
-        Join the books
+        Open the invite
       </Button>
     </form>
   );

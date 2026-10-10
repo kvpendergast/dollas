@@ -125,14 +125,23 @@ export const householdInvite = pgTable(
     householdId: uuid("household_id")
       .notNull()
       .references(() => household.id, { onDelete: "cascade" }),
-    code: text("code").notNull().unique(),
+    /** Invited address, lowercase. Accepting needs a login with this verified email. */
+    email: text("email").notNull(),
+    /** SHA-256 hex of the link token. The token itself is never stored. */
+    tokenHash: text("token_hash").notNull().unique(),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),
     expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true, mode: "date" }),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true, mode: "date" }),
+    acceptedBy: text("accepted_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
+    check("household_invite_email_chk", sql`${table.email} = lower(${table.email}) and position('@' in ${table.email}) > 1`),
+    check("household_invite_token_hash_chk", sql`${table.tokenHash} ~ '^[0-9a-f]{64}$'`),
+    index("household_invite_household_idx").on(table.householdId),
     pgPolicy("invite_select", {
       for: "select",
       using: sql`app_can_access_household(${table.householdId})`,

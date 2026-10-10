@@ -12,13 +12,7 @@ const segmentClass = cn(
   "data-[state=active]:hover:text-primary-foreground",
 );
 
-export function HouseholdChoice({
-  defaultName = "",
-  defaultCode = "",
-}: {
-  defaultName?: string;
-  defaultCode?: string;
-}) {
+export function HouseholdChoice({ defaultName = "" }: { defaultName?: string }) {
   return (
     <Tabs.Root defaultValue="start">
       <Card>
@@ -36,8 +30,10 @@ export function HouseholdChoice({
             <StartHouseholdForm defaultName={defaultName} />
           </Tabs.Content>
           <Tabs.Content value="join" className="space-y-3">
-            <p className="text-sm text-muted-foreground">A code from your person. Your login stays yours.</p>
-            <JoinHouseholdForm defaultCode={defaultCode} />
+            <p className="text-sm text-muted-foreground">
+              Your person invites your email from their Household page. Open the link they sent, or paste it here.
+            </p>
+            <JoinHouseholdForm />
           </Tabs.Content>
         </CardContent>
       </Card>

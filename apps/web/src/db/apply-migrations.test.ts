@@ -173,6 +173,8 @@ describe("pendingMigrationTags", () => {
       "0018_household_membership",
       "0019_csv_column_mapping",
       "0020_csv_column_mapping_grants",
+      "0021_household_invite_email",
+      "0022_household_invite_access",
     ]);
   });
 
@@ -289,6 +291,8 @@ describe("generated schema", () => {
     const membership = await readFile(path.join(folder, "0018_household_membership.sql"), "utf8");
     const csvMapping = await readFile(path.join(folder, "0019_csv_column_mapping.sql"), "utf8");
     const csvMappingGrants = await readFile(path.join(folder, "0020_csv_column_mapping_grants.sql"), "utf8");
+    const inviteEmail = await readFile(path.join(folder, "0021_household_invite_email.sql"), "utf8");
+    const inviteAccess = await readFile(path.join(folder, "0022_household_invite_access.sql"), "utf8");
 
     assert.match(books, /"amount_cents" integer/);
     assert.match(books, /"opening_balance_cents" integer/);
@@ -406,6 +410,25 @@ describe("generated schema", () => {
     assert.equal(/PASSWORD/i.test(plaidCursorGrants), false);
     assert.equal(/SET ROLE/i.test(plaidCursorGrants), false);
     assert.equal(/SET LOCAL ROLE/i.test(plaidCursorGrants), false);
+    assert.match(inviteEmail, /DROP COLUMN "code"/);
+    assert.match(inviteEmail, /ADD COLUMN "token_hash" text NOT NULL/);
+    assert.match(inviteEmail, /household_invite_token_hash_unique/);
+    assert.equal(inviteEmail.includes("dollas_app"), false);
+    assert.match(inviteAccess, /DROP FUNCTION IF EXISTS accept_invite\(text\)/);
+    assert.match(inviteAccess, /CREATE OR REPLACE FUNCTION accept_household_invite\(p_token_hash text\)/);
+    assert.match(inviteAccess, /REVOKE ALL ON FUNCTION accept_household_invite\(text\) FROM PUBLIC/);
+    assert.match(inviteAccess, /GRANT EXECUTE ON FUNCTION create_household_invite\(text, text, text, text\) TO dollas_app/);
+    assert.equal(/GRANT [^;]*(INSERT|UPDATE)[^;]*ON household_invite TO dollas_app/.test(inviteAccess), false);
+    assert.equal(/GRANT [^;]*INSERT[^;]*ON household_member TO dollas_app/.test(inviteAccess), false);
+    for (const sqlText of [inviteEmail, inviteAccess]) {
+      assert.equal(/CREATE ROLE/i.test(sqlText), false);
+      assert.equal(/ALTER ROLE/i.test(sqlText), false);
+      assert.equal(/PASSWORD/i.test(sqlText), false);
+      assert.equal(/SET ROLE/i.test(sqlText), false);
+      assert.equal(/SET LOCAL ROLE/i.test(sqlText), false);
+    }
+    assert.match(APP_GRANT_SQL, /GRANT EXECUTE ON FUNCTION accept_household_invite\(text\) TO dollas_app/);
+    assert.equal(APP_GRANT_SQL.includes("accept_invite("), false);
     assert.match(membership, /CREATE OR REPLACE FUNCTION leave_household\(p_household_id text\)/);
     assert.match(membership, /CREATE OR REPLACE FUNCTION transfer_household_ownership\(p_household_id text, p_member_id text\)/);
     assert.match(membership, /CREATE OR REPLACE FUNCTION delete_household\(p_household_id text, p_confirmation text\)/);

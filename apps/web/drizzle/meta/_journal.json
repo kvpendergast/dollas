@@ -148,6 +148,20 @@
       "when": 1791254987567,
       "tag": "0020_csv_column_mapping_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791647382149,
+      "tag": "0021_household_invite_email",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791647393081,
+      "tag": "0022_household_invite_access",
+      "breakpoints": true
     }
   ]
 }

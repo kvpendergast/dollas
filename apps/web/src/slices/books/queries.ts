@@ -14,13 +14,12 @@ import {
   type HistoryColumn,
   type SpendEstimate,
 } from "@dollas/domain";
-import { and, count, eq, gte, isNull, lte, sql } from "drizzle-orm";
+import { and, count, eq, gte, isNull, lte } from "drizzle-orm";
 import { withActor } from "@/db/actor";
 import {
   category,
   categoryBudget,
   categoryGroup,
-  householdInvite,
   ledgerAccount,
   payeeCategoryRule,
   transaction,
@@ -423,13 +422,4 @@ export async function loadCategoryCatalog(books: BooksContext) {
 export async function loadProjection(books: BooksContext) {
   const home = await loadHome(books);
   return home.estimate;
-}
-
-export async function loadInvites(books: BooksContext) {
-  return withActor(books.userId, (tx) =>
-    tx
-      .select()
-      .from(householdInvite)
-      .where(and(eq(householdInvite.householdId, books.householdId), sql`${householdInvite.expiresAt} > now()`)),
-  );
 }
