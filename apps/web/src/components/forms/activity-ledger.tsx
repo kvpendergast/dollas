@@ -23,9 +23,25 @@ type LedgerTransaction = {
   accountArchived: boolean;
   bankMatched?: boolean;
   recurring?: { id: string; name: string } | null;
+  sources?: Array<"manual" | "csv" | "bank">;
+  addedBy?: { id: string; name: string } | null;
+  categorizedBy?: { id: string; name: string } | null;
+  note?: string | null;
   splits: Array<{ categoryId: string; categoryName: string; amountCents: number }>;
   accounts: AccountChoice[];
 };
+
+const SOURCE_WORDS = { manual: "Entered", csv: "Imported", bank: "From the bank" } as const;
+
+/** "Imported by Ada · categorized by Ben", "From the bank · Unknown" for rows before attribution. */
+function attributionLine(item: Pick<LedgerTransaction, "sources" | "addedBy" | "categorizedBy">): string {
+  // A CSV row the bank matched already wears a "Matched to bank" badge; call it imported.
+  const sources = item.sources ?? ["manual"];
+  const source = SOURCE_WORDS[sources.includes("csv") ? "csv" : sources.includes("bank") ? "bank" : "manual"];
+  const added = item.addedBy ? `${source} by ${item.addedBy.name}` : `${source} · added by Unknown`;
+  if (item.categorizedBy && item.categorizedBy.id !== item.addedBy?.id) return `${added} · categorized by ${item.categorizedBy.name}`;
+  return added;
+}
 
 export function ActivityLedger({
   transactions,
@@ -84,6 +100,8 @@ export function ActivityLedger({
                   {item.accountArchived ? " · Archived" : ""}
                   {split ? "" : ` · ${item.splits[0]?.categoryName ?? "Uncategorized"}`}
                 </p>
+                {item.note ? <p className="text-xs text-muted-foreground">{item.note}</p> : null}
+                {item.sources ? <p className="text-[11px] text-muted-foreground">{attributionLine(item)}</p> : null}
               </div>
               <div className="text-right">
                 <p className={`font-serif text-lg tabular-nums ${item.amountCents > 0 ? "text-income" : ""}`}>

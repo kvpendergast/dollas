@@ -296,6 +296,8 @@ export {
 export {
   budgetStanding,
   summarizeCategoryMonth,
+  planSoFar,
+  type PlanSoFar,
   type BudgetStanding,
   type CategoryMonth,
 } from "./plan/budget-status";

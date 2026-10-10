@@ -94,6 +94,10 @@ export const ACTION_PARITY: Record<string, Parity> = {
   deleteRecurringItemAction: { tools: ["delete_recurring_item"] },
   linkRecurringTransactionAction: { tools: ["link_recurring_transaction"] },
   unlinkRecurringTransactionAction: { tools: ["unlink_recurring_transaction"] },
+  // saved spending filters (PEN-212)
+  saveFilterAction: { tools: ["create_saved_filter"] },
+  renameSavedFilterAction: { tools: ["rename_saved_filter"] },
+  deleteSavedFilterAction: { tools: ["delete_saved_filter"] },
   // agents
   connectAgentAction: { uiOnly: AGENT_CONSENT },
   revokeAgentAction: { uiOnly: AGENT_CONSENT },
@@ -103,9 +107,11 @@ export const ACTION_PARITY: Record<string, Parity> = {
 export const PAGE_PARITY: Record<string, Parity> = {
   "/": { tools: ["get_month_summary"] },
   "/accounts": { tools: ["list_accounts", "list_bank_connections"] },
-  "/activity": { tools: ["list_transactions", "list_recurring_items", "list_payee_rules", "list_csv_imports", "list_accounts", "list_categories"] },
+  "/activity": {
+    tools: ["list_transactions", "list_saved_filters", "list_recurring_items", "list_payee_rules", "list_csv_imports", "list_accounts", "list_categories"],
+  },
   "/categories": { tools: ["list_categories"] },
-  "/history": { tools: ["get_spending_history"] },
+  "/history": { tools: ["get_spending_breakdown", "get_spending_history", "list_saved_filters"] },
   "/household": { tools: ["list_household"] },
   "/plan": { tools: ["get_plan", "preview_copy_last_month"] },
   "/estimate": { tools: ["get_spend_estimate"] },

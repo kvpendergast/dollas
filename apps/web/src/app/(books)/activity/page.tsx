@@ -1,4 +1,5 @@
-import { accountsForActiveLists, toIsoDate } from "@dollas/domain";
+import { accountsForActiveLists, filterHref, filterToSearchParams, toIsoDate } from "@dollas/domain";
+import Link from "next/link";
 import { ActivityLedger } from "@/components/forms/activity-ledger";
 import { ImportForm } from "@/components/forms/import-form";
 import { PayeeRules } from "@/components/forms/payee-rule-form";
@@ -7,7 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requireBooks } from "@/slices/access/guard";
 import { loadCsvImportPanel } from "@/slices/activity/import-csv";
 import { PAYEE_RULES_APPLY_TO } from "@/slices/activity/payee-rule-copy";
-import { loadActivity } from "@/slices/books/queries";
+import { ACTIVITY_PAGE_SIZE, loadActivity } from "@/slices/books/queries";
+import { FilterBar } from "@/components/spending/filter-bar";
+import { loadFilterContext } from "@/slices/spending/load";
 
 function editAccounts<T extends { id: string; name: string; archivedAt: string | null }>(
   active: readonly T[],
@@ -24,15 +27,61 @@ function editAccounts<T extends { id: string; name: string; archivedAt: string |
   }));
 }
 
-export default async function ActivityPage() {
+function Pager({ page, pageCount, total, hrefFor }: { page: number; pageCount: number; total: number; hrefFor: (page: number) => string }) {
+  const first = total === 0 ? 0 : (page - 1) * ACTIVITY_PAGE_SIZE + 1;
+  const last = Math.min(total, page * ACTIVITY_PAGE_SIZE);
+  return (
+    <nav aria-label="Pages" className="flex flex-wrap items-center justify-between gap-3 text-sm">
+      <p className="text-muted-foreground tabular-nums">
+        {total === 0 ? "No transactions" : `${first}–${last} of ${total} transaction${total === 1 ? "" : "s"}`}
+      </p>
+      {pageCount > 1 ? (
+        <div className="flex items-center gap-3">
+          {page > 1 ? (
+            <Link href={hrefFor(page - 1)} className="font-medium text-primary underline-offset-4 hover:underline" rel="prev">
+              ← Newer
+            </Link>
+          ) : null}
+          <span className="text-muted-foreground tabular-nums">
+            Page {page} of {pageCount}
+          </span>
+          {page < pageCount ? (
+            <Link href={hrefFor(page + 1)} className="font-medium text-primary underline-offset-4 hover:underline" rel="next">
+              Older →
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
+    </nav>
+  );
+}
+
+export default async function ActivityPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const books = await requireBooks();
-  const [activity, csvImports] = await Promise.all([loadActivity(books), loadCsvImportPanel()]);
+  const params = await searchParams;
+  const filters = await loadFilterContext(books, params, "all");
+  const requestedPage = Number(Array.isArray(params.page) ? params.page[0] : params.page);
+  const [activity, csvImports] = await Promise.all([
+    loadActivity(books, { filter: filters.filter, page: Number.isFinite(requestedPage) ? requestedPage : 1 }),
+    loadCsvImportPanel(),
+  ]);
+  const filtered = filterToSearchParams(filters.filter, "all").toString() !== "";
+  const hrefFor = (page: number) => filterHref("/activity", filters.filter, "all", page > 1 ? { page: String(page) } : {});
   const newEntryAccounts = accountsForActiveLists(activity.accounts, books.householdId);
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-serif text-4xl">Activity</h1>
-        <p className="text-sm text-muted-foreground">What came in, what went out, splits included.</p>
+        <p className="text-sm text-muted-foreground">
+          What came in, what went out, splits included.{" "}
+          <a href="#import" className="font-medium text-primary underline-offset-4 hover:underline">
+            Import a CSV
+          </a>{" "}
+          ·{" "}
+          <a href="#payee-rules" className="font-medium text-primary underline-offset-4 hover:underline">
+            Payee rules
+          </a>
+        </p>
       </div>
       <Card>
         <CardHeader>
@@ -52,7 +101,32 @@ export default async function ActivityPage() {
           ) : null}
         </CardContent>
       </Card>
-      <Card>
+      <section className="space-y-4" aria-labelledby="ledger-heading">
+        <h2 id="ledger-heading" className="font-serif text-2xl">
+          Transactions
+        </h2>
+        <FilterBar path="/activity" ctx={filters} />
+        <Pager page={activity.page} pageCount={activity.pageCount} total={activity.total} hrefFor={hrefFor} />
+        {activity.transactions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {filtered
+              ? "Nothing matches these filters."
+              : newEntryAccounts.length === 0
+                ? "No dollas in here yet. Add an account."
+                : "No dollas in here yet."}
+          </p>
+        ) : null}
+      <ActivityLedger
+        categories={activity.categories}
+        recurringChoices={activity.recurringChoices}
+        transactions={activity.transactions.map((item) => ({
+          ...item,
+          accounts: editAccounts(newEntryAccounts, activity.accounts, item.accountId),
+        }))}
+        />
+        {activity.pageCount > 1 ? <Pager page={activity.page} pageCount={activity.pageCount} total={activity.total} hrefFor={hrefFor} /> : null}
+      </section>
+      <Card id="payee-rules" className="scroll-mt-20">
         <CardHeader>
           <CardTitle>Payee rules</CardTitle>
           <CardDescription>{PAYEE_RULES_APPLY_TO}</CardDescription>
@@ -61,7 +135,7 @@ export default async function ActivityPage() {
           <PayeeRules rules={activity.payeeRules} categories={activity.categories} />
         </CardContent>
       </Card>
-      <Card>
+      <Card id="import" className="scroll-mt-20">
         <CardHeader>
           <CardTitle>Import a CSV</CardTitle>
           <CardDescription>
@@ -78,19 +152,6 @@ export default async function ActivityPage() {
           />
         </CardContent>
       </Card>
-      {activity.transactions.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {newEntryAccounts.length === 0 ? "No dollas in here yet. Add an account." : "No dollas in here yet."}
-        </p>
-      ) : null}
-      <ActivityLedger
-        categories={activity.categories}
-        recurringChoices={activity.recurringChoices}
-        transactions={activity.transactions.map((item) => ({
-          ...item,
-          accounts: editAccounts(newEntryAccounts, activity.accounts, item.accountId),
-        }))}
-      />
     </div>
   );
 }

@@ -6,7 +6,7 @@ export const booksTools = [
     name: "get_month_summary",
     title: "Get this month's summary",
     description:
-      "The Home page numbers for the current month: income, spent, and left; total budgeted; the top spending categories against budget; total account balance; and the Spend estimate headline (the same numbers as get_spend_estimate). Integer cents.",
+      "The Home page numbers for the current month: income, spent, and left; total budgeted; plan: spent against budget for every budgeted category (budgeted, including ones with nothing spent, and unbudgeted spending; has_budget false means no budget this month); total account balance; and the Spend estimate headline (the same numbers as get_spend_estimate). Integer cents.",
     access: "read",
     input: {},
     async run(_args, { books }) {

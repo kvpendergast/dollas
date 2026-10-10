@@ -1,7 +1,8 @@
-import { MAX_TRANSACTION_SPLITS, PAYEE_MAX_LENGTH } from "@dollas/domain";
+import { MAX_TRANSACTION_SPLITS, PAYEE_MAX_LENGTH, toIsoDate } from "@dollas/domain";
 import { confirmInput, pageFrom, pageInput, readPage } from "@dollas/mcp";
 import { z } from "zod";
 import { answer, centsInput, isoDateInput, money, plural, tool, uuidInput } from "@/slices/agents/tool-kit";
+import { FILTER_HELP, filterFromArgs, filterInput } from "@/slices/spending/tools";
 import {
   amendHouseholdTransaction,
   createHouseholdTransaction,
@@ -36,6 +37,10 @@ function shown(item: ListedTransaction) {
     bank_backed: item.bankBacked,
     bank_matched: item.bankMatched,
     recurring_item: item.recurring ? { id: item.recurring.id, name: item.recurring.name } : null,
+    sources: item.sources,
+    added_by: item.addedBy,
+    categorized_by: item.categorizedBy,
+    note: item.note,
     splits: item.splits.map((split) => ({ category_id: split.categoryId, category_name: split.categoryName, amount_cents: split.amountCents })),
   };
 }
@@ -61,27 +66,29 @@ export const transactionTools = [
   tool({
     name: "list_transactions",
     title: "List transactions",
-    description: `Transactions in the household books, newest first, with their category splits. ${SIGN} bank_backed means the bank reported the charge; bank_matched means sync matched it to a CSV or manual entry (see separate_bank_match). recurring_item is the bill or paycheck it is linked to, if any. Filter by account, category, date range, or payee text.`,
+    description: `Transactions in the household books, newest first, with their category splits. ${SIGN} bank_backed means the bank reported the charge; bank_matched means sync matched it to a CSV or manual entry (see separate_bank_match). recurring_item is the bill or paycheck it is linked to, if any. sources is manual, or csv and/or bank; added_by and categorized_by are the members who added it and last set its categories (null: Unknown, from before this was recorded). ${FILTER_HELP} account_id and category_id (one each) and payee_contains still work. Activity in the web app uses the same filter.`,
     access: "read",
     input: {
-      account_id: uuidInput("Account").optional(),
-      category_id: uuidInput("Category").optional(),
-      from: isoDateInput("First day to include").optional(),
-      to: isoDateInput("Last day to include").optional(),
+      ...filterInput,
+      account_id: uuidInput("Account (same as account_ids with one id)").optional(),
+      category_id: uuidInput("Category (same as category_ids with one id)").optional(),
       payee_contains: z.string().min(1).max(PAYEE_MAX_LENGTH).optional().describe("Only payees containing this text (case-insensitive)."),
       deleted_only: z.boolean().optional().describe("List deleted transactions instead, so one can be restored."),
       ...pageInput(50),
     },
     async run(args, { books }) {
       const request = readPage(args, 50);
+      const filter = await filterFromArgs(books, {
+        ...args,
+        account_ids: args.account_ids ?? (args.account_id ? [args.account_id] : undefined),
+        category_ids: args.category_ids ?? (args.category_id ? [args.category_id] : undefined),
+      });
+      if (!filter.ok) return answer(filter, () => "");
       const listed = await listHouseholdTransactions(books, {
         ...request,
-        accountId: args.account_id,
-        categoryId: args.category_id,
-        from: args.from,
-        to: args.to,
         payeeContains: args.payee_contains,
         deletedOnly: args.deleted_only,
+        spending: { filter: filter.value, today: toIsoDate(books.asOf) },
       });
       return answer(
         listed,
