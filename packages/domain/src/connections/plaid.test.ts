@@ -196,6 +196,7 @@ describe("Plaid sync", () => {
         type: "checking",
         currency: "USD",
         balanceCents: 11_023,
+        mask: "0000",
       },
       {
         providerAccountId: "act-card",
@@ -564,6 +565,7 @@ function samplePage() {
         account_id: "act-checking",
         name: "Plaid Checking",
         official_name: "Plaid Gold Standard 0% Interest Checking",
+        mask: "0000",
         type: "depository",
         subtype: "checking",
         balances: { available: 100, current: 110.23, iso_currency_code: "USD" },
@@ -571,6 +573,7 @@ function samplePage() {
       {
         account_id: "act-card",
         name: "Plaid Credit Card",
+        mask: "33 33!",
         type: "credit",
         subtype: "credit card",
         balances: { available: null, current: 20, iso_currency_code: "USD" },
