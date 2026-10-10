@@ -1,0 +1,4 @@
+ALTER TABLE "bank_account" ADD COLUMN "provider_account_name" text;--> statement-breakpoint
+ALTER TABLE "bank_account" ADD COLUMN "provider_account_mask" text;--> statement-breakpoint
+ALTER TABLE "bank_account" ADD CONSTRAINT "bank_account_provider_name_chk" CHECK ("bank_account"."provider_account_name" is null or (char_length("bank_account"."provider_account_name") between 1 and 200 and "bank_account"."provider_account_name" !~ '[[:cntrl:]]'));--> statement-breakpoint
+ALTER TABLE "bank_account" ADD CONSTRAINT "bank_account_provider_mask_chk" CHECK ("bank_account"."provider_account_mask" is null or "bank_account"."provider_account_mask" ~ '^[A-Za-z0-9]{1,8}$');

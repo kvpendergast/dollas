@@ -3,7 +3,7 @@ import { ProviderSyncError } from "../errors";
 import type { AccountType } from "../accounts/ledger";
 import { isCents, type Cents } from "../money/cents";
 import { matchingPayeeRule, type PayeeCategoryRule } from "../rules/payee-category";
-import { pairCharges } from "./match";
+import { BANK_MATCH_WINDOW_DAYS, pairCharges, shiftCivilDate } from "./match";
 import { PLAID_PROVIDER_ID } from "./plaid";
 import {
   providerTransactionFingerprint,
@@ -25,6 +25,16 @@ export type SyncLedgerAccount = {
 export type SyncAccountLink = {
   providerAccountId: string;
   ledgerAccountId: string;
+  /**
+   * False when the connection that fed this account was disconnected (its
+   * `bank_account` row has no connection). Missing means active. Only an
+   * inactive link can be reattached to a new provider account, and only rows
+   * from inactive accounts are re-keyed (PEN-251).
+   */
+  active?: boolean;
+  /** The provider's own account name and mask from the last sync, when stored. */
+  providerName?: string | null;
+  mask?: string | null;
 };
 
 export type PlannedBankAccount =
@@ -40,6 +50,19 @@ export type PlannedBankAccount =
   | {
       kind: "link" | "update";
       providerAccountId: string;
+      ledgerAccountId: string;
+      currency: string;
+      balanceCents: Cents;
+    }
+  | {
+      /**
+       * A reconnect (PEN-251): the provider gave an account Dollas already
+       * follows a new id. Re-point the old `bank_account` row instead of
+       * creating a second ledger account.
+       */
+      kind: "reattach";
+      providerAccountId: string;
+      previousProviderAccountId: string;
       ledgerAccountId: string;
       currency: string;
       balanceCents: Cents;
@@ -80,6 +103,8 @@ export type SyncBookTransaction = {
   importFingerprint: string | null;
   /** The row existed (CSV or manual) before a sync linked the bank charge to it. */
   matched: boolean;
+  /** The bank's own date for a matched row (the member may have changed the book date). */
+  bankOccurredOn?: string | null;
 };
 
 /** Record the bank identity on an existing CSV or manual row instead of inserting a second copy. */
@@ -112,6 +137,19 @@ export type PlannedBankUpdate = {
   clearLegacyFingerprint: boolean;
 };
 
+/**
+ * Move a charge's bank identity to the id a reconnected provider now uses
+ * (PEN-251). Only the identity changes: the member's date, payee, category
+ * lines, notes, recurring link, attribution, and a soft delete all stay.
+ */
+export type PlannedBankRekey = {
+  transactionId: string;
+  previous: { providerAccountId: string; providerTransactionId: string };
+  providerAccountId: string;
+  providerTransactionId: string;
+  deleted: boolean;
+};
+
 /** The bank withdrew a charge. A row sync created is hidden; a matched row is unlinked and kept, since the member's CSV or entry still backs it. */
 export type PlannedBankRemoval = {
   transactionId: string;
@@ -123,6 +161,7 @@ export type BankSyncPlan = {
   transactions: PlannedBankTransaction[];
   links: PlannedBankLink[];
   updates: PlannedBankUpdate[];
+  rekeys: PlannedBankRekey[];
 };
 
 type KnownIndex = {
@@ -170,6 +209,15 @@ function isCandidate(row: SyncBookTransaction, householdId: string): boolean {
  *   CSV and manual rows with {@link pairCharges}; a pair links instead of inserting.
  * - An account that was linked before is updated in place; a new one is
  *   created, or matched to a single active ledger account with the same name.
+ * - Reconnects (PEN-251). A provider can give the same bank account and its
+ *   charges new ids after a reconnect (a new Plaid item after a disconnect).
+ *   A new provider account is reattached to a disconnected link of the same
+ *   provider when exactly one fits ({@link planReattachments}). Then fresh
+ *   charges on an account are paired first with rows whose identity belongs to
+ *   an account no active connection feeds ("stale" rows), using the PEN-203
+ *   rules, and a pair re-keys that row instead of inserting. Rows from a link
+ *   that is still active are never re-keyed. Re-running finds the new ids and
+ *   does nothing.
  */
 export function planBankSync(input: {
   providerId: string;
@@ -189,6 +237,12 @@ export function planBankSync(input: {
   fallbacks?: { incomeCategoryId: string; expenseCategoryId: string };
   /** Rows another part of the same plan already changes; they are not rekeyed again. */
   claimedRowIds?: ReadonlySet<string>;
+  /**
+   * The connection's first date. Stale rows dated more than the match window
+   * before it are not re-key candidates, since the provider will not send
+   * their charges again (and a different charge must not claim them).
+   */
+  since?: string;
 }): Result<BankSyncPlan, ProviderSyncError> {
   const known = indexKnown(input.providerId, input.householdId, input.books);
   const accountIds = new Set<string>();
@@ -202,6 +256,7 @@ export function planBankSync(input: {
   }
   const ledger = input.ledgerAccounts.filter((account) => account.householdId === input.householdId);
   const linkByProvider = new Map(input.links.map((link) => [link.providerAccountId, link.ledgerAccountId]));
+  const reattach = planReattachments(input.accounts, input.links, ledger);
   const linkedLedgerIds = new Set([
     ...input.links.map((link) => link.ledgerAccountId),
     ...(input.reservedLedgerIds ?? []),
@@ -274,6 +329,19 @@ export function planBankSync(input: {
       });
     }
 
+    const moved = reattach.get(account.providerAccountId);
+    if (moved) {
+      accounts.push({
+        kind: "reattach",
+        providerAccountId: account.providerAccountId,
+        previousProviderAccountId: moved.providerAccountId,
+        ledgerAccountId: moved.ledgerAccountId,
+        currency,
+        balanceCents,
+      });
+      matchable.push(...fresh.map((entry) => ({ ...entry, ledgerAccountId: moved.ledgerAccountId })));
+      continue;
+    }
     const existingLedgerId = linkByProvider.get(account.providerAccountId);
     if (existingLedgerId) {
       accounts.push({
@@ -318,6 +386,63 @@ export function planBankSync(input: {
     planned.push(...fresh.map((entry) => entry.row));
   }
 
+  // PEN-251: the bank's own earlier copies first. A row whose identity belongs
+  // to an account no active connection feeds is the same charge under an old id.
+  const activeRefs = new Set([
+    ...input.links.filter((link) => link.active !== false).map((link) => link.providerAccountId),
+    ...input.accounts.map((account) => account.providerAccountId),
+  ]);
+  const staleFrom = input.since && ISO_DATE.test(input.since) ? shiftCivilDate(input.since, -BANK_MATCH_WINDOW_DAYS) : null;
+  const matchableLedgerIds = new Set(matchable.map((entry) => entry.ledgerAccountId));
+  const stale = input.books.filter(
+    (row) =>
+      row.householdId === input.householdId &&
+      row.bank != null &&
+      row.bank.providerId === input.providerId &&
+      !activeRefs.has(row.bank.providerAccountId) &&
+      matchableLedgerIds.has(row.accountId) &&
+      !claimedRows.has(row.id) &&
+      (staleFrom == null || row.occurredOn >= staleFrom || (row.bankOccurredOn != null && row.bankOccurredOn >= staleFrom)),
+  );
+  const staleIncoming = matchable.map((entry) => ({
+    key: identityKey(entry.row.providerAccountId, entry.row.providerTransactionId),
+    accountId: entry.ledgerAccountId,
+    amountCents: entry.row.amountCents,
+    dates: entry.authorizedOn ? [entry.row.occurredOn, entry.authorizedOn] : [entry.row.occurredOn],
+    payee: entry.row.payee,
+  }));
+  const staleById = new Map(stale.map((row) => [row.id, row]));
+  const rekeyPairs = pairCharges(
+    staleIncoming,
+    stale.map((row) => ({
+      id: row.id,
+      accountId: row.accountId,
+      amountCents: row.amountCents,
+      dates: row.bankOccurredOn ? [row.occurredOn, row.bankOccurredOn] : [row.occurredOn],
+      payee: row.payee,
+      deleted: row.deletedAt != null,
+      order: row.createdAt,
+    })),
+  );
+  const rekeys: PlannedBankRekey[] = [];
+  const rekeyedKeys = new Set<string>();
+  const incomingByKey = new Map(matchable.map((entry) => [identityKey(entry.row.providerAccountId, entry.row.providerTransactionId), entry.row]));
+  for (const pair of rekeyPairs) {
+    const row = staleById.get(pair.candidateId);
+    const next = incomingByKey.get(pair.incomingKey);
+    if (!row?.bank || !next) continue;
+    claimedRows.add(row.id);
+    rekeyedKeys.add(pair.incomingKey);
+    rekeys.push({
+      transactionId: row.id,
+      previous: { providerAccountId: row.bank.providerAccountId, providerTransactionId: row.bank.providerTransactionId },
+      providerAccountId: next.providerAccountId,
+      providerTransactionId: next.providerTransactionId,
+      deleted: row.deletedAt != null,
+    });
+  }
+  const remaining = matchable.filter((entry) => !rekeyedKeys.has(identityKey(entry.row.providerAccountId, entry.row.providerTransactionId)));
+
   const candidates = input.books
     .filter((row) => isCandidate(row, input.householdId) && !claimedRows.has(row.id))
     .map((row) => ({
@@ -329,7 +454,7 @@ export function planBankSync(input: {
       deleted: row.deletedAt != null,
       order: row.createdAt,
     }));
-  const incoming = matchable.map((entry) => ({
+  const incoming = remaining.map((entry) => ({
     key: identityKey(entry.row.providerAccountId, entry.row.providerTransactionId),
     accountId: entry.ledgerAccountId,
     amountCents: entry.row.amountCents,
@@ -339,7 +464,7 @@ export function planBankSync(input: {
   const pairs = new Map(pairCharges(incoming, candidates).map((pair) => [pair.incomingKey, pair.candidateId]));
   const deletedIds = new Set(candidates.filter((row) => row.deleted).map((row) => row.id));
   const links: PlannedBankLink[] = [];
-  for (const entry of matchable) {
+  for (const entry of remaining) {
     const candidateId = pairs.get(identityKey(entry.row.providerAccountId, entry.row.providerTransactionId));
     if (!candidateId) {
       planned.push(entry.row);
@@ -355,7 +480,54 @@ export function planBankSync(input: {
     });
   }
 
-  return ok({ accounts, transactions: planned, links, updates });
+  return ok({ accounts, transactions: planned, links, updates, rekeys });
+}
+
+/**
+ * Which new provider accounts are accounts Dollas already follows under an
+ * old id (PEN-251). A candidate is a link of the same provider that is
+ * inactive (its connection was disconnected), not in this snapshot, and on an
+ * active ledger account of the same type. It fits when both masks are known
+ * and equal, or, when either mask is unknown, when the names match (the
+ * provider name stored at the last sync, else the ledger account's name).
+ * Only one-to-one fits count: an account with two candidates, or a link two
+ * accounts fit, is left alone and gets today's behavior (a name match or a new
+ * ledger account), because guessing wrong would merge two real accounts.
+ */
+export function planReattachments(
+  accounts: readonly ProviderAccount[],
+  links: readonly SyncAccountLink[],
+  ledger: readonly SyncLedgerAccount[],
+): Map<string, SyncAccountLink> {
+  const incomingIds = new Set(accounts.map((account) => account.providerAccountId));
+  const linkedIds = new Set(links.map((link) => link.providerAccountId));
+  const ledgerById = new Map(ledger.map((account) => [account.id, account]));
+  const stale = links.filter((link) => {
+    if (link.active !== false || incomingIds.has(link.providerAccountId)) return false;
+    const target = ledgerById.get(link.ledgerAccountId);
+    return target != null && target.archivedAt === null;
+  });
+  const fits = new Map<string, SyncAccountLink[]>();
+  const claims = new Map<string, number>();
+  for (const account of accounts) {
+    if (linkedIds.has(account.providerAccountId)) continue;
+    const found = stale.filter((link) => {
+      const target = ledgerById.get(link.ledgerAccountId);
+      if (!target || target.type !== ledgerType(account.type)) return false;
+      const mask = account.mask?.trim().toLowerCase();
+      const known = link.mask?.trim().toLowerCase();
+      if (mask && known) return mask === known;
+      const name = (link.providerName ?? target.name).trim().toLowerCase();
+      return name.length > 0 && name === account.name.trim().toLowerCase();
+    });
+    fits.set(account.providerAccountId, found);
+    for (const link of found) claims.set(link.providerAccountId, (claims.get(link.providerAccountId) ?? 0) + 1);
+  }
+  const chosen = new Map<string, SyncAccountLink>();
+  for (const [providerAccountId, found] of fits) {
+    if (found.length === 1 && claims.get(found[0].providerAccountId) === 1) chosen.set(providerAccountId, found[0]);
+  }
+  return chosen;
 }
 
 /** Civil date `days` before `now`, in UTC. The first sync stores this so later syncs do not slide backward. */
@@ -369,6 +541,7 @@ export type PlaidSyncPlan = {
   accounts: PlannedBankAccount[];
   added: PlannedBankTransaction[];
   links: PlannedBankLink[];
+  rekeys: PlannedBankRekey[];
   updated: PlannedBankUpdate[];
   removed: PlannedBankRemoval[];
 };
@@ -394,6 +567,7 @@ export function planPlaidSync(input: {
   books: readonly SyncBookTransaction[];
   rules: readonly PayeeCategoryRule[];
   fallbacks?: { incomeCategoryId: string; expenseCategoryId: string };
+  since?: string;
 }): Result<PlaidSyncPlan, ProviderSyncError> {
   const known = indexKnown(PLAID_PROVIDER_ID, input.householdId, input.books);
   const removedIds = new Set(input.removed);
@@ -429,6 +603,7 @@ export function planPlaidSync(input: {
     rules: input.rules,
     fallbacks: input.fallbacks,
     claimedRowIds: editedIds,
+    since: input.since,
   });
   if (planned.isErr()) return err(planned.error);
 
@@ -453,7 +628,7 @@ export function planPlaidSync(input: {
     });
   }
 
-  const linkedIds = new Set(planned.value.links.map((link) => link.transactionId));
+  const linkedIds = new Set([...planned.value.links.map((link) => link.transactionId), ...planned.value.rekeys.map((rekey) => rekey.transactionId)]);
   const removed: PlannedBankRemoval[] = [];
   const seenRemovals = new Set<string>();
   for (const providerTransactionId of input.removed) {
@@ -469,6 +644,7 @@ export function planPlaidSync(input: {
     accounts: planned.value.accounts,
     added: planned.value.transactions,
     links: planned.value.links,
+    rekeys: planned.value.rekeys,
     updated: updates,
     removed,
   });

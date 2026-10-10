@@ -232,6 +232,13 @@
       "when": 1791663830120,
       "tag": "0032_onboarding_steps",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791667207572,
+      "tag": "0033_bank_account_reconnect",
+      "breakpoints": true
     }
   ]
 }

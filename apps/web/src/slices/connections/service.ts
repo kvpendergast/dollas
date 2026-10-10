@@ -539,8 +539,13 @@ function isPlaid(provider: BankProvider): provider is PlaidProvider {
 /** One sentence about what a sync wrote. */
 export function syncMessage(written: BankSyncCounts): string {
   const accountLabel = written.accounts === 1 ? "account" : "accounts";
+  const carried = written.reconnected?.transactions ?? 0;
+  const reconnected =
+    (written.reconnected?.accounts ?? 0) > 0 || carried > 0
+      ? ` Picked up where the earlier connection left off${carried > 0 ? `: ${carried} ${carried === 1 ? "transaction" : "transactions"} already in Dollas, not added again` : ""}.`
+      : "";
   if (written.transactions === 0 && written.matched === 0 && written.updated === 0 && written.removed === 0) {
-    return `Updated ${written.accounts} ${accountLabel}. No new transactions.`;
+    return `Updated ${written.accounts} ${accountLabel}. No new transactions.${reconnected}`;
   }
   const parts = [`Synced ${written.accounts} ${accountLabel}`];
   if (written.transactions > 0) {
@@ -549,6 +554,6 @@ export function syncMessage(written: BankSyncCounts): string {
   if (written.matched > 0) parts.push(`matched ${written.matched} you already had`);
   if (written.updated > 0) parts.push(`updated ${written.updated}`);
   if (written.removed > 0) parts.push(`hid ${written.removed} removed by the bank`);
-  if (parts.length === 1) return `${parts[0]}.`;
-  return `${parts[0]} and ${parts.slice(1).join(", ")}.`;
+  if (parts.length === 1) return `${parts[0]}.${reconnected}`;
+  return `${parts[0]} and ${parts.slice(1).join(", ")}.${reconnected}`;
 }

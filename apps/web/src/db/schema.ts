@@ -498,10 +498,23 @@ export const bankAccount = pgTable(
       .references(() => ledgerAccount.id, { onDelete: "cascade" }),
     balanceCents: integer("balance_cents").notNull(),
     currency: text("currency").notNull(),
+    /**
+     * The provider's own name and mask (last digits) for the account at the
+     * last sync. Not secret. A reconnect that gives the account a new provider
+     * id is recognized by these (PEN-251); null for links synced before 0033
+     * until their next sync.
+     */
+    providerAccountName: text("provider_account_name"),
+    providerAccountMask: text("provider_account_mask"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
+    check(
+      "bank_account_provider_name_chk",
+      sql`${table.providerAccountName} is null or (char_length(${table.providerAccountName}) between 1 and 200 and ${table.providerAccountName} !~ '[[:cntrl:]]')`,
+    ),
+    check("bank_account_provider_mask_chk", sql`${table.providerAccountMask} is null or ${table.providerAccountMask} ~ '^[A-Za-z0-9]{1,8}$'`),
     unique("bank_account_provider_key").on(table.householdId, table.providerId, table.providerAccountId),
     unique("bank_account_ledger_key").on(table.ledgerAccountId),
     check("bank_account_provider_chk", sql`${table.providerId} ~ '^[a-z][a-z0-9_-]{0,31}$'`),

@@ -185,6 +185,7 @@ describe("pendingMigrationTags", () => {
       "0030_spending_filter_attribution",
     "0031_onboarding",
     "0032_onboarding_steps",
+    "0033_bank_account_reconnect",
     ]);
   });
 
