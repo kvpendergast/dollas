@@ -1,5 +1,6 @@
 export {
   AccountError,
+  AgentAccessError,
   BankConnectionError,
   BudgetError,
   ConfigError,
@@ -407,3 +408,25 @@ export {
   type InviteTimes,
   type PendingInviteRef,
 } from "./household/invite";
+
+export {
+  AGENT_ACCESS_TOKEN_TTL_SECONDS,
+  AGENT_MESSAGES,
+  AGENT_READ_SCOPE,
+  AGENT_REFRESH_SCOPE,
+  AGENT_REFRESH_TOKEN_TTL_SECONDS,
+  AGENT_SCOPES,
+  AGENT_WRITE_SCOPE,
+  accessFromScopes,
+  agentAccessError,
+  agentChallengeScopes,
+  decideAgentGrant,
+  describeAgentAccess,
+  grantedScopesFor,
+  requestedAgentScopes,
+  requireAgentAccess,
+  type AgentAccess,
+  type AgentGrant,
+  type AgentScopeChoice,
+  type AgentTokenClaims,
+} from "./agents/access";

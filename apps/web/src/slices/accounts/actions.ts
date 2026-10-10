@@ -4,7 +4,6 @@ import {
   AccountError,
   DomainError,
   archiveAccount,
-  defineAccount,
   deleteAccount,
   editOpeningBalance,
   isAccountType,
@@ -19,6 +18,7 @@ import type { AppTx } from "@/db/client";
 import { ledgerAccount, transaction } from "@/db/schema";
 import { logError } from "@/lib/telemetry";
 import { requireBooks } from "@/slices/access/guard";
+import { addHouseholdAccount } from "@/slices/accounts/service";
 
 const ACCOUNT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -74,25 +74,16 @@ async function loadLedgerAccount(
 
 export async function createAccountAction(_state: { error: string }, formData: FormData) {
   const books = await requireBooks();
-  const defined = defineAccount({
-    name: String(formData.get("name") ?? ""),
-    type: String(formData.get("type") ?? ""),
-    amount: String(formData.get("opening") ?? "0"),
-    owed: owedFromForm(formData),
-  });
-  if (defined.isErr()) return { error: defined.error.message };
-  try {
-    await withActor(books.userId, (tx) =>
-      tx.insert(ledgerAccount).values({
-        householdId: books.householdId,
-        name: defined.value.name,
-        type: defined.value.type,
-        openingBalanceCents: defined.value.openingBalanceCents,
-      }),
-    );
-  } catch (error) {
-    return { error: failure(error, "Could not add that account.", { action: "create-account", householdId: books.householdId }) };
-  }
+  const added = await addHouseholdAccount(
+    { userId: books.userId, householdId: books.householdId },
+    {
+      name: String(formData.get("name") ?? ""),
+      type: String(formData.get("type") ?? ""),
+      opening: String(formData.get("opening") ?? "0"),
+      owed: owedFromForm(formData),
+    },
+  );
+  if (!added.ok) return { error: added.memberMessage };
   revalidateAccountViews();
   return { error: "" };
 }

@@ -62,6 +62,11 @@ BEGIN
   GRANT EXECUTE ON FUNCTION leave_household(text) TO dollas_app;
   GRANT EXECUTE ON FUNCTION transfer_household_ownership(text, text) TO dollas_app;
   GRANT EXECUTE ON FUNCTION delete_household(text, text) TO dollas_app;
+  IF to_regclass('public.oauth_client') IS NOT NULL THEN
+    REVOKE ALL ON oauth_client, oauth_resource, oauth_client_resource, oauth_refresh_token, oauth_access_token, oauth_consent, oauth_client_assertion, agent_activity FROM dollas_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON oauth_client, oauth_resource, oauth_client_resource, oauth_refresh_token, oauth_access_token, oauth_consent, oauth_client_assertion TO dollas_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON agent_activity TO dollas_app;
+  END IF;
   GRANT dollas_app TO current_user;
 END
 $$;

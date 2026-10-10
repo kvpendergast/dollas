@@ -1,65 +1,32 @@
-import {
-  authorizeHouseholdAccess,
-  civilDateInTimeZone,
-  emailCountsAsVerified,
-  type AuthProvider,
-  type CivilDate,
-  type HouseholdRole,
-} from "@dollas/domain";
+import { authorizeHouseholdAccess, civilDateInTimeZone, emailCountsAsVerified } from "@dollas/domain";
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { withActor } from "@/db/actor";
-import { account, household, householdMember } from "@/db/schema";
-import { getDb } from "@/db/client";
+import { household } from "@/db/schema";
 import { getAuth } from "@/lib/auth";
 import { logError } from "@/lib/telemetry";
+import { loadMemberActor, type BooksContext } from "@/slices/access/member";
 
-export type BooksContext = {
-  userId: string;
-  userName: string;
-  householdId: string;
-  householdName: string;
-  currency: string;
-  timezone: string;
-  role: HouseholdRole;
-  asOf: CivilDate;
-};
-
-function asProviders(values: string[]): AuthProvider[] {
-  return values.filter((value): value is AuthProvider => value === "credential" || value === "google");
-}
+export type { BooksContext };
 
 export const getActorContext = cache(async () => {
   const session = await getAuth().api.getSession({ headers: await headers() });
   if (!session) return null;
-  const providerRows = await getDb()
-    .select({ providerId: account.providerId })
-    .from(account)
-    .where(eq(account.userId, session.user.id));
-  const providers = asProviders(providerRows.map((row) => row.providerId));
+  const memberActor = await loadMemberActor(session.user.id, Boolean(session.user.emailVerified));
   const base = {
-    userId: session.user.id,
-    emailVerified: Boolean(session.user.emailVerified),
-    providers,
+    userId: memberActor.userId,
+    emailVerified: memberActor.emailVerified,
+    providers: memberActor.providers,
   };
   if (!emailCountsAsVerified(base)) {
     return { kind: "unverified" as const, session };
   }
-  const memberships = await withActor(session.user.id, (tx) =>
-    tx.select().from(householdMember).where(eq(householdMember.userId, session.user.id)),
-  );
   return {
     kind: "verified" as const,
     session,
-    actor: {
-      ...base,
-      memberships: memberships.map((row) => ({
-        householdId: row.householdId,
-        role: row.role === "owner" ? ("owner" as const) : ("member" as const),
-      })),
-    },
+    actor: memberActor,
   };
 });
 

@@ -8,13 +8,16 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/db/*.test.ts src/lib/*.test.ts src/slices/activity/*.test.ts src/slices/auth/*.test.ts src/slices/connections/*.test.ts src/slices/household/*.test.ts src/slices/settings/*.test.ts && vitest run",
+    "test": "tsx --test src/db/*.test.ts src/lib/*.test.ts src/slices/activity/*.test.ts src/slices/agents/*.test.ts src/slices/auth/*.test.ts src/slices/connections/*.test.ts src/slices/household/*.test.ts src/slices/settings/*.test.ts && vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
+    "@better-auth/oauth-provider": "1.7.6",
     "@dollas/domain": "workspace:*",
+    "@dollas/mcp": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/api-logs": "^0.222.0",
     "@opentelemetry/resources": "^2.8.0",

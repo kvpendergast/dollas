@@ -17,6 +17,7 @@ import {
 } from "@dollas/domain";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { isAgentAuthorizePath } from "@/lib/agent-oauth";
 import { getAuth } from "@/lib/auth";
 import { logError, logInfo } from "@/lib/telemetry";
 import { clientAddress, readAuthError } from "@/slices/auth/auth-error";
@@ -62,9 +63,11 @@ export async function signInAction(_state: AuthFormState, formData: FormData): P
   const password = String(formData.get("password") ?? "");
   const invitePath = inviteReturnPath(formData.get("invite"));
   if (invitePath) await rememberInvite(String(formData.get("invite")));
+  const agentRaw = String(formData.get("agentReturn") ?? "");
+  const returnPath = isAgentAuthorizePath(agentRaw) ? agentRaw : (invitePath ?? "/");
   try {
     await getAuth().api.signInEmail({
-      body: { email, password, callbackURL: invitePath ?? "/" },
+      body: { email, password, callbackURL: returnPath },
       headers: await headers(),
     });
   } catch (error) {
@@ -81,7 +84,7 @@ export async function signInAction(_state: AuthFormState, formData: FormData): P
     logError(error, { action: "sign-in" });
     return { error: failure.message };
   }
-  redirect(invitePath ?? "/");
+  redirect(returnPath);
 }
 
 export async function requestPasswordResetAction(_state: AuthFormState, formData: FormData): Promise<AuthFormState> {
