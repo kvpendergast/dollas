@@ -391,7 +391,7 @@ export async function separateBankMatch(
   actor: ServiceActor,
   transactionId: string,
   via: Via = "web",
-): Promise<ServiceResult<{ id: string; bankTransactionId: string; payee: string }>> {
+): Promise<ServiceResult<{ id: string; bankCopyId: string; payee: string }>> {
   if (!UUID.test(transactionId)) return refuse(NOT_HERE);
   try {
     const created = await withActor(actor.userId, async (tx) => {
@@ -475,7 +475,7 @@ export async function separateBankMatch(
         categoryId,
         amountCents: copy.amountCents,
       });
-      return { id: row.id, bankTransactionId: inserted.id, payee: copy.payee };
+      return { id: row.id, bankCopyId: inserted.id, payee: copy.payee };
     });
     logInfo("Bank match separated", { action: "separate-bank-match", via, householdId: actor.householdId });
     return succeed(created);

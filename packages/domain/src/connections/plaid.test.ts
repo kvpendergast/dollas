@@ -238,6 +238,33 @@ describe("Plaid sync", () => {
     expect(card.type).toBe("credit");
   });
 
+  it("reads authorized_date and pending_transaction_id for matching and pending-to-posted", async () => {
+    const provider = providerWith(async () =>
+      json({
+        ...emptyPage("cursor-1"),
+        accounts: samplePage().accounts,
+        added: [
+          {
+            transaction_id: "txn-posted",
+            pending_transaction_id: "txn-pending",
+            account_id: "act-checking",
+            amount: 42,
+            date: "2026-03-05",
+            authorized_date: "2026-03-02",
+            name: "Market",
+            pending: false,
+          },
+          { transaction_id: "txn-plain", account_id: "act-checking", amount: 1, date: "2026-03-05", name: "Plain", pending: false },
+        ],
+      }),
+    );
+    const page = await provider.syncItem({ accessToken: ACCESS }, { cursor: null, since: "2026-01-01" });
+    if (page.isErr()) throw page.error;
+    expect(page.value.added[0]).toMatchObject({ occurredOn: "2026-03-05", authorizedOn: "2026-03-02", pendingTransactionId: "txn-pending" });
+    expect(page.value.added[1]).not.toHaveProperty("authorizedOn");
+    expect(page.value.added[1]).not.toHaveProperty("pendingTransactionId");
+  });
+
   it("is idempotent when the same cursor page is applied again", async () => {
     const provider = providerWith(async (_url, body) => {
       if (body.cursor === "cursor-1") return json(emptyPage("cursor-1"));

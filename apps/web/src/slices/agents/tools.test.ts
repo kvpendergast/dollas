@@ -338,6 +338,18 @@ describe("Dollas MCP tools", () => {
         assert.equal(shown.includes("encrypted"), false);
       }
       assert.match(JSON.stringify(afterSync), /Bridge Checking/);
+      // Not the same charge: a matched row (the full flow is in connections/bank-matching.test.ts).
+      const [synced1] = await owner<{ id: string }[]>`
+        update "transaction" set bank_matched_at = now(), bank_occurred_on = '2026-09-15', bank_payee = 'Streaming'
+        where household_id = ${maple} and bank_transaction_id = 'txn-1' returning id
+      `;
+      assert.ok(synced1, "sync stored the bank identity");
+      const matchedList = await ada.ok("list_transactions", { payee_contains: "Streaming" });
+      assert.equal((matchedList.items as Array<{ bank_matched: boolean }>)[0]?.bank_matched, true);
+      const separatedMatch = await ada.ok("separate_bank_match", { transaction_id: synced1.id });
+      assert.notEqual(separatedMatch.bank_copy_id, synced1.id);
+      assert.equal(typeof separatedMatch.bank_copy_id, "string");
+      assert.equal((await ada.call("separate_bank_match", { transaction_id: synced1.id })).isError, true, "only matched rows");
       assert.equal((await ada.call("disconnect_bank_connection", { connection_id: linked.value.connectionId })).isError, true);
       await ada.ok("disconnect_bank_connection", { connection_id: linked.value.connectionId, confirm: true });
 
