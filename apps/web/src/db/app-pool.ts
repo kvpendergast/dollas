@@ -23,6 +23,34 @@ export function appPoolConfig(env: Record<string, string | undefined>): AppPoolC
   throw new Error("DATABASE_URL_APP or DATABASE_URL is required");
 }
 
+/**
+ * DATABASE_URL_APP must reach the same database as DATABASE_URL. If Neon
+ * preview branching is turned on, previews get a branch DATABASE_URL while a
+ * project-wide DATABASE_URL_APP would still reach production. Hosts are
+ * compared without Neon's "-pooler" suffix. Returns a problem or null.
+ */
+export function appUrlMismatch(env: Record<string, string | undefined>): string | null {
+  const app = env[APP_URL_ENV]?.trim();
+  const owner = env.DATABASE_URL?.trim();
+  if (!app || !owner) return null;
+  const target = (raw: string) => {
+    const url = new URL(raw);
+    return { host: url.hostname.toLowerCase().replace(/-pooler(?=\.)/, ""), database: url.pathname.replace(/^\//, "") };
+  };
+  let a: { host: string; database: string };
+  let o: { host: string; database: string };
+  try {
+    a = target(app);
+    o = target(owner);
+  } catch {
+    return "DATABASE_URL_APP or DATABASE_URL is not a valid URL.";
+  }
+  if (a.host !== o.host || a.database !== o.database) {
+    return "DATABASE_URL_APP points at a different database than DATABASE_URL. Refusing to serve: a preview branch must not reach production through the app pool. Set DATABASE_URL_APP per environment or branch (infra/README.md).";
+  }
+  return null;
+}
+
 export const BRIDGE_WARNING =
   "DATABASE_URL_APP is not set, so the app pool connects with DATABASE_URL and relies on SET LOCAL ROLE dollas_app in every transaction (the PEN-213 bridge). Create the dollas_app login with infra/ (see infra/README.md) so row-level security binds the connection.";
 

@@ -5,7 +5,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import { redactSecrets } from "../lib/redact";
-import { appPoolConfig, assertAppLogin, bridgeWarning } from "./app-pool";
+import { appPoolConfig, appUrlMismatch, assertAppLogin, bridgeWarning } from "./app-pool";
 import { ASSUME_APP_ROLE_SQL, isSubjectToRowLevelSecurity, type RoleSecurityFacts } from "./app-role";
 
 /**
@@ -187,13 +187,16 @@ async function runStartup(options: MigrateOnStartupOptions): Promise<MigrationRe
 
 /**
  * Fail closed before serving. With DATABASE_URL_APP the pool's own login must
- * be dollas_app without superuser, BYPASSRLS, or neon_superuser. Without it,
+ * be dollas_app without superuser, BYPASSRLS, or neon_superuser, on the same
+ * database as DATABASE_URL. Without it,
  * the owner must be able to assume dollas_app (the bridge), and a warning
  * says the login is still missing.
  */
 export async function checkAppPool(env: Record<string, string | undefined>, migrationUrl: string): Promise<void> {
   const pool = appPoolConfig(env);
   if (pool.mode === "login") {
+    const mismatch = appUrlMismatch(env);
+    if (mismatch) throw new Error(mismatch);
     await assertAppLogin(pool.url);
     console.log("App pool connects as the dollas_app login (DATABASE_URL_APP).");
     return;

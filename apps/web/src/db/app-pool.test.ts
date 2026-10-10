@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { BRIDGE_WARNING, appLoginError, appLoginProblems, appPoolConfig, bridgeWarning, type AppLoginFacts } from "./app-pool";
+import { BRIDGE_WARNING, appLoginError, appUrlMismatch, appLoginProblems, appPoolConfig, bridgeWarning, type AppLoginFacts } from "./app-pool";
 
 const SAFE: AppLoginFacts = {
   currentUser: "dollas_app",
@@ -39,6 +39,28 @@ describe("app pool URL", () => {
     assert.equal(bridgeWarning({ mode: "bridge", url: "postgresql://dollas_app:dollas@127.0.0.1:5432/dollas" }), null);
     assert.equal(bridgeWarning({ mode: "bridge", url: "not a url" }), BRIDGE_WARNING);
     assert.doesNotMatch(BRIDGE_WARNING, /postgres(ql)?:\/\//);
+  });
+});
+
+describe("same database for app and owner URLs", () => {
+  it("accepts the pooled and direct hosts of one Neon database", () => {
+    assert.equal(appUrlMismatch({ DATABASE_URL_APP: APP, DATABASE_URL: OWNER }), null);
+    assert.equal(
+      appUrlMismatch({ DATABASE_URL_APP: APP, DATABASE_URL: "postgresql://o:p@ep-x.us-east-2.aws.neon.tech/neondb?sslmode=require" }),
+      null,
+    );
+    assert.equal(appUrlMismatch({ DATABASE_URL: OWNER }), null);
+  });
+
+  it("refuses a DATABASE_URL_APP that reaches another branch or database", () => {
+    const branch = "postgresql://o:p@ep-preview-branch-pooler.us-east-2.aws.neon.tech/neondb";
+    assert.match(appUrlMismatch({ DATABASE_URL_APP: APP, DATABASE_URL: branch }) ?? "", /different database/);
+    assert.match(
+      appUrlMismatch({ DATABASE_URL_APP: APP, DATABASE_URL: OWNER.replace(/\/neondb$/, "/otherdb") }) ?? "",
+      /different database/,
+    );
+    assert.match(appUrlMismatch({ DATABASE_URL_APP: "nope", DATABASE_URL: OWNER }) ?? "", /not a valid URL/);
+    assert.doesNotMatch(appUrlMismatch({ DATABASE_URL_APP: APP, DATABASE_URL: branch }) ?? "", /secret|postgres(ql)?:\/\//);
   });
 });
 
