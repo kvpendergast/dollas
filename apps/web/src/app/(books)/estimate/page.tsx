@@ -89,6 +89,7 @@ export default async function EstimatePage() {
   if (!result.ok) throw new Error(result.memberMessage);
   const estimate = result.value;
   const money = (cents: number) => formatCents(cents, books.currency);
+  const cell = (cents: number) => (cents === 0 ? "—" : money(cents));
   const thisName = monthName(estimate.thisMonth.month);
   const nextName = monthName(estimate.nextMonth.month);
   const noPace = estimate.pace.basis === "not_enough_history";
@@ -158,9 +159,9 @@ export default async function EstimatePage() {
                   <li key={line.categoryId ?? "none"} className="py-2 text-sm">
                     <div className="hidden grid-cols-[1fr_repeat(4,6.5rem)_7rem] items-baseline gap-2 tabular-nums md:grid">
                       <span className="truncate">{line.name}</span>
-                      <span className="text-right">{money(line.thisMonth.spentSoFarCents)}</span>
-                      <span className="text-right">{money(line.thisMonth.recurringCents)}</span>
-                      <span className="text-right">{money(line.thisMonth.paceCents)}</span>
+                      <span className="text-right">{cell(line.thisMonth.spentSoFarCents)}</span>
+                      <span className="text-right">{cell(line.thisMonth.recurringCents)}</span>
+                      <span className="text-right">{cell(line.thisMonth.paceCents)}</span>
                       <span className="text-right font-medium">{money(line.thisMonth.estimateCents)}</span>
                       <span className="text-right text-muted-foreground">{money(line.nextMonth.estimateCents)}</span>
                     </div>
@@ -170,8 +171,14 @@ export default async function EstimatePage() {
                         <span className="tabular-nums">{money(line.thisMonth.estimateCents)}</span>
                       </div>
                       <p className="text-xs text-muted-foreground tabular-nums">
-                        {money(line.thisMonth.spentSoFarCents)} so far · {money(line.thisMonth.recurringCents)} recurring ·{" "}
-                        {money(line.thisMonth.paceCents)} pace · {nextName} {money(line.nextMonth.estimateCents)}
+                        {[
+                          line.thisMonth.spentSoFarCents ? `${money(line.thisMonth.spentSoFarCents)} so far` : null,
+                          line.thisMonth.recurringCents ? `${money(line.thisMonth.recurringCents)} recurring` : null,
+                          line.thisMonth.paceCents ? `${money(line.thisMonth.paceCents)} pace` : null,
+                          `${nextName} ${money(line.nextMonth.estimateCents)}`,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </p>
                     </div>
                   </li>

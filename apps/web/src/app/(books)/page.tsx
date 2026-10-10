@@ -6,6 +6,16 @@ import { Landing } from "@/components/landing";
 import { getActorContext, requireBooks } from "@/slices/access/guard";
 import { loadHome } from "@/slices/books/queries";
 
+function estimateParts(
+  estimate: { spentSoFarCents: number; recurringExpectedCents: number; paceCents: number },
+  money: (cents: number) => string,
+): string {
+  const parts = [`${money(estimate.spentSoFarCents)} spent so far`];
+  if (estimate.recurringExpectedCents > 0) parts.push(`${money(estimate.recurringExpectedCents)} in recurring bills still due`);
+  if (estimate.paceCents > 0) parts.push(`${money(estimate.paceCents)} of everyday spending ahead`);
+  return `${parts.join(" + ")}.`;
+}
+
 export default async function HomePage() {
   const ctx = await getActorContext();
   if (!ctx) return <Landing />;
@@ -62,10 +72,7 @@ export default async function HomePage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="font-serif text-5xl tabular-nums">{money(home.estimate.estimateCents)}</p>
-          <p className="text-sm text-muted-foreground tabular-nums">
-            {money(home.estimate.spentSoFarCents)} spent so far + {money(home.estimate.recurringExpectedCents)} in recurring bills +{" "}
-            {money(home.estimate.paceCents)} of everyday spending ahead.
-          </p>
+          <p className="text-sm text-muted-foreground tabular-nums">{estimateParts(home.estimate, money)}</p>
           <p className="text-sm text-muted-foreground">
             {home.estimate.paceBasis === "not_enough_history"
               ? "Not enough history yet for an everyday pace, so this counts recurring bills only."
