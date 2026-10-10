@@ -162,6 +162,20 @@
       "when": 1791647393081,
       "tag": "0022_household_invite_access",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791648721108,
+      "tag": "0023_agent_oauth",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791648744272,
+      "tag": "0024_agent_oauth_access",
+      "breakpoints": true
     }
   ]
 }

@@ -2,6 +2,14 @@ import { NameForm, EmailForm, PasswordSection, TransferForm, LeaveHouseholdDialo
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireBooks } from "@/slices/access/guard";
 import { describeMembership } from "@/slices/settings/membership";
+import { DisconnectAgentForm } from "@/components/forms/agent-forms";
+import { mcpResourceUrl } from "@/lib/agent-oauth";
+import { listAgentConnections } from "@/slices/agents/connections";
+
+function day(date: Date | null, timezone: string): string {
+  if (!date) return "Not yet";
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: timezone });
+}
 
 export const metadata = { title: "Settings · dollas" };
 
@@ -9,6 +17,7 @@ export default async function SettingsPage() {
   const books = await requireBooks();
   const described = await describeMembership({ userId: books.userId, householdId: books.householdId });
   const profile = described.ok ? described.value : null;
+  const agents = await listAgentConnections({ userId: books.userId, householdId: books.householdId });
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
@@ -47,6 +56,42 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent>
           <PasswordSection method={profile?.signIn ?? "password"} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Connected agents</CardTitle>
+          <CardDescription>
+            AI agents you connected over MCP. Each acts as you in {books.householdName}. Disconnecting one stops it right away.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!agents.ok ? (
+            <p role="alert" className="text-sm text-over">
+              {agents.memberMessage}
+            </p>
+          ) : agents.value.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No agents are connected.</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {agents.value.map((agent) => (
+                <li key={agent.id} className="flex items-start justify-between gap-3 py-3 text-sm first:pt-0">
+                  <div className="space-y-0.5">
+                    <p className="font-medium">{agent.clientName}</p>
+                    <p className="text-muted-foreground">{agent.access}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Connected {day(agent.connectedAt, books.timezone)} · Last used {day(agent.lastUsedAt, books.timezone)}
+                    </p>
+                  </div>
+                  <DisconnectAgentForm connectionId={agent.id} clientName={agent.clientName} />
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-xs text-muted-foreground">
+            To connect one, add <span className="font-mono">{mcpResourceUrl()}</span> as a remote MCP server in your agent. It
+            sends you here to sign in and choose read, or read and write.
+          </p>
         </CardContent>
       </Card>
       <Card>

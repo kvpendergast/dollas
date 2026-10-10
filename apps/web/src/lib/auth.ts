@@ -1,3 +1,4 @@
+import { oauthProvider } from "@better-auth/oauth-provider";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
@@ -6,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db/client";
 import { schema, user } from "@/db/schema";
+import { agentOAuthOptions, agentTokenVerifier } from "@/lib/agent-oauth";
 import { redactSecrets } from "@/lib/redact";
 import { logError, logInfo } from "@/lib/telemetry";
 import { recordMailFailure } from "@/lib/mail-attempt";
@@ -50,6 +52,7 @@ function deliverResetLinkLater(email: string, url: string): Promise<void> {
 }
 
 function createAuth() {
+  const oauthOptions = agentOAuthOptions();
   return betterAuth({
       appName: "dollas",
       baseURL: siteOrigin(),
@@ -128,7 +131,7 @@ function createAuth() {
           },
         },
       },
-      plugins: [nextCookies()],
+      plugins: [oauthProvider(oauthOptions), agentTokenVerifier(oauthOptions), nextCookies()],
     });
 }
 

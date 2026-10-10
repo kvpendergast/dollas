@@ -3,21 +3,20 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "bin": {
-    "dollas-mcp": "./src/bin.ts"
-  },
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "start": "node --experimental-strip-types src/bin.ts"
+    "test": "vitest run"
   },
   "dependencies": {
+    "@dollas/domain": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.31.0",
     "zod": "^4.1.11"
   },
   "devDependencies": {
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   }
 }

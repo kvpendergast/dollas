@@ -217,3 +217,25 @@ export type InviteFailureReason =
   | "wrong_email"
   | "unverified"
   | "other_household";
+
+/**
+ * An agent (MCP client) request that Dollas refuses. `reason` picks the HTTP
+ * answer: missing or dead credentials are 401, a scope the grant lacks is 403.
+ * The message is safe to show to the member or the agent.
+ */
+export class AgentAccessError extends DomainError {
+  readonly reason: AgentAccessFailureReason;
+
+  constructor(reason: AgentAccessFailureReason, message: string) {
+    super("agent_access", message);
+    this.reason = reason;
+  }
+}
+
+export type AgentAccessFailureReason =
+  | "missing_token"
+  | "invalid_token"
+  | "no_household"
+  | "insufficient_scope"
+  | "revoked"
+  | "invalid_scope_choice";

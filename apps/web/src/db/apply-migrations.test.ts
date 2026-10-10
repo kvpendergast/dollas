@@ -175,6 +175,8 @@ describe("pendingMigrationTags", () => {
       "0020_csv_column_mapping_grants",
       "0021_household_invite_email",
       "0022_household_invite_access",
+      "0023_agent_oauth",
+      "0024_agent_oauth_access",
     ]);
   });
 
@@ -490,5 +492,20 @@ describe("publicErrorText", () => {
     const text = publicErrorText(new Error(`insert failed ${ciphertext}`));
     assert.equal(text.includes(ciphertext), false);
     assert.match(text, /\[redacted-token\]/);
+  });
+  it("grants dollas_app DML only on agent OAuth tables and keeps agent_activity under household RLS", async () => {
+    const folder = migrationsFolder();
+    const tables = await readFile(path.join(folder, "0023_agent_oauth.sql"), "utf8");
+    const access = await readFile(path.join(folder, "0024_agent_oauth_access.sql"), "utf8");
+    assert.match(tables, /ALTER TABLE "agent_activity" ENABLE ROW LEVEL SECURITY/);
+    assert.match(tables, /CREATE POLICY "agent_activity_own"/);
+    assert.match(tables, /"token" text NOT NULL/);
+    for (const sql of [access, APP_GRANT_SQL]) {
+      assert.match(sql, /GRANT SELECT, INSERT, UPDATE, DELETE ON oauth_client, oauth_resource, oauth_client_resource, oauth_refresh_token, oauth_access_token, oauth_consent, oauth_client_assertion TO dollas_app/);
+      assert.equal(/GRANT [^;]*(TRUNCATE|REFERENCES|TRIGGER|ALL PRIVILEGES)[^;]*ON oauth_/.test(sql), false);
+    }
+    assert.equal(/CREATE ROLE|ALTER ROLE/.test(access), false);
+    assert.match(access, /CREATE TRIGGER household_member_agent_exit/);
+    assert.match(access, /REVOKE ALL ON FUNCTION revoke_agent_access_on_member_exit\(\) FROM PUBLIC/);
   });
 });

@@ -21,13 +21,23 @@ import { joinHouseholdAction, startHouseholdAction } from "@/slices/household/ac
 
 const initial: AuthFormState = { error: "" };
 
-export function SignInForm({ googleEnabled, invite }: { googleEnabled: boolean; invite?: string }) {
+export function SignInForm({
+  googleEnabled,
+  invite,
+  agentReturn,
+}: {
+  googleEnabled: boolean;
+  invite?: string;
+  /** Provider authorize path to resume an agent connection after sign-in. */
+  agentReturn?: string;
+}) {
   const [state, action, pending] = useActionState(signInAction, initial);
-  const returnTo = invite ? `/invite/${invite}` : "/";
+  const returnTo = agentReturn ?? (invite ? `/invite/${invite}` : "/");
   return (
     <div className="space-y-4">
       <form action={action} className="space-y-3">
         {invite ? <input type="hidden" name="invite" value={invite} /> : null}
+        {agentReturn ? <input type="hidden" name="agentReturn" value={agentReturn} /> : null}
         <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>
           <Input id="email" name="email" type="email" autoComplete="email" required />
