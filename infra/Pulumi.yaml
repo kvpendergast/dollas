@@ -1,0 +1,8 @@
+name: dollas
+description: Dollas deploy infrastructure (PEN-214 dollas_app login; PEN-211 extends this with the full Vercel recipe)
+runtime:
+  name: nodejs
+  options:
+    packagemanager: pnpm
+    typescript: true
+main: index.ts

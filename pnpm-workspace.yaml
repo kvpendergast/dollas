@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "infra"
 
 # 5 days, in minutes. pnpm refuses a version until it has been on the registry
 # this long, including versions already in pnpm-lock.yaml. That covers local
@@ -13,9 +14,13 @@ trustLockfile: false
 
 # Dependency install scripts do not run unless a package is set to true.
 # The allowlist is empty: esbuild, sharp, and unrs-resolver ship prebuilt
-# platform packages and work without their install scripts.
+# platform packages and work without their install scripts. protobufjs
+# (pulled in by @pulumi/pulumi through gRPC, infra/ only) has a postinstall
+# that only prints a version-scheme warning, so it stays off too. Pulumi
+# provider plugins are fetched by the Pulumi CLI, not by install scripts.
 allowBuilds:
   esbuild: false
+  protobufjs: false
   sharp: false
   unrs-resolver: false
 strictDepBuilds: true

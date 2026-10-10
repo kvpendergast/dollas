@@ -1,0 +1,23 @@
+{
+  "name": "@dollas/infra",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Pulumi program for Dollas deploy infrastructure. PEN-214: the dollas_app LOGIN role and DATABASE_URL_APP.",
+  "main": "index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pulumi/pulumi": "3.267.0",
+    "@pulumi/random": "4.21.2",
+    "@pulumiverse/vercel": "5.4.1",
+    "postgres": "^3.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

@@ -5,6 +5,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import { redactSecrets } from "../lib/redact";
+import { appPoolConfig, assertAppLogin, bridgeWarning } from "./app-pool";
 import { ASSUME_APP_ROLE_SQL, isSubjectToRowLevelSecurity, type RoleSecurityFacts } from "./app-role";
 
 /**
@@ -15,11 +16,12 @@ import { ASSUME_APP_ROLE_SQL, isSubjectToRowLevelSecurity, type RoleSecurityFact
 const MIGRATION_LOCK = [4812, 1001] as const;
 
 /**
- * Non-owner role used for household queries. Docker already creates a LOGIN
- * role for local development. A fresh Neon database does not. Neon rejects
- * passwords below 60 bits of entropy, so this statement has no password.
- * NOLOGIN is enough: the migration role is granted this role, and each app
- * transaction assumes it so row-level security applies to the table owner too.
+ * Non-owner role used for household queries, created here only when it is
+ * missing so the SET LOCAL ROLE bridge works on a fresh database. Its LOGIN
+ * and password belong to infra/ (Pulumi, PEN-214) in production and to
+ * docker/init.sql locally. Startup never alters an existing dollas_app: an
+ * earlier version forced NOLOGIN on Vercel, which would cut off the
+ * Pulumi-created login.
  */
 export const APP_ROLE_SQL = "CREATE ROLE dollas_app NOLOGIN NOSUPERUSER NOBYPASSRLS";
 
@@ -28,6 +30,10 @@ export const APP_ROLE_SQL = "CREATE ROLE dollas_app NOLOGIN NOSUPERUSER NOBYPASS
  * already exists, and an existing Neon database may have migrated first.
  * INSERT stays revoked on household, household_member, and household_invite.
  * Invites are created, revoked, and accepted only through the 0022 functions.
+ * These grants apply to the dollas_app role whether infra/ made it a LOGIN or
+ * not, so the Pulumi SQL carries no table grants. The final
+ * `GRANT dollas_app TO current_user` exists only for the SET LOCAL ROLE
+ * bridge; remove it with the bridge once DATABASE_URL_APP is everywhere.
  */
 export const APP_GRANT_SQL = `
 DO $$
@@ -171,12 +177,30 @@ async function runStartup(options: MigrateOnStartupOptions): Promise<MigrationRe
     if (result.applied.length > 0) {
       console.log(`Applied schema migrations: ${result.applied.join(", ")}`);
     }
-    if (!options.connect) await assertAppRoleSubjectToRls(url);
+    if (!options.connect) await checkAppPool(env, url);
     return result;
   } catch (error) {
     console.error(`Startup schema migration failed: ${publicErrorText(error)}`);
     throw error;
   }
+}
+
+/**
+ * Fail closed before serving. With DATABASE_URL_APP the pool's own login must
+ * be dollas_app without superuser, BYPASSRLS, or neon_superuser. Without it,
+ * the owner must be able to assume dollas_app (the bridge), and a warning
+ * says the login is still missing.
+ */
+export async function checkAppPool(env: Record<string, string | undefined>, migrationUrl: string): Promise<void> {
+  const pool = appPoolConfig(env);
+  if (pool.mode === "login") {
+    await assertAppLogin(pool.url);
+    console.log("App pool connects as the dollas_app login (DATABASE_URL_APP).");
+    return;
+  }
+  await assertAppRoleSubjectToRls(migrationUrl);
+  const warning = bridgeWarning(pool);
+  if (warning) console.warn(warning);
 }
 
 export async function applyMigrations(
@@ -410,14 +434,6 @@ export function createPostgresMigrationSession(url: string): MigrationSession {
     async ensureAppRole() {
       const existing = await sql`select 1 from pg_roles where rolname = 'dollas_app'`;
       if (existing.length === 0) await sql.unsafe(APP_ROLE_SQL);
-      // Vercel must not keep a login. An earlier boot may have created dollas_app
-      // with the local password before Neon rejected it; NOLOGIN closes that.
-      // Local migrate leaves LOGIN alone so DATABASE_URL can still connect.
-      if (process.env.VERCEL) {
-        await sql.unsafe("ALTER ROLE dollas_app NOLOGIN NOSUPERUSER NOBYPASSRLS");
-      } else {
-        await sql.unsafe("ALTER ROLE dollas_app NOSUPERUSER NOBYPASSRLS");
-      }
     },
     async baselineLegacy(createdAt) {
       if (!Number.isSafeInteger(createdAt)) throw new Error("Invalid migration timestamp");
