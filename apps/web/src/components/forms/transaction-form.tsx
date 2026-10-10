@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createTransactionAction } from "@/slices/activity/actions";
 import { SplitControl } from "./split-control";
+import { useActionToast } from "@/lib/use-action-toast";
 
 type Option = { id: string; name: string };
 
@@ -29,6 +30,7 @@ export function TransactionForm({
   today: string;
 }) {
   const [state, action, pending] = useActionState(createTransactionAction, { error: "" });
+  useActionToast(state, "Transaction added.");
   const opening = openingCategory(categories);
   return (
     <form action={action} className="space-y-3">

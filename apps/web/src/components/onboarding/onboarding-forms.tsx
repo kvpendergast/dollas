@@ -8,6 +8,7 @@ import {
   resumeOnboardingAction,
   type OnboardingFormState,
 } from "@/slices/onboarding/actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 const initial: OnboardingFormState = { error: "" };
 
@@ -28,6 +29,7 @@ function Status({ state }: { state: OnboardingFormState }) {
 
 export function SkipOnboardingButton({ label = "Skip for now" }: { label?: string }) {
   const [state, action, pending] = useActionState(dismissOnboardingAction, initial);
+  useActionToast(state, "Checklist hidden. Bring it back from Home or Settings.");
   return (
     <form action={action} className="space-y-1">
       <Button type="submit" variant="ghost" size="sm" disabled={pending}>
@@ -40,6 +42,7 @@ export function SkipOnboardingButton({ label = "Skip for now" }: { label?: strin
 
 export function ResumeOnboardingButton({ variant = "link" }: { variant?: "link" | "outline" }) {
   const [state, action, pending] = useActionState(resumeOnboardingAction, initial);
+  useActionToast(state, "The setup checklist is back on Home.");
   return (
     <form action={action} className="space-y-1">
       <Button type="submit" variant={variant} size="sm" className={variant === "link" ? "h-auto px-0" : undefined} disabled={pending}>
@@ -52,6 +55,7 @@ export function ResumeOnboardingButton({ variant = "link" }: { variant?: "link" 
 
 export function StarterCategoriesButton({ variant = "default" }: { variant?: "default" | "outline" }) {
   const [state, action, pending] = useActionState(addStarterCategoriesAction, initial);
+  useActionToast(state, (s) => s.notice || "Starter categories added.");
   return (
     <form action={action} className="space-y-1">
       <Button type="submit" variant={variant} size="sm" disabled={pending}>

@@ -117,7 +117,7 @@ export default async function SettingsPage() {
               <ResumeOnboardingButton variant="outline" />
             ) : (
               <>
-                <Link href="/" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+                <Link href="/" className="tap text-sm font-medium text-primary underline-offset-4 hover:underline">
                   Open it on Home
                 </Link>
                 <SkipOnboardingButton label={setup.state === "complete" ? "Hide it" : "Skip for now"} />

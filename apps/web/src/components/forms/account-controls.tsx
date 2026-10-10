@@ -11,6 +11,7 @@ import {
   unarchiveAccountAction,
   updateAccountAction,
 } from "@/slices/accounts/actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 export function AccountControls({
   account,
@@ -32,16 +33,20 @@ export function AccountControls({
   const [owed, setOwed] = useState(owedAtStart);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [saved, save, saving] = useActionState(updateAccountAction, { error: "" });
+  useActionToast(saved, "Account saved.");
   const [archivedState, archive, archiving] = useActionState(archiveAccountAction, { error: "" });
+  useActionToast(archivedState, "Account archived. Its history stays.");
   const [restored, unarchive, unarchiving] = useActionState(unarchiveAccountAction, { error: "" });
+  useActionToast(restored, "Account restored.");
   const [removed, remove, removing] = useActionState(deleteAccountAction, { error: "" });
+  useActionToast(removed, "Account deleted.");
   const credit = account.type === "credit";
   const blocked = account.transactionCount > 0;
   const field = `account-${account.id}`;
 
   return (
     <div className="space-y-3">
-      <details className="rounded-lg border border-border px-3 py-2">
+      <details data-sheet className="rounded-lg border border-border px-3 py-2">
         <summary className="cursor-pointer text-sm text-primary" aria-label={`Edit ${account.name}`}>
           Edit name and opening balance
         </summary>

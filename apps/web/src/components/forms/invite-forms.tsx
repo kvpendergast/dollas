@@ -12,6 +12,8 @@ import {
   revokeInviteAction,
   type InviteFormState,
 } from "@/slices/household/actions";
+import { useActionToast } from "@/lib/use-action-toast";
+import { toast } from "@/lib/toast-store";
 
 async function writeClipboard(text: string): Promise<boolean> {
   try {
@@ -49,6 +51,7 @@ const initialInvite: InviteFormState = { error: "" };
 
 export function InviteForm() {
   const [state, action, pending] = useActionState(createInviteAction, initialInvite);
+  useActionToast(state, (s) => s.notice || "Invite created.");
   return (
     <div className="space-y-3">
       <form action={action} className="space-y-3">
@@ -121,6 +124,7 @@ export function PendingInviteActions({ inviteId, email }: { inviteId: string; em
                   const result = await revokeInviteAction(inviteId);
                   setConfirming(false);
                   if (result.error) setError(result.error);
+                  else toast(`Invite for ${email} revoked.`);
                 })
               }
             >

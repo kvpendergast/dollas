@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createAccountAction } from "@/slices/accounts/actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 const selectClass = "h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm";
 
 export function AccountForm() {
   const [state, action, pending] = useActionState(createAccountAction, { error: "" });
+  useActionToast(state, "Account added.");
   const [type, setType] = useState("checking");
   const [owed, setOwed] = useState(false);
   const credit = type === "credit";

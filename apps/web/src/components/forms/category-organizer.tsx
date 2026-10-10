@@ -19,6 +19,7 @@ import {
   shiftCategoryAction,
   shiftCategoryGroupAction,
 } from "@/slices/categories/actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 const selectClass = "h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm sm:w-44";
 
@@ -55,6 +56,7 @@ function ShiftButton({
   disabled: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, { error: "" });
+  useActionToast(state, "Order saved.");
   const text = direction === "up" ? "Up" : "Down";
   return (
     <form action={formAction} aria-busy={pending}>
@@ -97,6 +99,7 @@ function ShiftControls({
 
 function RenameGroupForm({ group }: { group: ListedGroup }) {
   const [state, action, pending] = useActionState(renameCategoryGroupAction, { error: "" });
+  useActionToast(state, "Group renamed.");
   const inputId = `group-name-${group.id}`;
   return (
     <form action={action} aria-busy={pending} className="flex flex-wrap items-end gap-2">
@@ -123,6 +126,7 @@ function RenameGroupForm({ group }: { group: ListedGroup }) {
 
 function RemoveEmptyGroup({ group }: { group: ListedGroup }) {
   const [state, action, pending] = useActionState(removeCategoryGroupAction, { error: "" });
+  useActionToast(state, "Group removed.");
   return (
     <form action={action} aria-busy={pending}>
       <input type="hidden" name="groupId" value={group.id} />
@@ -136,6 +140,7 @@ function RemoveEmptyGroup({ group }: { group: ListedGroup }) {
 
 function RemoveGroupForm({ group, destinations }: { group: ListedGroup; destinations: Destination[] }) {
   const [state, action, pending] = useActionState(removeCategoryGroupAction, { error: "" });
+  useActionToast(state, "Group removed.");
   const selectId = `remove-${group.id}`;
   return (
     <form action={action} aria-busy={pending} className="space-y-2">
@@ -164,6 +169,7 @@ function RemoveGroupForm({ group, destinations }: { group: ListedGroup; destinat
 
 function MoveCategoryForm({ category, destinations }: { category: ListedCategory; destinations: Destination[] }) {
   const [state, action, pending] = useActionState(moveCategoryAction, { error: "" });
+  useActionToast(state, "Category moved.");
   const selectId = `move-${category.id}`;
   return (
     <form action={action} aria-busy={pending} className="flex flex-wrap items-end gap-2">
@@ -191,6 +197,7 @@ function MoveCategoryForm({ category, destinations }: { category: ListedCategory
 
 function ChangeKindForm({ category }: { category: ListedCategory }) {
   const [state, action, pending] = useActionState(changeCategoryKindAction, { error: "" });
+  useActionToast(state, "Category updated.");
   const [kind, setKind] = useState(category.kind);
   const selectId = `kind-${category.id}`;
   const helpId = `kind-help-${category.id}`;

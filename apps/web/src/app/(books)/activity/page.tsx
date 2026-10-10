@@ -40,7 +40,7 @@ function Pager({ page, pageCount, total, hrefFor }: { page: number; pageCount: n
       {pageCount > 1 ? (
         <div className="flex items-center gap-3">
           {page > 1 ? (
-            <Link href={hrefFor(page - 1)} className="font-medium text-primary underline-offset-4 hover:underline" rel="prev">
+            <Link href={hrefFor(page - 1)} className="tap font-medium text-primary underline-offset-4 hover:underline" rel="prev">
               ← Newer
             </Link>
           ) : null}
@@ -48,7 +48,7 @@ function Pager({ page, pageCount, total, hrefFor }: { page: number; pageCount: n
             Page {page} of {pageCount}
           </span>
           {page < pageCount ? (
-            <Link href={hrefFor(page + 1)} className="font-medium text-primary underline-offset-4 hover:underline" rel="next">
+            <Link href={hrefFor(page + 1)} className="tap font-medium text-primary underline-offset-4 hover:underline" rel="next">
               Older →
             </Link>
           ) : null}
@@ -76,8 +76,8 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
         <h1 className="font-serif text-4xl">Activity</h1>
         <p className="text-sm text-muted-foreground">
           What came in, what went out, splits included.{" "}
-          <a href="#transactions" className="font-medium text-primary underline-offset-4 hover:underline">
-            Find a transaction
+          <a href="#add-transaction" className="font-medium text-primary underline-offset-4 hover:underline">
+            Add a transaction
           </a>{" "}
           ·{" "}
           <a href="#import" className="font-medium text-primary underline-offset-4 hover:underline">
@@ -89,7 +89,37 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
           </a>
         </p>
       </div>
-      <Card>
+      <section id="transactions" className="scroll-mt-20 space-y-4" aria-labelledby="ledger-heading">
+        <h2 id="ledger-heading" className="font-serif text-2xl">
+          Transactions
+        </h2>
+        <FilterBar path="/activity" anchor="#transactions" ctx={filters} />
+        {activity.total > 0 ? <Pager page={activity.page} pageCount={activity.pageCount} total={activity.total} hrefFor={hrefFor} /> : null}
+        {activity.transactions.length === 0 ? (
+          filtered ? (
+            <NextStep title="Nothing matches these filters" body="Try a wider date range, or clear the filters." href="/activity#transactions" action="Clear filters" />
+          ) : newEntryAccounts.length === 0 ? (
+            <NextStep title="No transactions yet" body="Add an account, then add transactions here, import a CSV, or link a bank." href="/accounts" action="Add an account" />
+          ) : (
+            <NextStep
+              title="No transactions yet"
+              body="Add one below, import a CSV from your bank, or link a bank on Accounts."
+              href="#add-transaction"
+              action="Add a transaction"
+            />
+          )
+        ) : null}
+        <ActivityLedger
+        categories={activity.categories}
+        recurringChoices={activity.recurringChoices}
+        transactions={activity.transactions.map((item) => ({
+          ...item,
+          accounts: editAccounts(newEntryAccounts, activity.accounts, item.accountId),
+        }))}
+        />
+        {activity.pageCount > 1 ? <Pager page={activity.page} pageCount={activity.pageCount} total={activity.total} hrefFor={hrefFor} /> : null}
+      </section>
+      <Card id="add-transaction" className="scroll-mt-20">
         <CardHeader>
           <CardTitle>Add one</CardTitle>
           <CardDescription>One stop, two categories? Split it.</CardDescription>
@@ -129,36 +159,6 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
           ) : null}
         </CardContent>
       </Card>
-      <section id="transactions" className="scroll-mt-20 space-y-4" aria-labelledby="ledger-heading">
-        <h2 id="ledger-heading" className="font-serif text-2xl">
-          Transactions
-        </h2>
-        <FilterBar path="/activity" anchor="#transactions" ctx={filters} />
-        {activity.total > 0 ? <Pager page={activity.page} pageCount={activity.pageCount} total={activity.total} hrefFor={hrefFor} /> : null}
-        {activity.transactions.length === 0 ? (
-          filtered ? (
-            <NextStep title="Nothing matches these filters" body="Try a wider date range, or clear the filters." href="/activity#transactions" action="Clear filters" />
-          ) : newEntryAccounts.length === 0 ? (
-            <NextStep title="No transactions yet" body="Add an account, then add transactions here, import a CSV, or link a bank." href="/accounts" action="Add an account" />
-          ) : (
-            <NextStep
-              title="No transactions yet"
-              body="Add one above, import a CSV from your bank, or link a bank on Accounts."
-              href="#import"
-              action="Import a CSV"
-            />
-          )
-        ) : null}
-      <ActivityLedger
-        categories={activity.categories}
-        recurringChoices={activity.recurringChoices}
-        transactions={activity.transactions.map((item) => ({
-          ...item,
-          accounts: editAccounts(newEntryAccounts, activity.accounts, item.accountId),
-        }))}
-        />
-        {activity.pageCount > 1 ? <Pager page={activity.page} pageCount={activity.pageCount} total={activity.total} hrefFor={hrefFor} /> : null}
-      </section>
       <Card id="payee-rules" className="scroll-mt-20">
         <CardHeader>
           <CardTitle>Payee rules</CardTitle>

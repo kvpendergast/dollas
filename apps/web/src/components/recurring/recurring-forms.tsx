@@ -26,6 +26,8 @@ import {
   updateRecurringItemAction,
   type RecurringFormState,
 } from "@/slices/recurring/actions";
+import { useActionToast } from "@/lib/use-action-toast";
+import { toast } from "@/lib/toast-store";
 
 const selectClass = "h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm";
 
@@ -71,6 +73,7 @@ export function RecurringItemForm({
     editing ? updateRecurringItemAction : createRecurringItemAction,
     { error: "", message: "" },
   );
+  useActionToast(state, editing ? "Recurring item saved." : "Recurring item added.");
   const [cadence, setCadence] = useState(values.cadence);
   const field = `recurring-${values.id ?? "new"}`;
   const menu = categoryMenuSections(categories);
@@ -171,7 +174,7 @@ export function RecurringItemForm({
           </select>
         </div>
       </div>
-      <details className="rounded-lg border border-border px-3 py-2">
+      <details data-sheet className="rounded-lg border border-border px-3 py-2">
         <summary className="cursor-pointer text-sm text-muted-foreground">Matching and dates</summary>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
           <div className="space-y-1.5 md:col-span-3">
@@ -244,19 +247,22 @@ export function RecurringItemControls({ itemId, name, paused }: { itemId: string
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  async function run(task: () => Promise<{ error: string }>, after?: () => void) {
+  async function run(task: () => Promise<{ error: string }>, done: string, after?: () => void) {
     setBusy(true);
     setError("");
     const result = await task();
     setBusy(false);
     if (result.error) setError(result.error);
-    else after?.();
+    else {
+      toast(done);
+      after?.();
+    }
   }
 
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" className="h-10" disabled={busy} onClick={() => void run(() => setRecurringPausedAction(itemId, !paused))}>
+        <Button type="button" variant="outline" className="h-10" disabled={busy} onClick={() => void run(() => setRecurringPausedAction(itemId, !paused), paused ? "Resumed. Matching transactions link again." : "Paused. Nothing new links while it is paused.")}>
           {paused ? "Resume" : "Pause"}
         </Button>
         <Dialog>
@@ -280,7 +286,7 @@ export function RecurringItemControls({ itemId, name, paused }: { itemId: string
                 type="button"
                 variant="destructive"
                 disabled={busy}
-                onClick={() => void run(() => deleteRecurringItemAction(itemId), () => router.push("/recurring"))}
+                onClick={() => void run(() => deleteRecurringItemAction(itemId), "Recurring item deleted. Its transactions stay.", () => router.push("/recurring"))}
               >
                 {busy ? "Deleting" : "Delete"}
               </Button>
@@ -313,6 +319,7 @@ export function UnlinkRecurringButton({ transactionId, payee }: { transactionId:
           const result = await unlinkRecurringTransactionAction(transactionId);
           setBusy(false);
           setError(result.error);
+          if (!result.error) toast(`Unlinked ${payee}.`);
         }}
       >
         {busy ? "Unlinking" : "Unlink"}
@@ -344,12 +351,13 @@ export function RecurringLinkControl({
   const field = `recurring-link-${transactionId}`;
   if (!recurring && choices.length === 0) return null;
 
-  async function run(task: () => Promise<{ error: string }>) {
+  async function run(task: () => Promise<{ error: string }>, done: string) {
     setBusy(true);
     setError("");
     const result = await task();
     setBusy(false);
     setError(result.error);
+    if (!result.error) toast(done);
   }
 
   return (
@@ -368,7 +376,7 @@ export function RecurringLinkControl({
             className="h-10"
             disabled={busy}
             aria-label={`Unlink ${payee} from ${recurring.name}`}
-            onClick={() => void run(() => unlinkRecurringTransactionAction(transactionId))}
+            onClick={() => void run(() => unlinkRecurringTransactionAction(transactionId), "Unlinked. It will not link to this item again on its own.")}
           >
             {busy ? "Unlinking" : "Unlink"}
           </Button>
@@ -390,7 +398,7 @@ export function RecurringLinkControl({
             variant="outline"
             className="h-10"
             disabled={busy || !itemId}
-            onClick={() => void run(() => linkRecurringTransactionAction(itemId, transactionId))}
+            onClick={() => void run(() => linkRecurringTransactionAction(itemId, transactionId), "Linked to the recurring item.")}
           >
             {busy ? "Linking" : "Link"}
           </Button>
@@ -408,6 +416,7 @@ export function RecurringLinkControl({
 /** "Make recurring" from a suggestion: one tap creates the item with the suggested schedule. */
 export function MakeRecurringButton({ suggestion }: { suggestion: RecurringFormValues }) {
   const [state, action, pending] = useActionState<RecurringFormState, FormData>(createRecurringItemAction, { error: "", message: "" });
+  useActionToast(state, (s) => s.message || "Recurring item added.");
   return (
     <form action={action} className="flex flex-col items-end gap-1">
       <input type="hidden" name="name" value={suggestion.name} />

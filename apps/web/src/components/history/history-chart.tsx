@@ -1,84 +1,55 @@
-import { formatCents, shortMonthLabel, type HistoryColumn } from "@dollas/domain";
+import { shortMonthLabel, type HistoryColumn } from "@dollas/domain";
+import { ChartLegend, ChartRows } from "@/components/charts/chart-rows";
+import { compactCents, historyRows, historySummary } from "@/components/charts/chart-text";
 
-function tone(direction: "less" | "more" | "same"): string {
-  if (direction === "less") return "text-income";
-  if (direction === "more") return "text-over";
-  return "text-muted-foreground";
-}
-
-function changeCopy(direction: "less" | "more" | "same", deltaCents: number, comparedWith: string): string {
-  if (direction === "same") return `Same ${comparedWith}`;
-  const word = direction === "less" ? "less" : "more";
-  return `${formatCents(Math.abs(deltaCents))} ${word} ${comparedWith}`;
-}
+/**
+ * History (PEN-208 layout). Vertical columns, prior year #b7c9be beside this
+ * year #3f6b54, the current partial month hatched amber "so far". Columns are
+ * fluid: a phone shows the latest six months, wider screens all twelve, with no
+ * fixed min width and no labels under 12px. Deltas read as text with a sign
+ * and the month they compare with in the list under the bars; the bars are
+ * decorative for screen readers, which get a summary and the list.
+ */
+const PHONE_COLUMNS = 6;
+const BAR_HEIGHT = 144;
 
 export function HistoryChart({ columns }: { columns: HistoryColumn[] }) {
   const max = Math.max(1, ...columns.flatMap((column) => [column.spentCents, column.priorYearSpentCents]));
+  const phoneFrom = Math.max(0, columns.length - PHONE_COLUMNS);
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-2">
-          <span className="inline-block h-3 w-3 rounded-sm bg-prior" />
-          Prior year
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <span className="inline-block h-3 w-3 rounded-sm bg-bar" />
-          This year
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <span className="bar-partial inline-block h-3 w-3 rounded-sm" />
-          So far
-        </span>
-      </div>
-      <div className="overflow-x-auto pb-2">
-        <div className="flex min-w-[760px] items-end gap-3" role="list" aria-label="Spending by month">
-          {columns.map((column) => {
-            const currentHeight = Math.round((column.spentCents / max) * 148);
-            const priorHeight = Math.round((column.priorYearSpentCents / max) * 148);
-            return (
-              <div key={`${column.year}-${column.month}`} role="listitem" className="w-[72px] shrink-0">
-                <div className="flex h-40 items-end justify-center gap-1">
-                  <div
-                    className="w-4 rounded-t-sm bg-prior"
-                    style={{ height: Math.max(column.priorYearSpentCents > 0 ? 4 : 0, priorHeight) }}
-                    title={`Prior year ${formatCents(column.priorYearSpentCents)}`}
-                  />
-                  <div
-                    className={column.partial ? "bar-partial w-4 rounded-t-sm" : "w-4 rounded-t-sm bg-bar"}
-                    style={{ height: Math.max(column.spentCents > 0 ? 4 : 0, currentHeight) }}
-                    title={column.partial ? `So far ${formatCents(column.spentCents)}` : formatCents(column.spentCents)}
-                  />
-                </div>
-                <p className="mt-2 text-center text-xs font-medium">
-                  {shortMonthLabel(column.year, column.month)}
-                </p>
-                <p className="text-center font-serif text-sm tabular-nums">{formatCents(column.spentCents)}</p>
-                {column.partialLabel ? (
-                  <p className="text-center text-[11px] font-medium text-amber-800">so far</p>
-                ) : (
-                  <p className="text-center text-[11px] text-transparent" aria-hidden="true">
-                    so far
-                  </p>
-                )}
-                <p className={`mt-2 text-center text-[11px] leading-tight ${tone(column.monthOverMonth.direction)}`}>
-                  {changeCopy(
-                    column.monthOverMonth.direction,
-                    column.monthOverMonth.deltaCents,
-                    column.partial ? "than last month, same days" : "than last month",
-                  )}
-                </p>
-                {column.yearOverYear.comparable ? (
-                  <p className={`text-center text-[11px] leading-tight ${tone(column.yearOverYear.direction)}`}>
-                    {changeCopy(column.yearOverYear.direction, column.yearOverYear.deltaCents, "than last year")}
-                  </p>
-                ) : (
-                  <p className="text-center text-[11px] leading-tight text-muted-foreground">Not comparable yet</p>
-                )}
+    <figure>
+      <figcaption className="sr-only">{historySummary(columns)}</figcaption>
+      <ChartLegend
+        items={[
+          { label: "Prior year", swatch: "bg-prior" },
+          { label: "This year", swatch: "bg-bar" },
+          { label: "So far", swatch: "bar-partial" },
+        ]}
+      />
+      <div aria-hidden="true" data-chart="history" className="grid grid-cols-6 items-end gap-2 sm:grid-cols-12 sm:gap-1.5 lg:gap-3">
+        {columns.map((column, index) => {
+          const current = Math.round((column.spentCents / max) * BAR_HEIGHT);
+          const prior = Math.round((column.priorYearSpentCents / max) * BAR_HEIGHT);
+          return (
+            <div key={`${column.year}-${column.month}`} className={`min-w-0 ${index < phoneFrom ? "hidden sm:block" : ""}`}>
+              <div className="flex items-end justify-center gap-[3px]" style={{ height: BAR_HEIGHT + 4 }}>
+                <div
+                  className="dl-bar w-[38%] max-w-4 rounded-t-sm bg-prior"
+                  style={{ height: Math.max(column.priorYearSpentCents > 0 ? 4 : 0, prior), ["--i" as string]: index }}
+                />
+                <div
+                  className={`dl-bar w-[38%] max-w-4 rounded-t-sm ${column.partial ? "bar-partial" : "bg-bar"}`}
+                  style={{ height: Math.max(column.spentCents > 0 ? 4 : 0, current), ["--i" as string]: index }}
+                />
               </div>
-            );
-          })}
-        </div>
+              <p className="mt-2 text-center text-xs font-medium">{shortMonthLabel(column.year, column.month)}</p>
+              <p className="text-center text-xs tabular-nums text-muted-foreground">{compactCents(column.spentCents)}</p>
+              <p className={`text-center text-xs font-medium ${column.partialLabel ? "text-amber-800" : "invisible"}`}>so far</p>
+            </div>
+          );
+        })}
       </div>
-    </div>
+      <ChartRows title="Month by month" rows={historyRows(columns)} />
+    </figure>
   );
 }

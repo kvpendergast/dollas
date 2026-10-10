@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { copyPreviousMonthAction } from "@/slices/plan/actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 export function CopyBudgetsForm({
   monthKey,
@@ -22,6 +23,7 @@ export function CopyBudgetsForm({
   unchangedCount: number;
 }) {
   const [state, action, pending] = useActionState(copyPreviousMonthAction, { error: "" });
+  useActionToast(state, (s) => ("notice" in s && typeof s.notice === "string" && s.notice) || "Budgets copied from last month.");
   const nothingToApply = copies.length === 0 && overwrites.length === 0;
   return (
     <form action={action} className="space-y-4">

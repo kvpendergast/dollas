@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { linkSimpleFinAction } from "@/slices/connections/actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 export function SimpleFinLinkForm() {
   const [state, action, pending] = useActionState(linkSimpleFinAction, { error: "", message: "" });
+  useActionToast(state, (s) => s.message || "Bank linked.");
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {

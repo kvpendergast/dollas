@@ -73,3 +73,187 @@ body {
     #f6e3bc 10px
   );
 }
+
+/*
+ * Motion (PEN-208). Durations and easing are tokens; every animation uses
+ * transform and opacity only, so nothing reflows. The reduced-motion block at
+ * the end turns all of it (and every transition) into an instant change; the
+ * near-zero duration still fires animationend so Radix exit states finish.
+ */
+:root {
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 320ms;
+  --motion-chart: 560ms;
+  --motion-stagger: 28ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+}
+
+@keyframes dl-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes dl-fade-down-out {
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes dl-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dl-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Dialogs center with the CSS translate property, so these only scale and rise. */
+@keyframes dl-zoom-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes dl-zoom-out {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+
+@keyframes dl-grow-y {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes dl-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes dl-collapse-out {
+  to {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+
+/* A page or section arriving. */
+.dl-page {
+  animation: dl-fade-up var(--motion-slow) var(--ease-out) both;
+}
+/* A list item inserted (keyed rows mount with it). */
+.dl-item {
+  animation: dl-fade-up var(--motion-base) var(--ease-out) both;
+}
+/* A list item on its way out, before the server removes it. */
+.dl-item-leaving {
+  animation: dl-collapse-out var(--motion-base) var(--ease-in) both;
+  pointer-events: none;
+}
+/* Chart bars grow from the baseline on first render, staggered by --i. */
+.dl-bar {
+  transform-origin: bottom;
+  animation: dl-grow-y var(--motion-chart) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * var(--motion-stagger));
+}
+/* The checklist tick. */
+.dl-tick {
+  animation: dl-pop var(--motion-slow) var(--ease-out) both;
+}
+/* A <details> sheet opening (filters, menus, saved filters). */
+details[open] > .dl-sheet,
+details[open][data-sheet] > :not(summary) {
+  animation: dl-fade-up var(--motion-base) var(--ease-out) both;
+}
+/* Dialogs (Radix data-state). */
+.dl-dialog[data-state="open"] {
+  animation: dl-zoom-in var(--motion-base) var(--ease-out) both;
+}
+.dl-dialog[data-state="closed"] {
+  animation: dl-zoom-out var(--motion-fast) var(--ease-in) both;
+}
+.dl-overlay[data-state="open"] {
+  animation: dl-fade-in var(--motion-base) var(--ease-out) both;
+}
+.dl-overlay[data-state="closed"] {
+  animation: dl-fade-out var(--motion-fast) var(--ease-in) both;
+}
+/* Toasts. */
+.dl-toast-in {
+  animation: dl-fade-up var(--motion-base) var(--ease-out) both;
+}
+.dl-toast-out {
+  animation: dl-fade-down-out var(--motion-fast) var(--ease-in) both;
+}
+/* Small state changes (hover, checklist strike-through, bars resizing). */
+.dl-transition {
+  transition-property: opacity, transform, color, background-color, text-decoration-color;
+  transition-duration: var(--motion-base);
+  transition-timing-function: var(--ease-out);
+}
+
+/*
+ * Phones and touch screens: tap targets at least 44px tall for buttons,
+ * button-styled links, menus, fields, and standalone links marked .tap
+ * (WCAG 2.5.5). Inline links inside a sentence keep their line height.
+ */
+@media (max-width: 767px), (pointer: coarse) {
+  button,
+  [data-slot="button"],
+  [class~="group/button"],
+  summary,
+  select,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
+    min-height: 44px;
+  }
+  .tap {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}

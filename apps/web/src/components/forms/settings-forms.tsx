@@ -25,6 +25,7 @@ import {
   updateNameAction,
   type SettingsFormState,
 } from "@/slices/settings/actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 const initial: SettingsFormState = { error: "" };
 
@@ -62,6 +63,7 @@ export function leaveHouseholdCopy(lastOwner: boolean, householdName: string): {
 
 export function NameForm({ name }: { name: string }) {
   const [state, action, pending] = useActionState(updateNameAction, initial);
+  useActionToast(state, (s) => s.notice || "Name saved.");
   return (
     <form action={action} className="space-y-3">
       <div className="space-y-1.5">
@@ -79,6 +81,7 @@ export function NameForm({ name }: { name: string }) {
 
 export function EmailForm({ email }: { email: string }) {
   const [state, action, pending] = useActionState(changeEmailAction, initial);
+  useActionToast(state, (s) => s.notice || "Check your new email to confirm the change.");
   return (
     <form action={action} className="space-y-3">
       <p className="text-sm">
@@ -106,6 +109,7 @@ export function PasswordSection({ method }: { method: SignInMethod }) {
 
 function PasswordForm() {
   const [state, action, pending] = useActionState(changePasswordAction, initial);
+  useActionToast(state, (s) => s.notice || "Password changed.");
   return (
     <form action={action} className="space-y-3">
       <div className="space-y-1.5">
@@ -132,6 +136,7 @@ function PasswordForm() {
 export function TransferForm({ members }: { members: { userId: string; name: string; role: HouseholdRole }[] }) {
   const candidates = members.filter((member) => member.role !== "owner");
   const [state, action, pending] = useActionState(transferOwnershipAction, initial);
+  useActionToast(state, (s) => s.notice || "Ownership handed over.");
   if (candidates.length === 0) {
     return <p className="text-sm text-muted-foreground">Invite someone before you can hand this household off.</p>;
   }

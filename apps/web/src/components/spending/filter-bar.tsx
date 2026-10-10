@@ -115,11 +115,11 @@ export function FilterBar({
           </Button>
         </div>
         <details className="group @container rounded-lg border border-border">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-sm font-medium">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-sm font-medium">
             <span>Filters{count > 0 ? ` (${count})` : ""}</span>
             <span className="text-xs text-muted-foreground group-open:hidden">Accounts, categories, people, source, amount</span>
           </summary>
-          <div className="grid gap-5 border-t border-border p-3 @lg:grid-cols-2 @4xl:grid-cols-4">
+          <div className="dl-sheet grid gap-5 border-t border-border p-3 @lg:grid-cols-2 @4xl:grid-cols-4">
             <Fieldset legend="Custom dates">
               <div className="grid grid-cols-2 gap-2">
                 <label className="space-y-1 text-xs text-muted-foreground">
@@ -216,7 +216,7 @@ export function FilterBar({
               <Button type="submit" size="sm">
                 Apply filters
               </Button>
-              <Link href={clearHref} className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+              <Link href={clearHref} className="tap text-sm font-medium text-primary underline-offset-4 hover:underline">
                 Clear all
               </Link>
             </div>
@@ -229,7 +229,7 @@ export function FilterBar({
             <li key={`${chip.label}-${chip.href}`}>
               <Link
                 href={chip.href}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-3 py-1 text-xs text-secondary-foreground hover:bg-muted"
+                className="tap inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-3 py-1 text-xs text-secondary-foreground hover:bg-muted"
                 aria-label={`Remove filter ${chip.label}`}
               >
                 {chip.label} <span aria-hidden="true">×</span>
@@ -237,7 +237,7 @@ export function FilterBar({
             </li>
           ))}
           <li>
-            <Link href={clearHref} className="inline-flex px-2 py-1 text-xs font-medium text-primary underline-offset-4 hover:underline">
+            <Link href={clearHref} className="tap inline-flex px-2 py-1 text-xs font-medium text-primary underline-offset-4 hover:underline">
               Clear all
             </Link>
           </li>

@@ -108,7 +108,7 @@ function PlanSoFarCard({ plan, hasAccounts, money }: { plan: PlanSoFar; hasAccou
             </ul>
           </div>
         ) : null}
-        <Link href="/plan" className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
+        <Link href="/plan" className="tap inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
           Open the plan
         </Link>
       </CardContent>
@@ -132,36 +132,36 @@ export default async function HomePage() {
         <p className="text-sm text-muted-foreground">This month is still open. Numbers run through today.</p>
       </div>
       {setup ? <OnboardingChecklist status={setup} /> : null}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4" data-stats>
+        <Card size="sm">
           <CardHeader>
             <CardDescription>Income</CardDescription>
-            <CardTitle className="font-serif text-3xl text-income tabular-nums">{formatCents(home.incomeCents)}</CardTitle>
+            <CardTitle className="font-serif text-xl min-[400px]:text-2xl sm:text-3xl break-words text-income tabular-nums">{formatCents(home.incomeCents)}</CardTitle>
           </CardHeader>
         </Card>
-        <Card>
+        <Card size="sm">
           <CardHeader>
             <CardDescription>Spent</CardDescription>
-            <CardTitle className="font-serif text-3xl tabular-nums">{formatCents(home.spentCents)}</CardTitle>
+            <CardTitle className="font-serif text-xl min-[400px]:text-2xl sm:text-3xl break-words tabular-nums">{formatCents(home.spentCents)}</CardTitle>
           </CardHeader>
         </Card>
-        <Card>
+        <Card size="sm">
           <CardHeader>
             <CardDescription>Money left</CardDescription>
-            <CardTitle className={`font-serif text-3xl tabular-nums ${leftTone}`}>{formatCents(home.leftCents)}</CardTitle>
+            <CardTitle className={`font-serif text-xl min-[400px]:text-2xl sm:text-3xl break-words tabular-nums ${leftTone}`}>{formatCents(home.leftCents)}</CardTitle>
           </CardHeader>
         </Card>
-        <Card>
+        <Card size="sm">
           <CardHeader>
             <CardDescription>In accounts</CardDescription>
             <CardTitle
-              className={`font-serif text-3xl tabular-nums ${home.accountBalanceCents < 0 ? "text-over" : "text-income"}`}
+              className={`font-serif text-xl min-[400px]:text-2xl sm:text-3xl break-words tabular-nums ${home.accountBalanceCents < 0 ? "text-over" : "text-income"}`}
             >
               {formatCents(home.accountBalanceCents)}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground">Active accounts only. Archived accounts are left out.</p>
+            <p className="text-xs text-muted-foreground">Active accounts only.<span className="hidden sm:inline"> Archived accounts are left out.</span></p>
           </CardContent>
         </Card>
       </div>
@@ -196,7 +196,7 @@ export default async function HomePage() {
               ? "Not enough history yet for an everyday pace, so this counts recurring bills only."
               : `About ${money(home.estimate.dailyPaceCents)} a day of everyday spending.`}
           </p>
-          <Link href="/estimate" className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
+          <Link href="/estimate" className="tap inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
             See the breakdown and next month
           </Link>
         </CardContent>

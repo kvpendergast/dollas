@@ -19,26 +19,26 @@ export function BooksShell({
       <div className="mx-auto flex min-h-full max-w-6xl">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-4 md:px-8">
-            <div>
+          <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-2 md:px-8 md:py-4">
+            <div className="min-w-0">
               <p className="font-serif text-2xl leading-none text-primary md:hidden">dollas</p>
-              <p className="text-sm text-muted-foreground">{householdName}</p>
+              <p className="truncate text-sm text-muted-foreground">{householdName}</p>
             </div>
-            <div className="flex items-center gap-3 text-sm">
+            <div className="flex items-center gap-1 text-sm sm:gap-3">
               <AccountMenu />
               {showInvite ? (
-                <Link href="/household#invite" className="text-primary underline-offset-4 hover:underline">
+                <Link href="/household#invite" className="flex min-h-11 items-center px-2 text-primary underline-offset-4 hover:underline">
                   Invite
                 </Link>
               ) : null}
               <form action={signOutAction}>
-                <button type="submit" className="text-muted-foreground hover:text-foreground">
+                <button type="submit" className="flex min-h-11 items-center px-2 text-muted-foreground hover:text-foreground">
                   Sign out
                 </button>
               </form>
             </div>
           </header>
-          <main className="flex-1 px-4 pt-6 pb-24 md:px-8 md:pb-12">{children}</main>
+          <main className="flex-1 px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-8 md:pb-12">{children}</main>
         </div>
       </div>
       <PhoneNav />

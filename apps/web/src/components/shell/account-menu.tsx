@@ -1,22 +1,33 @@
 "use client";
 
-import { Settings } from "lucide-react";
+import { Settings, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { isNavActive, settingsNav } from "./nav";
+import { accountNav, isNavActive } from "./nav";
+
+const icons = { Household: Users, Settings } as const;
 
 export function AccountMenuPanel({ pathname }: { pathname: string }) {
-  const active = isNavActive(pathname, settingsNav.href);
   return (
-    <nav aria-label="Account" className="absolute right-0 z-30 mt-2 min-w-40 rounded-xl bg-card p-2 ring-1 ring-foreground/10">
-      <Link
-        href={settingsNav.href}
-        aria-current={active ? "page" : undefined}
-        className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${active ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-      >
-        <Settings aria-hidden="true" className="size-4" />
-        {settingsNav.label}
-      </Link>
+    <nav aria-label="Account" className="dl-sheet absolute right-0 z-30 mt-2 min-w-44 rounded-xl bg-card p-2 shadow-sm ring-1 ring-foreground/10">
+      <ul className="space-y-1">
+        {accountNav.map((item) => {
+          const Icon = icons[item.label];
+          const active = isNavActive(pathname, item.href);
+          return (
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={`flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm ${active ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+              >
+                <Icon aria-hidden="true" className="size-4" />
+                {item.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
     </nav>
   );
 }
@@ -26,7 +37,7 @@ export function AccountMenu() {
   const pathname = usePathname();
   return (
     <details className="relative md:hidden">
-      <summary className="cursor-pointer list-none rounded-lg px-2 py-1 text-sm text-primary underline-offset-4 hover:underline [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center rounded-lg px-2 text-sm text-primary underline-offset-4 hover:underline [&::-webkit-details-marker]:hidden">
         Account
       </summary>
       <AccountMenuPanel pathname={pathname} />
