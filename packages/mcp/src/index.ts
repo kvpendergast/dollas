@@ -1,128 +1,182 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { accountTypes, requireAgentAccess, type AgentAccess, type AgentGrant } from "@dollas/domain";
-import { z } from "zod";
+import { requireAgentAccess, type AgentAccess, type AgentGrant } from "@dollas/domain";
+import { z, type ZodRawShape } from "zod";
 
 /**
- * Dollas MCP tools. This package owns tool names, schemas, and scope rules;
- * the web app supplies the services, which are the same server functions its
- * pages call, already bound to the member and household from the access token.
+ * The Dollas MCP toolkit. Tools themselves live next to the services they
+ * call (apps/web/src/slices/<slice>/tools.ts); this package owns how a tool
+ * is described, guarded, paginated, and answered:
  *
- * Bank passwords, provider keys, and finishing a bank login are UI-only and
- * have no tool here. PEN-207 adds the rest of the tool set.
+ * - every tool declares the access it needs (read, or read and write);
+ * - destructive tools declare `destructive` and take `confirm: true`;
+ * - results are structured JSON plus a one-line text summary;
+ * - failures are the service's member-facing message, never internals.
  */
 
-export type ToolOutcome<T> = { ok: true; value: T } | { ok: false; message: string };
+export type ToolOutcome<T = unknown> = { ok: true; value: T; summary: string } | { ok: false; message: string };
 
-export type WhoAmI = {
-  member: { name: string; role: "owner" | "member" };
-  household: { name: string; currency: string; timezone: string };
+export type ToolDefinition<Ctx, Shape extends ZodRawShape> = {
+  /** snake_case, unique. */
+  name: string;
+  title: string;
+  /** What it does, in a sentence or two, including units (integer cents, ISO dates). */
+  description: string;
   access: AgentAccess;
+  /** Deletes or gives something up. The input must include `confirm: confirmInput(...)`. */
+  destructive?: boolean;
+  idempotent?: boolean;
+  input: Shape;
+  run(args: z.infer<z.ZodObject<Shape>>, ctx: Ctx): Promise<ToolOutcome>;
 };
 
-export type AccountSummary = {
-  id: string;
+/** A tool with its input type erased, so tools with different inputs share one list. */
+export type DollasTool<Ctx> = {
   name: string;
-  type: string;
-  balanceCents: number;
-  archived: boolean;
+  title: string;
+  description: string;
+  access: AgentAccess;
+  destructive?: boolean;
+  idempotent?: boolean;
+  input: ZodRawShape;
+  run(args: Record<string, unknown>, ctx: Ctx): Promise<ToolOutcome>;
 };
 
-export type AddAccountInput = {
-  name: string;
-  type: string;
-  opening: string;
-  owed: boolean;
-};
-
-export type AddedAccount = {
-  id: string;
-  name: string;
-  type: string;
-  openingBalanceCents: number;
-};
-
-export type DollasMcpServices = {
-  whoami(): Promise<ToolOutcome<WhoAmI>>;
-  listAccounts(input: { includeArchived: boolean }): Promise<ToolOutcome<AccountSummary[]>>;
-  addAccount(input: AddAccountInput): Promise<ToolOutcome<AddedAccount>>;
-};
-
-/** Every tool and the access it needs. The HTTP layer uses this for 403 step-up. */
-export const DOLLAS_TOOL_ACCESS = {
-  whoami: "read",
-  list_accounts: "read",
-  add_account: "write",
-} as const satisfies Record<string, AgentAccess>;
-
-export type DollasToolName = keyof typeof DOLLAS_TOOL_ACCESS;
-
-export function toolAccess(name: string): AgentAccess | undefined {
-  return Object.hasOwn(DOLLAS_TOOL_ACCESS, name) ? DOLLAS_TOOL_ACCESS[name as DollasToolName] : undefined;
+/** `const tool = toolFor<MyContext>()` then `tool({ ...definition })`. */
+export function toolFor<Ctx>() {
+  return <Shape extends ZodRawShape>(definition: ToolDefinition<Ctx, Shape>): DollasTool<Ctx> =>
+    definition as unknown as DollasTool<Ctx>;
 }
 
-function reply<T>(outcome: ToolOutcome<T>): CallToolResult {
+export const TOOL_NAME = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
+
+/** The explicit confirmation a destructive tool takes. Only the literal `true` passes. */
+export function confirmInput(what: string) {
+  return z.literal(true).describe(`Set to true to confirm: ${what}. Ask the member first; this cannot be undone from here.`);
+}
+
+export const UNEXPECTED_FAILURE = "Something went wrong in Dollas. Try again.";
+
+export const MAX_PAGE_SIZE = 200;
+
+/** Input fields for a paginated list. */
+export function pageInput(defaultLimit: number) {
+  return {
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_PAGE_SIZE)
+      .optional()
+      .describe(`How many to return (1 to ${MAX_PAGE_SIZE}). Defaults to ${defaultLimit}.`),
+    cursor: z.string().regex(/^\d{1,9}$/).optional().describe("next_cursor from the previous page."),
+  };
+}
+
+export type PageRequest = { limit: number; offset: number };
+
+export function readPage(args: { limit?: number; cursor?: string }, defaultLimit: number): PageRequest {
+  return { limit: args.limit ?? defaultLimit, offset: args.cursor ? Number(args.cursor) : 0 };
+}
+
+export type Page<T> = { items: T[]; total: number; next_cursor: string | null };
+
+/** A page from rows already limited in the query, with the total that matched. */
+export function pageFrom<T>(items: T[], total: number, request: PageRequest): Page<T> {
+  const end = request.offset + items.length;
+  return { items, total, next_cursor: end < total ? String(end) : null };
+}
+
+/** A page cut from a complete list. */
+export function paginate<T>(all: readonly T[], request: PageRequest): Page<T> {
+  return pageFrom(all.slice(request.offset, request.offset + request.limit), all.length, request);
+}
+
+export function reply(outcome: ToolOutcome): CallToolResult {
   if (!outcome.ok) return { isError: true, content: [{ type: "text", text: outcome.message }] };
-  const structured = Array.isArray(outcome.value) ? { items: outcome.value } : (outcome.value as Record<string, unknown>);
-  return { content: [{ type: "text", text: JSON.stringify(outcome.value) }], structuredContent: structured };
+  const structured =
+    outcome.value !== null && typeof outcome.value === "object" && !Array.isArray(outcome.value)
+      ? (outcome.value as Record<string, unknown>)
+      : { result: outcome.value };
+  return {
+    content: [
+      { type: "text", text: outcome.summary },
+      { type: "text", text: JSON.stringify(structured) },
+    ],
+    structuredContent: structured,
+  };
 }
 
-/** Runs a tool only when the grant has the access the tool needs. */
-async function guarded<T>(grant: AgentGrant, name: DollasToolName, run: () => Promise<ToolOutcome<T>>): Promise<CallToolResult> {
-  const allowed = requireAgentAccess(grant, DOLLAS_TOOL_ACCESS[name]);
+function hasConfirm(tool: DollasTool<unknown>): boolean {
+  const field = tool.input.confirm;
+  return field instanceof z.ZodLiteral && field.value === true;
+}
+
+/** Throws when a tool list breaks the rules above. The parity test and server construction both call this. */
+export function checkToolList(tools: readonly DollasTool<never>[]): void {
+  const seen = new Set<string>();
+  for (const tool of tools) {
+    if (!TOOL_NAME.test(tool.name)) throw new Error(`Tool name ${tool.name} is not snake_case.`);
+    if (seen.has(tool.name)) throw new Error(`Tool ${tool.name} is registered twice.`);
+    seen.add(tool.name);
+    if (tool.destructive && tool.access !== "write") throw new Error(`Destructive tool ${tool.name} must need write access.`);
+    if (tool.destructive && !hasConfirm(tool as DollasTool<unknown>)) {
+      throw new Error(`Destructive tool ${tool.name} must take confirm: confirmInput(...).`);
+    }
+    if (tool.description.trim().length < 20) throw new Error(`Tool ${tool.name} needs a real description.`);
+  }
+}
+
+export function toolAccessIn(tools: readonly DollasTool<never>[], name: string): AgentAccess | undefined {
+  return tools.find((tool) => tool.name === name)?.access;
+}
+
+/** Runs one tool for a grant: scope first, then the confirm guard, then the tool. */
+export async function runTool<Ctx>(
+  tool: DollasTool<Ctx>,
+  grant: AgentGrant,
+  args: Record<string, unknown>,
+  ctx: Ctx,
+  onError: (error: unknown, tool: string) => void = () => {},
+): Promise<CallToolResult> {
+  const allowed = requireAgentAccess(grant, tool.access);
   if (allowed.isErr()) return reply({ ok: false, message: allowed.error.message });
-  return reply(await run());
+  if (tool.destructive && args.confirm !== true) {
+    return reply({ ok: false, message: "This changes or removes something for good. Ask the member, then call again with confirm: true." });
+  }
+  try {
+    return reply(await tool.run(args, ctx));
+  } catch (error) {
+    onError(error, tool.name);
+    return reply({ ok: false, message: UNEXPECTED_FAILURE });
+  }
 }
 
-export function createDollasMcpServer(grant: AgentGrant, services: DollasMcpServices): McpServer {
-  const server = new McpServer({ name: "dollas", version: "0.1.0" });
-
-  server.registerTool(
-    "whoami",
-    {
-      title: "Who am I",
-      description: "The member this agent acts as, their household, and whether the agent can read or also write.",
-      annotations: { readOnlyHint: true, openWorldHint: false },
-    },
-    () => guarded(grant, "whoami", () => services.whoami()),
-  );
-
-  server.registerTool(
-    "list_accounts",
-    {
-      title: "List accounts",
-      description:
-        "Accounts in the household books with balances in integer cents (negative means owed). Archived accounts are left out unless asked for.",
-      inputSchema: { include_archived: z.boolean().optional().describe("Include archived accounts.") },
-      annotations: { readOnlyHint: true, openWorldHint: false },
-    },
-    (args) => guarded(grant, "list_accounts", () => services.listAccounts({ includeArchived: args.include_archived ?? false })),
-  );
-
-  server.registerTool(
-    "add_account",
-    {
-      title: "Add account",
-      description:
-        "Add a manual account to the household books. Needs read and write access. Opening balance is decimal text such as 1250.00; for credit, set owed when the amount is owed.",
-      inputSchema: {
-        name: z.string().min(1).max(80).describe("Account name."),
-        type: z.enum(accountTypes).describe("Account type."),
-        opening_balance: z.string().max(20).optional().describe("Opening balance as decimal text. Defaults to 0."),
-        owed: z.boolean().optional().describe("Credit only: the opening balance is owed."),
+export function createDollasMcpServer<Ctx>(
+  grant: AgentGrant,
+  tools: readonly DollasTool<Ctx>[],
+  ctx: Ctx,
+  options: { onError?: (error: unknown, tool: string) => void } = {},
+): McpServer {
+  checkToolList(tools as readonly DollasTool<never>[]);
+  const server = new McpServer({ name: "dollas", version: "0.2.0" });
+  for (const tool of tools) {
+    server.registerTool(
+      tool.name,
+      {
+        title: tool.title,
+        description: tool.access === "write" ? `${tool.description} Needs read and write access.` : tool.description,
+        inputSchema: tool.input,
+        annotations: {
+          title: tool.title,
+          readOnlyHint: tool.access === "read",
+          destructiveHint: tool.access === "write" ? Boolean(tool.destructive) : undefined,
+          idempotentHint: tool.idempotent,
+          openWorldHint: false,
+        },
       },
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-    },
-    (args) =>
-      guarded(grant, "add_account", () =>
-        services.addAccount({
-          name: args.name,
-          type: args.type,
-          opening: args.opening_balance ?? "0",
-          owed: args.owed ?? false,
-        }),
-      ),
-  );
-
+      (args: Record<string, unknown>) => runTool(tool, grant, args, ctx, options.onError),
+    );
+  }
   return server;
 }

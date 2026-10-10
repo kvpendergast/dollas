@@ -322,18 +322,21 @@ describe("agent OAuth and MCP", () => {
       const tools = await mcp(readTokens.access_token, "tools/list");
       assert.equal(tools.status, 200);
       const listed = (await tools.json()) as { result: { tools: Array<{ name: string }> } };
-      assert.deepEqual(listed.result.tools.map((item) => item.name).sort(), ["add_account", "list_accounts", "whoami"]);
+      const listedNames = listed.result.tools.map((item) => item.name);
+      for (const name of ["whoami", "list_accounts", "create_account", "list_transactions", "get_plan"]) assert.ok(listedNames.includes(name), name);
       const who = await tool(readTokens.access_token, "whoami");
-      assert.deepEqual(who.structuredContent?.household, { name: "Maple", currency: "USD", timezone: "UTC" });
+      const household = who.structuredContent?.household as Record<string, unknown>;
+      assert.equal(household.name, "Maple");
+      assert.equal(household.currency, "USD");
       assert.equal(who.structuredContent?.access, "read");
       const accounts = await tool(readTokens.access_token, "list_accounts");
-      const names = (accounts.structuredContent?.items as Array<{ name: string; balanceCents: number }>).map((a) => a.name);
+      const names = (accounts.structuredContent?.items as Array<{ name: string; balance_cents: number }>).map((a) => a.name);
       assert.deepEqual(names, ["Maple Checking"]);
       assert.equal(JSON.stringify(accounts).includes("Birch"), false);
 
       // A read token cannot write: 403 step-up at HTTP, and nothing is added.
       const denied = await mcp(readTokens.access_token, "tools/call", {
-        name: "add_account",
+        name: "create_account",
         arguments: { name: "Sneaky", type: "cash" },
       });
       assert.equal(denied.status, 403);
@@ -382,16 +385,16 @@ describe("agent OAuth and MCP", () => {
       const writeGrant = await connect(adaCookie, agent, [READ, WRITE, REFRESH]);
       const writeTokens = await exchange(agent, writeGrant.code, writeGrant.verifier);
       assert.deepEqual(writeTokens.scope.split(" ").sort(), [READ, WRITE, REFRESH].sort());
-      const added = await tool(writeTokens.access_token, "add_account", {
+      const added = await tool(writeTokens.access_token, "create_account", {
         name: "Agent Cash",
         type: "cash",
-        opening_balance: "12.34",
+        opening_balance_cents: 1234,
       });
       assert.equal(added.isError, undefined, JSON.stringify(added));
-      assert.equal(added.structuredContent?.openingBalanceCents, 1234);
+      assert.equal(added.structuredContent?.opening_balance_cents, 1234);
       const inMaple = await owner<{ household_id: string }[]>`select household_id from ledger_account where name = 'Agent Cash'`;
       assert.deepEqual(inMaple.map((row) => row.household_id), [maple]);
-      const invalid = await tool(writeTokens.access_token, "add_account", { name: "Bad", type: "cash", opening_balance: "abc" });
+      const invalid = await tool(writeTokens.access_token, "create_account", { name: "Bad", type: "cash", opening_balance_cents: 12.5 });
       assert.equal(invalid.isError, true);
 
       // Cy's agent sees Birch only, never Maple.

@@ -24,8 +24,11 @@ export type TransactionEntry = {
   splits: BalancedSplit[];
 };
 
-/** Fields an edit may change. Anything left out keeps its current value. */
-export type TransactionEntryPatch = Partial<TransactionEntryInput>;
+/**
+ * Fields an edit may change. Anything left out keeps its current value.
+ * `categoryId` puts the whole amount in one category, replacing any splits.
+ */
+export type TransactionEntryPatch = Partial<TransactionEntryInput> & { categoryId?: string };
 
 export const PAYEE_MAX_LENGTH = 200;
 
@@ -53,8 +56,11 @@ export function amendTransactionEntry(
   patch: TransactionEntryPatch,
 ): Result<TransactionEntry, TransactionError> {
   const amountCents = patch.amountCents ?? current.amountCents;
-  let splits = patch.splits ?? current.splits;
-  if (patch.splits === undefined && amountCents !== current.amountCents) {
+  if (patch.categoryId !== undefined && patch.splits !== undefined) {
+    return err(new TransactionError("Give one category or splits, not both."));
+  }
+  let splits = patch.categoryId !== undefined ? [{ categoryId: patch.categoryId, amountCents }] : (patch.splits ?? current.splits);
+  if (patch.splits === undefined && patch.categoryId === undefined && amountCents !== current.amountCents) {
     if (current.splits.length > 1) {
       return err(new TransactionError("This transaction is split. Give the splits again so they add up to the new amount."));
     }

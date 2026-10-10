@@ -43,6 +43,18 @@ describe("amendTransactionEntry", () => {
     expect(amended.splits[0]?.categoryId).toBe("dining");
   });
 
+  it("puts a split transaction in one category with categoryId", () => {
+    const split = {
+      ...base,
+      splits: [
+        { categoryId: "a", amountCents: -2200 },
+        { categoryId: "b", amountCents: -2000 },
+      ],
+    };
+    expect(amendTransactionEntry(split, { categoryId: "c" })._unsafeUnwrap().splits).toEqual([{ categoryId: "c", amountCents: -4200 }]);
+    expect(amendTransactionEntry(split, { categoryId: "c", splits: [] }).isErr()).toBe(true);
+  });
+
   it("asks for splits again when a split transaction changes amount", () => {
     const split = {
       ...base,

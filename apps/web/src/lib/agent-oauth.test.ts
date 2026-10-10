@@ -63,8 +63,8 @@ describe("MCP request helpers", () => {
 
   it("finds write tools in single and batched calls", () => {
     assert.equal(accessNeeded({ method: "tools/call", params: { name: "list_accounts" } }), "read");
-    assert.equal(accessNeeded({ method: "tools/call", params: { name: "add_account" } }), "write");
-    assert.equal(accessNeeded([{ method: "tools/list" }, { method: "tools/call", params: { name: "add_account" } }]), "write");
+    assert.equal(accessNeeded({ method: "tools/call", params: { name: "create_account" } }), "write");
+    assert.equal(accessNeeded([{ method: "tools/list" }, { method: "tools/call", params: { name: "create_account" } }]), "write");
     assert.equal(accessNeeded({ method: "tools/call", params: { name: "constructor" } }), "read");
   });
 
