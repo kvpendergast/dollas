@@ -512,7 +512,9 @@ function ImportPreviewTable({
                   ) : row.status === "error" ? (
                     <span className="text-destructive">Error</span>
                   ) : (
-                    <span className="text-muted-foreground">Duplicate</span>
+                    <span className="text-muted-foreground">
+                      {row.duplicateOf === "bank" ? "Already synced from bank" : "Duplicate"}
+                    </span>
                   )}
                 </td>
               </tr>

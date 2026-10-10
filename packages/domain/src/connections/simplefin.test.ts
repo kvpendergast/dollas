@@ -11,6 +11,7 @@ import {
 import { connectBank, createMemoryBankConnectionStore } from "./connect";
 import { createProviderRegistry } from "./provider";
 import { createSimpleFinProvider, providerDecimalToCents, type SimpleFinProvider } from "./simplefin";
+import { bankBookRow, legacyBookRow } from "./book-fixtures";
 import { planBankSync } from "./sync";
 import { parseTokenKeyRing } from "./token-cipher";
 
@@ -190,13 +191,7 @@ describe("SimpleFIN sync", () => {
       transactions: books.value.transactions,
       ledgerAccounts: [],
       links: [],
-      imported: [
-        {
-          householdId,
-          fingerprint: "bank:simplefin:txn-rent",
-          deletedAt: "2026-04-01T00:00:00.000Z",
-        },
-      ],
+      books: [legacyBookRow(householdId, "bank:simplefin:txn-rent", "2026-04-01T00:00:00.000Z")],
       rules: [{ pattern: "Market", categoryId: "cat-groceries" }],
     });
     if (first.isErr()) throw first.error;
@@ -207,10 +202,10 @@ describe("SimpleFIN sync", () => {
     expect(checking.balanceCents).toBe(10_023);
     expect(card.type).toBe("credit");
     expect(card.openingBalanceCents).toBe(-2_000);
-    expect(first.value.transactions.map((row) => row.fingerprint)).toEqual(["bank:simplefin:txn-groceries"]);
+    expect(first.value.transactions.map((row) => row.providerTransactionId)).toEqual(["txn-groceries"]);
     expect(first.value.transactions[0]?.categoryId).toBe("cat-groceries");
-    expect(first.value.transactions.some((row) => row.fingerprint.includes("txn-rent"))).toBe(false);
-    expect(first.value.transactions.some((row) => row.fingerprint.includes("txn-coffee"))).toBe(false);
+    expect(first.value.transactions.some((row) => row.providerTransactionId === "txn-rent")).toBe(false);
+    expect(first.value.transactions.some((row) => row.providerTransactionId === "txn-coffee")).toBe(false);
 
     const again = planBankSync({
       providerId: "simplefin",
@@ -222,13 +217,15 @@ describe("SimpleFIN sync", () => {
         providerAccountId: account.providerAccountId,
         ledgerAccountId: `ledger-${index}`,
       })),
-      imported: [
-        { householdId, fingerprint: "bank:simplefin:txn-rent", deletedAt: "2026-04-01T00:00:00.000Z" },
-        ...first.value.transactions.map((row) => ({
-          householdId,
-          fingerprint: row.fingerprint,
-          deletedAt: null,
-        })),
+      books: [
+        legacyBookRow(householdId, "bank:simplefin:txn-rent", "2026-04-01T00:00:00.000Z"),
+        ...first.value.transactions.map((row) =>
+          bankBookRow(householdId, {
+            providerId: "simplefin",
+            providerAccountId: row.providerAccountId,
+            providerTransactionId: row.providerTransactionId,
+          }),
+        ),
       ],
       rules: [],
     });

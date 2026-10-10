@@ -234,7 +234,7 @@ export {
   type ResolvedCsvRow,
 } from "./import/csv";
 
-export { transactionsRemovedByUndo, type ImportBatchTransaction } from "./import/undo";
+export { transactionsKeptByUndo, transactionsRemovedByUndo, type ImportBatchTransaction } from "./import/undo";
 
 export {
   inspectCsvImport,
@@ -261,6 +261,7 @@ export type { CsvImportStore, ImportWrite, ImportWriteResult, MappingWrite } fro
 export {
   mappedTransactionSchema,
   validateMappedImport,
+  type BankBackedCharge,
   type CellError,
   type CommitCsvRow,
   type MappedField,
@@ -371,14 +372,31 @@ export {
   isIsoDate,
   planBankSync,
   planPlaidSync,
+  type BankIdentity,
   type BankSyncPlan,
   type PlannedBankAccount,
+  type PlannedBankLink,
+  type SyncBookTransaction,
   type PlannedBankRemoval,
   type PlannedBankTransaction,
   type PlannedBankUpdate,
   type PlaidSyncPlan,
   type SyncLedgerAccount,
 } from "./connections/sync";
+
+export {
+  BANK_MATCH_WINDOW_DAYS,
+  civilDay,
+  pairCharges,
+  payeeSimilarity,
+  planBankSeparation,
+  shiftCivilDate,
+  type BankSeparation,
+  type ChargePair,
+  type MatchedBookRow,
+  type MatchCandidate,
+  type MatchIncoming,
+} from "./connections/match";
 
 export {
   connectBank,

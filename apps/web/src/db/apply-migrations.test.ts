@@ -177,6 +177,8 @@ describe("pendingMigrationTags", () => {
       "0022_household_invite_access",
       "0023_agent_oauth",
       "0024_agent_oauth_access",
+      "0025_bank_transaction_identity",
+      "0026_bank_identity_backfill",
     ]);
   });
 

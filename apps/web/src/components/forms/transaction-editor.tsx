@@ -5,7 +5,7 @@ import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { deleteTransactionAction, updateTransactionAction } from "@/slices/activity/actions";
+import { deleteTransactionAction, separateBankMatchAction, updateTransactionAction } from "@/slices/activity/actions";
 import { SplitControl, type SplitRow } from "./split-control";
 
 type Option = { id: string; name: string; archived?: boolean };
@@ -31,6 +31,7 @@ export function TransactionEditor({
     occurredOn: string;
     amountCents: number;
     accountId: string;
+    bankMatched?: boolean;
     splits: Array<{ categoryId: string; amountCents: number }>;
   };
   accounts: Option[];
@@ -45,6 +46,7 @@ export function TransactionEditor({
   const [accountId, setAccountId] = useState(transaction.accountId);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState("");
+  const [separating, setSeparating] = useState(false);
   const direction: TransactionDirection = transaction.amountCents > 0 ? "income" : "expense";
   const initialRows: SplitRow[] = (
     transaction.splits.length > 0
@@ -68,6 +70,14 @@ export function TransactionEditor({
     onDeleted({ id: transaction.id, payee: transaction.payee });
   }
 
+  async function onSeparate() {
+    setSeparating(true);
+    setRemoveError("");
+    const result = await separateBankMatchAction(transaction.id);
+    setSeparating(false);
+    if (result.error) setRemoveError(result.error);
+  }
+
   return (
     <div className="mt-3 space-y-3 border-t border-border pt-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -81,6 +91,20 @@ export function TransactionEditor({
         >
           Edit
         </button>
+        <div className="flex flex-wrap items-center gap-2">
+        {transaction.bankMatched ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10"
+            disabled={separating}
+            aria-label={`Not the same charge as the bank's: separate ${transaction.payee}`}
+            title="Bank sync matched this to your entry. If they are two different charges, keep both."
+            onClick={() => void onSeparate()}
+          >
+            {separating ? "Separating" : "Not the same charge"}
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="destructive"
@@ -91,6 +115,7 @@ export function TransactionEditor({
         >
           {removing ? "Deleting" : "Delete"}
         </Button>
+        </div>
       </div>
       {removeError ? (
         <p role="alert" className="text-sm text-over">

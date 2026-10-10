@@ -361,6 +361,9 @@ function parseTransaction(entry: unknown): Result<ProviderTransaction, ProviderS
   if (typeof record.amount !== "number") return err(new ProviderSyncError());
   const amountCents = plaidAmountToCents(record.amount);
   if (amountCents.isErr()) return err(amountCents.error);
+  const authorizedOn = isoDate(record.authorized_date);
+  const pendingTransactionId =
+    typeof record.pending_transaction_id === "string" ? record.pending_transaction_id.trim() : "";
   return ok({
     providerTransactionId,
     providerAccountId,
@@ -368,6 +371,8 @@ function parseTransaction(entry: unknown): Result<ProviderTransaction, ProviderS
     payee: payeeFrom(record.merchant_name, record.name),
     amountCents: amountCents.value,
     pending: record.pending === true,
+    ...(authorizedOn ? { authorizedOn } : {}),
+    ...(isStableId(pendingTransactionId) && pendingTransactionId !== providerTransactionId ? { pendingTransactionId } : {}),
   });
 }
 

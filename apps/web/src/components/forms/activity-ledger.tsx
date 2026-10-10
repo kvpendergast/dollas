@@ -19,6 +19,7 @@ type LedgerTransaction = {
   accountId: string;
   accountName: string;
   accountArchived: boolean;
+  bankMatched?: boolean;
   splits: Array<{ categoryId: string; categoryName: string; amountCents: number }>;
   accounts: AccountChoice[];
 };
@@ -83,7 +84,14 @@ export function ActivityLedger({
                 <p className={`font-serif text-lg tabular-nums ${item.amountCents > 0 ? "text-income" : ""}`}>
                   {formatCents(item.amountCents)}
                 </p>
-                {split ? <Badge variant="secondary">Split</Badge> : null}
+                <div className="flex flex-wrap justify-end gap-1">
+                  {item.bankMatched ? (
+                    <Badge variant="outline" title="Bank sync matched this to your entry instead of adding a copy.">
+                      Matched to bank
+                    </Badge>
+                  ) : null}
+                  {split ? <Badge variant="secondary">Split</Badge> : null}
+                </div>
               </div>
             </div>
             {split ? (
@@ -103,6 +111,7 @@ export function ActivityLedger({
                 item.occurredOn,
                 item.accountId,
                 item.amountCents,
+                item.bankMatched ? "matched" : "",
                 item.splits.map((part) => `${part.categoryId}:${part.amountCents}`).join(","),
               ].join("|")}
               transaction={item}

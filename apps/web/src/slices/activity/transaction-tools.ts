@@ -8,6 +8,7 @@ import {
   deleteHouseholdTransaction,
   listHouseholdTransactions,
   restoreHouseholdTransaction,
+  separateBankMatch,
   type ListedTransaction,
   type SavedTransaction,
 } from "./transactions";
@@ -32,6 +33,8 @@ function shown(item: ListedTransaction) {
     account_name: item.accountName,
     account_archived: item.accountArchived,
     deleted: item.deleted,
+    bank_backed: item.bankBacked,
+    bank_matched: item.bankMatched,
     splits: item.splits.map((split) => ({ category_id: split.categoryId, category_name: split.categoryName, amount_cents: split.amountCents })),
   };
 }
@@ -57,7 +60,7 @@ export const transactionTools = [
   tool({
     name: "list_transactions",
     title: "List transactions",
-    description: `Transactions in the household books, newest first, with their category splits. ${SIGN} Filter by account, category, date range, or payee text.`,
+    description: `Transactions in the household books, newest first, with their category splits. ${SIGN} bank_backed means the bank reported the charge; bank_matched means sync matched it to a CSV or manual entry (see separate_bank_match). Filter by account, category, date range, or payee text.`,
     access: "read",
     input: {
       account_id: uuidInput("Account").optional(),
@@ -184,6 +187,20 @@ export const transactionTools = [
     input: { transaction_id: uuidInput("Transaction") },
     async run(args, { books }) {
       return answer(await restoreHouseholdTransaction(books, args.transaction_id, "mcp"), (value) => `Restored ${value.payee}.`);
+    },
+  }),
+  tool({
+    name: "separate_bank_match",
+    title: "Not the same charge",
+    description:
+      "Split a transaction that bank sync matched to a CSV or manual entry (bank_matched: true in list_transactions) when they are really two charges. Your entry keeps its edits; the bank's charge becomes its own transaction with the bank's date and payee, and sync will not match them again.",
+    access: "write",
+    input: { transaction_id: uuidInput("Matched transaction") },
+    async run(args, { books }) {
+      return answer(
+        await separateBankMatch(books, args.transaction_id, "mcp"),
+        (value) => `Separated. ${value.payee} is now its own transaction.`,
+      );
     },
   }),
 ];

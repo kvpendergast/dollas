@@ -22,7 +22,7 @@ import { withActor } from "@/db/actor";
 import { bankConnection } from "@/db/schema";
 import { logError, logInfo } from "@/lib/telemetry";
 import type { ServiceResult } from "@/lib/service-result";
-import { applyBankSync } from "./apply";
+import { applyBankSync, type BankSyncCounts } from "./apply";
 import { requireBankConnectionKeys } from "./keys";
 import { memberBankMessage } from "./messages";
 import { readPlaidEnv } from "./plaid-config";
@@ -267,7 +267,7 @@ export const UI_ONLY_SERVICES = [
 export async function syncBankConnection(
   actor: BankActor,
   connectionId: string,
-): Promise<BankServiceResult<{ accounts: number; transactions: number; updated: number; removed: number }>> {
+): Promise<BankServiceResult<BankSyncCounts>> {
   if (!CONNECTION_ID.test(connectionId)) return fail(new Error("id"), "That connection is not valid.");
   const keys = readKeys(actor, "sync-bank", connectionId);
   if (!keys.ok) return keys;
@@ -362,7 +362,7 @@ async function syncPlaidConnection(
   keys: TokenKeyRing,
   loaded: { encryptedAccessToken: string; syncCursor: string | null },
   since: string,
-): Promise<BankServiceResult<{ accounts: number; transactions: number; updated: number; removed: number }>> {
+): Promise<BankServiceResult<BankSyncCounts>> {
   const decision = resolvePlaidConfig(readPlaidEnv());
   if (decision.isErr() || !decision.value.enabled) {
     const error = decision.isErr()
@@ -424,6 +424,7 @@ async function syncPlaidConnection(
       connectionId,
       accounts: String(written.accounts),
       transactions: String(written.transactions),
+      matched: String(written.matched),
       updated: String(written.updated),
       removed: String(written.removed),
     });
@@ -440,7 +441,7 @@ async function syncSimpleFinConnection(
   keys: TokenKeyRing,
   encryptedAccessToken: string,
   since: string,
-): Promise<BankServiceResult<{ accounts: number; transactions: number; updated: number; removed: number }>> {
+): Promise<BankServiceResult<BankSyncCounts>> {
   const plain = await decryptToken(encryptedAccessToken, keys, { householdId: actor.householdId });
   if (plain.isErr()) {
     logError(plain.error, { action: "sync-simplefin", householdId: actor.householdId, connectionId });
@@ -498,10 +499,11 @@ async function syncSimpleFinConnection(
       connectionId,
       accounts: String(written.accounts),
       transactions: String(written.transactions),
+      matched: String(written.matched),
     });
     return {
       ok: true,
-      value: { accounts: written.accounts, transactions: written.transactions, updated: written.updated, removed: written.removed },
+      value: written,
     };
   } catch (error) {
     logError(error, { action: "sync-simplefin", householdId: actor.householdId, connectionId });
@@ -535,15 +537,16 @@ function isPlaid(provider: BankProvider): provider is PlaidProvider {
 }
 
 /** One sentence about what a sync wrote. */
-export function syncMessage(written: { accounts: number; transactions: number; updated: number; removed: number }): string {
+export function syncMessage(written: BankSyncCounts): string {
   const accountLabel = written.accounts === 1 ? "account" : "accounts";
-  if (written.transactions === 0 && written.updated === 0 && written.removed === 0) {
+  if (written.transactions === 0 && written.matched === 0 && written.updated === 0 && written.removed === 0) {
     return `Updated ${written.accounts} ${accountLabel}. No new transactions.`;
   }
   const parts = [`Synced ${written.accounts} ${accountLabel}`];
   if (written.transactions > 0) {
     parts.push(`added ${written.transactions} ${written.transactions === 1 ? "transaction" : "transactions"}`);
   }
+  if (written.matched > 0) parts.push(`matched ${written.matched} already in your books`);
   if (written.updated > 0) parts.push(`updated ${written.updated}`);
   if (written.removed > 0) parts.push(`hid ${written.removed} removed by the bank`);
   if (parts.length === 1) return `${parts[0]}.`;

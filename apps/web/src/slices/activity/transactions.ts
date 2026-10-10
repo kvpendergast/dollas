@@ -3,6 +3,8 @@ import {
   accountAcceptsCorrection,
   accountAcceptsNewEntry,
   amendTransactionEntry,
+  matchingPayeeRule,
+  planBankSeparation,
   defineTransactionEntry,
   deleteTransaction,
   isIsoDate,
@@ -14,7 +16,8 @@ import {
 import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, type SQL } from "drizzle-orm";
 import { withActor } from "@/db/actor";
 import type { AppTx } from "@/db/client";
-import { category, categoryGroup, ledgerAccount, transaction, transactionSplit } from "@/db/schema";
+import { category, categoryGroup, ledgerAccount, payeeCategoryRule, transaction, transactionSplit } from "@/db/schema";
+import { ensureFallbackCategory } from "@/slices/connections/apply";
 import { logInfo } from "@/lib/telemetry";
 import { UUID, failure, refuse, succeed, type ServiceActor, type ServiceResult, type Via } from "@/lib/service-result";
 
@@ -35,6 +38,10 @@ export type ListedTransaction = {
   accountName: string;
   accountArchived: boolean;
   deleted: boolean;
+  /** The bank reported this charge (sync created it, or linked it to this row). */
+  bankBacked: boolean;
+  /** Sync linked a bank charge to this CSV or manual row; "Not the same charge" can split them. */
+  bankMatched: boolean;
   splits: Array<{ categoryId: string; categoryName: string; amountCents: number }>;
 };
 
@@ -95,6 +102,8 @@ export async function listHouseholdTransactions(
             accountName: ledgerAccount.name,
             accountArchivedAt: ledgerAccount.archivedAt,
             deletedAt: transaction.deletedAt,
+            bankTransactionId: transaction.bankTransactionId,
+            bankMatchedAt: transaction.bankMatchedAt,
           })
           .from(transaction)
           .innerJoin(ledgerAccount, eq(ledgerAccount.id, transaction.accountId))
@@ -139,6 +148,8 @@ export async function listHouseholdTransactions(
             accountName: row.accountName,
             accountArchived: row.accountArchivedAt !== null,
             deleted: row.deletedAt !== null,
+            bankBacked: row.bankTransactionId !== null,
+            bankMatched: row.bankMatchedAt !== null,
             splits: byTransaction.get(row.id) ?? [],
           })),
         };
@@ -366,5 +377,114 @@ export async function restoreHouseholdTransaction(
     return succeed({ id: transactionId, payee });
   } catch (error) {
     return failure(error, "Could not restore that transaction.", { action: "restore-transaction", via, householdId: actor.householdId, transactionId });
+  }
+}
+
+/**
+ * "Not the same charge" (PEN-203): split a transaction that bank sync linked to
+ * a CSV or manual row. The member's row keeps its edits and loses the bank
+ * identity; the bank charge becomes its own transaction (bank date and payee,
+ * categorized by payee rules like any synced row). The next sync sees the
+ * identity on the new row and does not link them again.
+ */
+export async function separateBankMatch(
+  actor: ServiceActor,
+  transactionId: string,
+  via: Via = "web",
+): Promise<ServiceResult<{ id: string; bankCopyId: string; payee: string }>> {
+  if (!UUID.test(transactionId)) return refuse(NOT_HERE);
+  try {
+    const created = await withActor(actor.userId, async (tx) => {
+      const [row] = await tx
+        .select({
+          id: transaction.id,
+          householdId: transaction.householdId,
+          accountId: transaction.accountId,
+          deletedAt: transaction.deletedAt,
+          bankMatchedAt: transaction.bankMatchedAt,
+          occurredOn: transaction.occurredOn,
+          payee: transaction.payee,
+          amountCents: transaction.amountCents,
+          bankOccurredOn: transaction.bankOccurredOn,
+          bankPayee: transaction.bankPayee,
+          bankProviderId: transaction.bankProviderId,
+          bankAccountRef: transaction.bankAccountRef,
+          bankTransactionId: transaction.bankTransactionId,
+        })
+        .from(transaction)
+        .where(and(eq(transaction.id, transactionId), eq(transaction.householdId, actor.householdId)))
+        .for("update");
+      const plan = planBankSeparation(
+        row
+          ? {
+              id: row.id,
+              householdId: row.householdId,
+              deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
+              matchedAt: row.bankMatchedAt ? row.bankMatchedAt.toISOString() : null,
+              occurredOn: row.occurredOn,
+              payee: row.payee,
+              amountCents: row.amountCents,
+              bankOccurredOn: row.bankOccurredOn,
+              bankPayee: row.bankPayee,
+              bank:
+                row.bankProviderId && row.bankAccountRef && row.bankTransactionId
+                  ? { providerId: row.bankProviderId, providerAccountId: row.bankAccountRef, providerTransactionId: row.bankTransactionId }
+                  : null,
+            }
+          : null,
+        actor.householdId,
+      );
+      if (plan.isErr()) throw plan.error;
+      if (!row) throw new TransactionError(NOT_HERE);
+      const copy = plan.value.bankCopy;
+      await tx
+        .update(transaction)
+        .set({
+          bankProviderId: null,
+          bankAccountRef: null,
+          bankTransactionId: null,
+          bankMatchedAt: null,
+          bankOccurredOn: null,
+          bankPayee: null,
+        })
+        .where(and(eq(transaction.id, row.id), eq(transaction.householdId, actor.householdId)));
+      const rules = await tx
+        .select({ pattern: payeeCategoryRule.pattern, categoryId: payeeCategoryRule.categoryId })
+        .from(payeeCategoryRule)
+        .where(eq(payeeCategoryRule.householdId, actor.householdId));
+      const categoryId =
+        matchingPayeeRule(copy.payee, rules)?.categoryId ??
+        (await ensureFallbackCategory(tx, actor.householdId, copy.amountCents > 0 ? "income" : "expense"));
+      const [inserted] = await tx
+        .insert(transaction)
+        .values({
+          householdId: actor.householdId,
+          accountId: row.accountId,
+          occurredOn: copy.occurredOn,
+          payee: copy.payee,
+          amountCents: copy.amountCents,
+          bankProviderId: copy.bank.providerId,
+          bankAccountRef: copy.bank.providerAccountId,
+          bankTransactionId: copy.bank.providerTransactionId,
+        })
+        .returning({ id: transaction.id });
+      if (!inserted) throw new TransactionError("Could not separate those transactions.");
+      await tx.insert(transactionSplit).values({
+        transactionId: inserted.id,
+        householdId: actor.householdId,
+        categoryId,
+        amountCents: copy.amountCents,
+      });
+      return { id: row.id, bankCopyId: inserted.id, payee: copy.payee };
+    });
+    logInfo("Bank match separated", { action: "separate-bank-match", via, householdId: actor.householdId });
+    return succeed(created);
+  } catch (error) {
+    return failure(error, "Could not separate those transactions.", {
+      action: "separate-bank-match",
+      via,
+      householdId: actor.householdId,
+      transactionId,
+    }, [NOT_HERE, "That transaction was not matched to a bank charge.", "Restore that transaction first."]);
   }
 }

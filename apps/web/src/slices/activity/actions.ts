@@ -8,6 +8,7 @@ import {
   createHouseholdTransaction,
   deleteHouseholdTransaction,
   restoreHouseholdTransaction,
+  separateBankMatch,
 } from "./transactions";
 
 /** Thin form wrappers. The logic is in ./transactions, which MCP tools call too. */
@@ -48,4 +49,9 @@ export async function deleteTransactionAction(transactionId: string): Promise<{ 
 export async function restoreTransactionAction(transactionId: string): Promise<{ error: string }> {
   const books = await requireBooks();
   return done(await restoreHouseholdTransaction(books, transactionId));
+}
+
+export async function separateBankMatchAction(transactionId: string): Promise<{ error: string }> {
+  const books = await requireBooks();
+  return done(await separateBankMatch(books, transactionId));
 }

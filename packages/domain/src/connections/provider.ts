@@ -42,6 +42,18 @@ export type ProviderTransaction = {
   payee: string;
   amountCents: Cents;
   pending: boolean;
+  /**
+   * When the charge was authorized, if the provider says (Plaid
+   * `authorized_date`, SimpleFIN `transacted_at`). Used only to widen the date
+   * window when matching a CSV or manual copy; the book date stays `occurredOn`.
+   */
+  authorizedOn?: string;
+  /**
+   * Plaid `pending_transaction_id`: the pending row this posted row replaces.
+   * Pending rows are not booked, but if the pending id is somehow known the
+   * posted row takes over that transaction instead of adding a second one.
+   */
+  pendingTransactionId?: string;
 };
 
 export type TransactionQuery = {

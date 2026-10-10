@@ -12,6 +12,7 @@ import {
 } from "./plaid";
 import { createProviderRegistry, providerTransactionFingerprint, type ProviderAccount, type ProviderTransaction } from "./provider";
 import { createSimpleFinProvider } from "./simplefin";
+import { bankBookRow, legacyBookRow } from "./book-fixtures";
 import { planBankSync, planPlaidSync } from "./sync";
 import { parseTokenKeyRing } from "./token-cipher";
 
@@ -223,18 +224,45 @@ describe("Plaid sync", () => {
       removed: first.value.removed,
       ledgerAccounts: [],
       links: [],
-      imported: [],
+      books: [],
       rules: [{ pattern: "Market", categoryId: "cat-groceries" }],
       fallbacks: { incomeCategoryId: "cat-income", expenseCategoryId: "cat-expense" },
     });
     if (plan.isErr()) throw plan.error;
-    expect(plan.value.added.map((row) => row.fingerprint)).toEqual(["bank:plaid:txn-groceries"]);
+    expect(plan.value.added.map((row) => row.providerTransactionId)).toEqual(["txn-groceries"]);
     expect(plan.value.added[0]?.amountCents).toBe(-1_850);
     expect(plan.value.added[0]?.categoryId).toBe("cat-groceries");
     const card = plan.value.accounts.find((account) => account.providerAccountId === "act-card");
     if (!card || card.kind !== "create") throw new Error("card");
     expect(card.balanceCents).toBe(-2_000);
     expect(card.type).toBe("credit");
+  });
+
+  it("reads authorized_date and pending_transaction_id for matching and pending-to-posted", async () => {
+    const provider = providerWith(async () =>
+      json({
+        ...emptyPage("cursor-1"),
+        accounts: samplePage().accounts,
+        added: [
+          {
+            transaction_id: "txn-posted",
+            pending_transaction_id: "txn-pending",
+            account_id: "act-checking",
+            amount: 42,
+            date: "2026-03-05",
+            authorized_date: "2026-03-02",
+            name: "Market",
+            pending: false,
+          },
+          { transaction_id: "txn-plain", account_id: "act-checking", amount: 1, date: "2026-03-05", name: "Plain", pending: false },
+        ],
+      }),
+    );
+    const page = await provider.syncItem({ accessToken: ACCESS }, { cursor: null, since: "2026-01-01" });
+    if (page.isErr()) throw page.error;
+    expect(page.value.added[0]).toMatchObject({ occurredOn: "2026-03-05", authorizedOn: "2026-03-02", pendingTransactionId: "txn-pending" });
+    expect(page.value.added[1]).not.toHaveProperty("authorizedOn");
+    expect(page.value.added[1]).not.toHaveProperty("pendingTransactionId");
   });
 
   it("is idempotent when the same cursor page is applied again", async () => {
@@ -244,11 +272,13 @@ describe("Plaid sync", () => {
     });
     const first = await provider.syncItem({ accessToken: ACCESS }, { cursor: null, since: "2026-01-01" });
     if (first.isErr()) throw first.error;
-    const imported = first.value.added.map((row) => ({
-      householdId,
-      fingerprint: `bank:plaid:${row.providerTransactionId}`,
-      deletedAt: null,
-    }));
+    const imported = first.value.added.map((row) =>
+      bankBookRow(householdId, {
+        providerId: PLAID_PROVIDER_ID,
+        providerAccountId: row.providerAccountId,
+        providerTransactionId: row.providerTransactionId,
+      }),
+    );
     const again = await provider.syncItem({ accessToken: ACCESS }, { cursor: first.value.nextCursor, since: "2026-01-01" });
     if (again.isErr()) throw again.error;
     expect(again.value.added).toEqual([]);
@@ -263,7 +293,7 @@ describe("Plaid sync", () => {
         providerAccountId: account.providerAccountId,
         ledgerAccountId: `ledger-${index}`,
       })),
-      imported,
+      books: imported,
       rules: [],
     });
     if (replay.isErr()) throw replay.error;
@@ -297,14 +327,14 @@ describe("Plaid sync", () => {
       removed: ["txn-groceries", "txn-missing"],
       ledgerAccounts: [],
       links: [{ providerAccountId: "act-checking", ledgerAccountId: "ledger-checking" }],
-      imported: [
-        { householdId, fingerprint: "bank:plaid:txn-groceries", deletedAt: null },
-        { householdId, fingerprint: "bank:plaid:txn-rent", deletedAt: "2026-04-01T00:00:00.000Z" },
+      books: [
+        legacyBookRow(householdId, "bank:plaid:txn-groceries"),
+        legacyBookRow(householdId, "bank:plaid:txn-rent", "2026-04-01T00:00:00.000Z"),
       ],
       rules: [],
     });
     if (removed.isErr()) throw removed.error;
-    expect(removed.value.removed).toEqual([{ fingerprint: "bank:plaid:txn-groceries" }]);
+    expect(removed.value.removed).toEqual([{ transactionId: "row-txn-groceries", matched: false }]);
     expect(removed.value.updated).toEqual([]);
     expect(removed.value.added).toEqual([]);
 
@@ -316,16 +346,21 @@ describe("Plaid sync", () => {
       removed: [],
       ledgerAccounts: [],
       links: [{ providerAccountId: "act-checking", ledgerAccountId: "ledger-checking" }],
-      imported: [{ householdId, fingerprint: "bank:plaid:txn-groceries", deletedAt: null }],
+      books: [legacyBookRow(householdId, "bank:plaid:txn-groceries")],
       rules: [],
     });
     if (edited.isErr()) throw edited.error;
     expect(edited.value.updated).toEqual([
       {
-        fingerprint: "bank:plaid:txn-groceries",
+        transactionId: "row-txn-groceries",
+        providerAccountId: "act-checking",
+        providerTransactionId: "txn-groceries",
         occurredOn: "2026-03-02",
         payee: "Market",
         amountCents: -1_900,
+        matched: false,
+        deleted: false,
+        clearLegacyFingerprint: true,
       },
     ]);
 
@@ -337,9 +372,9 @@ describe("Plaid sync", () => {
       removed: ["txn-rent"],
       ledgerAccounts: [],
       links: [{ providerAccountId: "act-checking", ledgerAccountId: "ledger-checking" }],
-      imported: [
-        { householdId, fingerprint: "bank:plaid:txn-groceries", deletedAt: "2026-04-02T00:00:00.000Z" },
-        { householdId, fingerprint: "bank:plaid:txn-rent", deletedAt: "2026-04-01T00:00:00.000Z" },
+      books: [
+        legacyBookRow(householdId, "bank:plaid:txn-groceries", "2026-04-02T00:00:00.000Z"),
+        legacyBookRow(householdId, "bank:plaid:txn-rent", "2026-04-01T00:00:00.000Z"),
       ],
       rules: [],
     });
@@ -389,12 +424,12 @@ describe("Plaid sync", () => {
       ],
       ledgerAccounts: [],
       links: [],
-      imported: [],
+      books: [],
       rules: [],
       fallbacks: { incomeCategoryId: "cat-income", expenseCategoryId: "cat-expense" },
     });
     if (simplePlan.isErr()) throw simplePlan.error;
-    expect(simplePlan.value.transactions[0]?.fingerprint).toBe("bank:simplefin:txn-rent");
+    expect(simplePlan.value.transactions[0]?.providerTransactionId).toBe("txn-rent");
 
     const plaidPlan = planPlaidSync({
       householdId,
@@ -430,17 +465,19 @@ describe("Plaid sync", () => {
       ],
       links: [],
       reservedLedgerIds: ["ledger-simplefin"],
-      imported: simplePlan.value.transactions.map((row) => ({
-        householdId,
-        fingerprint: row.fingerprint,
-        deletedAt: null,
-      })),
+      books: simplePlan.value.transactions.map((row) =>
+        bankBookRow(
+          householdId,
+          { providerId: "simplefin", providerAccountId: row.providerAccountId, providerTransactionId: row.providerTransactionId },
+          { accountId: "ledger-simplefin" },
+        ),
+      ),
       rules: [],
       fallbacks: { incomeCategoryId: "cat-income", expenseCategoryId: "cat-expense" },
     });
     if (plaidPlan.isErr()) throw plaidPlan.error;
-    expect(plaidPlan.value.added[0]?.fingerprint).toBe("bank:plaid:txn-rent");
-    expect(plaidPlan.value.added[0]?.fingerprint).not.toBe(simplePlan.value.transactions[0]?.fingerprint);
+    // Same provider ids in two providers are different identities.
+    expect(plaidPlan.value.added[0]?.providerTransactionId).toBe("txn-rent");
     expect(plaidPlan.value.accounts[0]?.kind).toBe("create");
     expect(plaidPlan.value.added).toHaveLength(1);
 

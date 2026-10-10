@@ -254,6 +254,7 @@ function parseTransaction(
   const amountCents = providerDecimalToCents(record.amount);
   if (amountCents.isErr()) return err(amountCents.error);
   const description = typeof record.description === "string" ? record.description : "";
+  const authorizedOn = record.transacted_at == null ? null : unixSecondsToIsoDate(record.transacted_at);
   return ok({
     providerTransactionId,
     providerAccountId,
@@ -261,6 +262,7 @@ function parseTransaction(
     payee: payeeFrom(description),
     amountCents: amountCents.value,
     pending: record.pending === true,
+    ...(authorizedOn ? { authorizedOn } : {}),
   });
 }
 
