@@ -66,7 +66,7 @@ export const transactionTools = [
   tool({
     name: "list_transactions",
     title: "List transactions",
-    description: `Transactions in the household books, newest first, with their category splits. ${SIGN} bank_backed means the bank reported the charge; bank_matched means sync matched it to a CSV or manual entry (see separate_bank_match). recurring_item is the bill or paycheck it is linked to, if any. sources is manual, or csv and/or bank; added_by and categorized_by are the members who added it and last set its categories (null: Unknown, from before this was recorded). ${FILTER_HELP} account_id and category_id (one each) and payee_contains still work. Activity in the web app uses the same filter.`,
+    description: `Transactions in the household, newest first, with their category splits. ${SIGN} bank_backed means the bank reported the charge; bank_matched means sync matched it to a CSV or manual entry (see separate_bank_match). recurring_item is the bill or paycheck it is linked to, if any. sources is manual, or csv and/or bank; added_by and categorized_by are the members who added it and last set its categories (null: Unknown, from before this was recorded). ${FILTER_HELP} account_id and category_id (one each) and payee_contains still work. Activity in the web app uses the same filter.`,
     access: "read",
     input: {
       ...filterInput,
@@ -178,10 +178,10 @@ export const transactionTools = [
   tool({
     name: "delete_transaction",
     title: "Delete transaction",
-    description: "Delete a transaction. It leaves the books and totals; restore_transaction can bring it back, and a re-import will not add it again.",
+    description: "Delete a transaction. It leaves the totals; restore_transaction can bring it back, and a re-import will not add it again.",
     access: "write",
     destructive: true,
-    input: { transaction_id: uuidInput("Transaction"), confirm: confirmInput("delete this transaction from the books") },
+    input: { transaction_id: uuidInput("Transaction"), confirm: confirmInput("delete this transaction") },
     async run(args, { books }) {
       return answer(await deleteHouseholdTransaction(books, args.transaction_id, "mcp"), (value) => `Deleted ${value.payee}.`);
     },

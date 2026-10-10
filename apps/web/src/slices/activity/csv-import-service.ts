@@ -130,7 +130,7 @@ export async function previewCsvImport(
 
 export function commitMessage(added: number, errorCount: number): string {
   if (added === 0 && errorCount === 0) return "That CSV was already imported. No new transactions.";
-  if (added === 0) return "Nothing new to import. Those rows have errors or are already in the books.";
+  if (added === 0) return "Nothing new to import. Those rows have errors or are already here.";
   const label = added === 1 ? "transaction" : "transactions";
   if (errorCount === 0) return `Imported ${added} ${label}.`;
   const skipped = errorCount === 1 ? "1 row with errors" : `${errorCount} rows with errors`;

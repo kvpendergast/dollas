@@ -3,6 +3,7 @@
 import {
   FORGOT_PASSWORD_MESSAGE,
   inviteLinkPath,
+  inviteTokenFromPaste,
   isInviteToken,
   hidesSetupDetail,
   MEMBER_MAIL_FAILURE,
@@ -161,15 +162,22 @@ export async function resetPasswordAction(_state: AuthFormState, formData: FormD
   redirect("/sign-in?reset=1");
 }
 
+/**
+ * Sign-up with the path the person chose (PEN-204): start a household (name it
+ * now) or join one with an invite link (from the URL or pasted). Only that
+ * path's fields are sent.
+ */
 export async function signUpAction(_state: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const path = formData.get("path") === "join" ? "join" : "start";
   const householdName = String(formData.get("householdName") ?? "").trim();
-  const inviteToken = String(formData.get("invite") ?? "");
-  const invitePath = inviteReturnPath(inviteToken);
+  const inviteToken = path === "join" ? inviteTokenFromPaste(String(formData.get("invite") ?? formData.get("inviteLink") ?? "")) : null;
+  const invitePath = inviteToken ? inviteLinkPath(inviteToken) : null;
   if (name.length < 2) return { error: "Enter the name you use at home." };
-  if (!invitePath && householdName.length < 2) return { error: "Name the household you are starting." };
+  if (path === "join" && !invitePath) return { error: "Paste the whole invite link from your email." };
+  if (path === "start" && householdName.length < 2) return { error: "Name the household you are starting." };
   try {
     await getAuth().api.signUpEmail({
       // The verification link signs them in and returns to the invite page.
@@ -180,7 +188,7 @@ export async function signUpAction(_state: AuthFormState, formData: FormData): P
     logError(error, { action: "sign-up" });
     return { error: messageFrom(error) };
   }
-  if (invitePath) {
+  if (inviteToken) {
     await rememberInvite(inviteToken);
   } else {
     const intent: HouseholdIntent = { mode: "start", householdName };

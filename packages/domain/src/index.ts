@@ -440,6 +440,7 @@ export {
   inviteErrorFromText,
   inviteExpiresAt,
   inviteLinkPath,
+  inviteTokenFromPaste,
   inviteState,
   isInviteToken,
   maskInviteEmail,
@@ -555,3 +556,24 @@ export {
 } from "./filters/spending-filter";
 export { buildSpendingTrend, trendUnit, type TrendBucket, type TrendUnit } from "./filters/trend";
 export { buildSpendingBreakdown, type BreakdownLine, type BreakdownSlice, type SpendingBreakdown } from "./filters/breakdown";
+export {
+  buildOnboardingChecklist,
+  INVITE_WAITS_FOR,
+  ONBOARDING_STEP_IDS,
+  ONBOARDING_STEPS,
+  type OnboardingChecklist,
+  type OnboardingRecord,
+  type OnboardingState,
+  type OnboardingStep,
+  type OnboardingStepDefinition,
+  type OnboardingStepId,
+} from "./onboarding/checklist";
+export {
+  FALLBACK_CATEGORIES,
+  isFallbackCategory,
+  needsStarterCategories,
+  planStarterCategories,
+  STARTER_CATEGORIES,
+  type StarterGroup,
+  type StarterPlan,
+} from "./onboarding/starter";

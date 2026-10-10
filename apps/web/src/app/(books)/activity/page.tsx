@@ -116,8 +116,8 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
             {filtered
               ? "Nothing matches these filters."
               : newEntryAccounts.length === 0
-                ? "No dollas in here yet. Add an account."
-                : "No dollas in here yet."}
+                ? "No transactions yet. Add an account first."
+                : "No transactions yet. Add one above or import a CSV."}
           </p>
         ) : null}
       <ActivityLedger

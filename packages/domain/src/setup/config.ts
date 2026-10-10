@@ -15,7 +15,7 @@ export const MEMBER_RESET_MAIL_FAILURE =
 
 /** Plain next step when a verification email was handed to the mailer. */
 export const MEMBER_MAIL_READY =
-  "Check your inbox for a verification message from dollas and open the link, then come back and sign in.";
+  "Check your inbox for a verification message from Dollas and open the link, then come back and sign in.";
 
 const SETUP_LEAK =
   /\b(?:GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET|RESEND_API_KEY|RESEND_FROM|BETTER_AUTH_SECRET|BETTER_AUTH_URL|DATABASE_URL|DATABASE_URL_APP|DATABASE_MIGRATE_URL|DATABASE_URL_UNPOOLED|BANK_CONNECTION_KEYS|PLAID_CLIENT_ID|PLAID_SECRET|PLAID_ENV|PLAID_REDIRECT_URI)\b|\bResend\b|not configured|server log|https?:\/\/[^/\s:@]+:[^/\s@]+@/i;

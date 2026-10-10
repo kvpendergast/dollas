@@ -11,7 +11,7 @@ function day(date: Date | null, timezone: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: timezone });
 }
 
-export const metadata = { title: "Settings · dollas" };
+export const metadata = { title: "Settings · Dollas" };
 
 export default async function SettingsPage() {
   const books = await requireBooks();

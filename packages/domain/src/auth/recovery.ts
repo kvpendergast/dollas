@@ -12,7 +12,7 @@ export const RESEND_VERIFICATION_MESSAGE =
 export const GENERIC_SIGN_IN_MESSAGE = "That email and password did not match.";
 
 export const UNVERIFIED_SIGN_IN_MESSAGE =
-  "That email still needs a verification link before it can open the books.";
+  "That email still needs a verification link before it can sign in.";
 
 export const FORGOT_PASSWORD_FLOOR_MS = 350;
 

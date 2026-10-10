@@ -44,10 +44,10 @@ export const settingsTools = [
     name: "leave_household",
     title: "Leave household",
     description:
-      "Leave this household. You lose access to its books, and this agent's connection ends with it. The last owner has to hand off ownership or delete the household instead.",
+      "Leave this household. You lose access to it, and this agent's connection ends with it. The last owner has to hand off ownership or delete the household instead.",
     access: "write",
     destructive: true,
-    input: { confirm: confirmInput("leave this household and lose access to its books") },
+    input: { confirm: confirmInput("leave this household and lose access to it") },
     async run(_args, { books }) {
       return answer(await leaveHousehold(books), () => "You left the household. This agent no longer has access.");
     },
@@ -56,15 +56,15 @@ export const settingsTools = [
     name: "delete_household",
     title: "Delete household",
     description:
-      "Owner only. Permanently delete the household and all of its books for every member. Needs confirm: true and household_name typed exactly as it is.",
+      "Owner only. Permanently delete the household and everything in it for every member. Needs confirm: true and household_name typed exactly as it is.",
     access: "write",
     destructive: true,
     input: {
       household_name: z.string().min(1).max(120).describe("The household's name, exactly, as the confirmation the web app asks for."),
-      confirm: confirmInput("permanently delete the household and every member's access to its books"),
+      confirm: confirmInput("permanently delete the household and every member's access to it"),
     },
     async run(args, { books }) {
-      return answer(await deleteHousehold(books, args.household_name), () => "The household and its books are deleted.");
+      return answer(await deleteHousehold(books, args.household_name), () => "The household is deleted.");
     },
   }),
 ];

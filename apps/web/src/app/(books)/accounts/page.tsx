@@ -60,7 +60,7 @@ export default async function AccountsPage() {
         <p className="text-sm text-muted-foreground">Opening money, plus every transaction since. That&apos;s the balance.</p>
       </div>
       {active.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No dollas in here yet. Add an account.</p>
+        <p className="text-sm text-muted-foreground">No accounts yet. Add your first one below.</p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {active.map((account) => (

@@ -8,7 +8,7 @@ import { signOutForInviteAction } from "@/slices/household/actions";
 import { previewHouseholdInvite } from "@/slices/household/invites";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Invite · dollas" };
+export const metadata = { title: "Invite · Dollas" };
 
 function day(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
@@ -54,7 +54,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   const { preview } = visit;
   const header = (
     <CardHeader>
-      <CardTitle>Join the {preview.householdName} books</CardTitle>
+      <CardTitle>Join the {preview.householdName} household</CardTitle>
       <CardDescription>
         {preview.invitedBy} invited you. You get your own login and see the same accounts, transactions, categories, and
         budget.
@@ -67,11 +67,11 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
       <Card>
         <CardHeader>
           <CardTitle>{preview.householdName}</CardTitle>
-          <CardDescription>You are already in these books.</CardDescription>
+          <CardDescription>You are already in this household.</CardDescription>
         </CardHeader>
         <CardContent>
           <Link href="/" className={cn(buttonVariants(), "h-10 w-full")}>
-            Open the books
+            Go to Home
           </Link>
         </CardContent>
       </Card>

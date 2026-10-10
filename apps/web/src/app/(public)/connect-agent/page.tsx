@@ -11,7 +11,7 @@ import { agentHouseholdFor } from "@/slices/access/member";
 import { describeAgentRequest } from "@/slices/agents/connections";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Connect an agent · dollas" };
+export const metadata = { title: "Connect an agent · Dollas" };
 
 function Notice({ title, message, href, label }: { title: string; message: string; href: string; label: string }) {
   return (
@@ -78,7 +78,7 @@ export default async function ConnectAgentPage({
       <CardHeader>
         <CardTitle>Connect {request.value.clientName}</CardTitle>
         <CardDescription>
-          {request.value.clientName} wants to use your Dollas books as you ({ctx.session.user.email}).
+          {request.value.clientName} wants to use your Dollas household as you ({ctx.session.user.email}).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

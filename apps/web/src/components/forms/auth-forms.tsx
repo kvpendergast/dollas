@@ -83,40 +83,55 @@ export function SignInForm({
   );
 }
 
+/**
+ * One sign-up path at a time (PEN-204): "start" asks for the household name;
+ * "join" asks for the invite link, unless it came in the URL.
+ */
 export function SignUpForm({
   googleEnabled,
+  path,
   invite,
 }: {
   googleEnabled: boolean;
+  path: "start" | "join";
   invite?: { token: string; maskedEmail: string };
 }) {
   const [state, action, pending] = useActionState(signUpAction, initial);
-  const returnTo = invite ? `/invite/${invite.token}` : "/";
+  const returnTo = invite ? `/invite/${invite.token}` : `/welcome?path=${path}`;
+  const id = (name: string) => `${path}-${name}`;
   return (
     <div className="space-y-4">
       <form action={action} className="space-y-3">
+        <input type="hidden" name="path" value={path} />
         {invite ? <input type="hidden" name="invite" value={invite.token} /> : null}
         <div className="space-y-1.5">
-          <Label htmlFor="name">Your name</Label>
-          <Input id="name" name="name" autoComplete="name" required />
+          <Label htmlFor={id("name")}>Your name</Label>
+          <Input id={id("name")} name="name" autoComplete="name" required />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" autoComplete="email" required />
+          <Label htmlFor={id("email")}>Email</Label>
+          <Input id={id("email")} name="email" type="email" autoComplete="email" required />
           {invite ? (
             <p className="text-xs text-muted-foreground">Use the address the invite was sent to ({invite.maskedEmail}).</p>
+          ) : path === "join" ? (
+            <p className="text-xs text-muted-foreground">Use the address your invite was sent to.</p>
           ) : null}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="password">Password</Label>
-          <Input id="password" name="password" type="password" autoComplete="new-password" minLength={8} required />
+          <Label htmlFor={id("password")}>Password</Label>
+          <Input id={id("password")} name="password" type="password" autoComplete="new-password" minLength={8} required />
         </div>
-        {invite ? null : (
+        {path === "start" ? (
           <div className="space-y-1.5">
-            <Label htmlFor="householdName">Household name</Label>
-            <Input id="householdName" name="householdName" placeholder="The Maple house" required />
+            <Label htmlFor={id("householdName")}>Household name</Label>
+            <Input id={id("householdName")} name="householdName" placeholder="The Maple house" required />
+          </div>
+        ) : invite ? null : (
+          <div className="space-y-1.5">
+            <Label htmlFor={id("inviteLink")}>Invite link</Label>
+            <Input id={id("inviteLink")} name="inviteLink" placeholder="https://…/invite/…" autoComplete="off" required />
             <p className="text-xs text-muted-foreground">
-              Joining someone&apos;s books? Open the invite link they emailed you instead.
+              Paste the link from the invite email. No invite yet? Ask them to invite your email from their Household page.
             </p>
           </div>
         )}
@@ -126,7 +141,7 @@ export function SignUpForm({
           </p>
         ) : null}
         <Button type="submit" className="h-10 w-full" disabled={pending}>
-          {pending ? "Creating login" : "Create a login"}
+          {pending ? "Creating login" : path === "start" ? "Create login and household" : "Create login and join"}
         </Button>
       </form>
       <GoogleSignInButton
@@ -153,7 +168,7 @@ export function StartHouseholdForm({ defaultName = "" }: { defaultName?: string 
         </p>
       ) : null}
       <Button type="submit" className="h-10 w-full" disabled={pending}>
-        Start the books
+        Start the household
       </Button>
     </form>
   );

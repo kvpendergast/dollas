@@ -933,3 +933,35 @@ export const schema = {
   oauthClientAssertion,
   agentActivity,
 };
+
+/**
+ * Onboarding progress per household (PEN-204). Triggers on the real tables
+ * stamp each step the first time the household does it, from any write path;
+ * the checklist reads these. dismissed_at is "Skip for now" (cleared by
+ * Resume). Shared by every member of the household.
+ */
+export const householdOnboarding = pgTable(
+  "household_onboarding",
+  {
+    householdId: uuid("household_id")
+      .primaryKey()
+      .references(() => household.id, { onDelete: "cascade" }),
+    accountAt: timestamp("account_at", { withTimezone: true, mode: "date" }),
+    categoriesAt: timestamp("categories_at", { withTimezone: true, mode: "date" }),
+    transactionsAt: timestamp("transactions_at", { withTimezone: true, mode: "date" }),
+    budgetAt: timestamp("budget_at", { withTimezone: true, mode: "date" }),
+    inviteAt: timestamp("invite_at", { withTimezone: true, mode: "date" }),
+    recurringAt: timestamp("recurring_at", { withTimezone: true, mode: "date" }),
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true, mode: "date" }),
+    dismissedByUserId: text("dismissed_by_user_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  () => [
+    pgPolicy("household_onboarding_all", {
+      for: "all",
+      using: sql`app_can_access_household(household_id)`,
+      withCheck: sql`app_can_access_household(household_id)`,
+    }),
+  ],
+).enableRLS();

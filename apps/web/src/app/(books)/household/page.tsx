@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requireBooks } from "@/slices/access/guard";
 import { listHouseholdPeople } from "@/slices/household/invites";
 
-export const metadata = { title: "Household · dollas" };
+export const metadata = { title: "Household · Dollas" };
 
 function day(date: Date, timeZone: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone });

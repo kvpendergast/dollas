@@ -49,7 +49,7 @@ export const AGENT_MESSAGES: Record<AgentAccessFailureReason, string> = {
   missing_token: "Connect this agent to Dollas first. It needs to sign in through Dollas.",
   invalid_token: "This agent's Dollas access has expired or was disconnected. Connect it again.",
   no_household: "Start or join a household in Dollas before connecting an agent.",
-  insufficient_scope: "This agent can only read your books. Reconnect it with read and write access to make changes.",
+  insufficient_scope: "This agent can only read your household. Reconnect it with read and write access to make changes.",
   revoked: "This agent was disconnected in Dollas Settings. Connect it again to use it.",
   invalid_scope_choice: "Pick read, or read and write.",
 };

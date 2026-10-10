@@ -38,7 +38,7 @@ export class InvalidMoneyError extends DomainError {
 
 export class UnverifiedEmailError extends DomainError {
   constructor(
-    message = "Verify your email before opening household books. Google sign-in counts as verified.",
+    message = "Verify your email before opening your household. Google sign-in counts as verified.",
   ) {
     super("unverified_email", message);
   }
@@ -171,7 +171,7 @@ export class AccountError extends DomainError {
 }
 
 export class InvalidAuthEmailError extends DomainError {
-  constructor(message = "Enter the email you use for the books.") {
+  constructor(message = "Enter the email you use for Dollas.") {
     super("invalid_auth_email", message);
   }
 }

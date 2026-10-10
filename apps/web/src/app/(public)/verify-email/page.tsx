@@ -25,7 +25,7 @@ export default async function VerifyEmailPage({
       <CardHeader>
         <CardTitle>Verify your email</CardTitle>
         <CardDescription>
-          Open the link, then come back and sign in. The books stay closed until this address is verified.
+          Open the link, then come back and sign in. Your household stays closed until this address is verified.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 text-sm text-muted-foreground">

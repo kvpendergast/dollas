@@ -54,7 +54,7 @@ function PlanSoFarCard({ plan, hasAccounts, money }: { plan: PlanSoFar; hasAccou
         </CardHeader>
         <CardContent>
           {plan.unbudgeted.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{hasAccounts ? "Nothing spent yet this month." : "No dollas in here yet. Add an account."}</p>
+            <p className="text-sm text-muted-foreground">{hasAccounts ? "Nothing spent yet this month." : "No accounts yet. Add an account."}</p>
           ) : (
             <ul className="space-y-3">
               {plan.unbudgeted.map((row) => (

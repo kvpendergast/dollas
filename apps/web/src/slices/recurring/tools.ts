@@ -207,7 +207,7 @@ export const recurringTools = [
   tool({
     name: "delete_recurring_item",
     title: "Delete recurring item",
-    description: "Delete a recurring item. Its linked transactions stay in the books, standing alone again.",
+    description: "Delete a recurring item. Its linked transactions stay, standing alone again.",
     access: "write",
     destructive: true,
     input: { item_id: uuidInput("Recurring item"), confirm: confirmInput("delete this recurring item") },

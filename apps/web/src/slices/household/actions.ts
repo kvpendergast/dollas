@@ -1,6 +1,6 @@
 "use server";
 
-import { INVITE_MESSAGES, isInviteToken } from "@dollas/domain";
+import { INVITE_MESSAGES, inviteTokenFromPaste, isInviteToken } from "@dollas/domain";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -26,18 +26,10 @@ export async function startHouseholdAction(_state: AuthFormState, formData: Form
   redirect("/");
 }
 
-/** Pulls the token out of a pasted invite link, or takes a bare token. */
-function tokenFromPaste(raw: string): string | null {
-  const value = raw.trim();
-  if (isInviteToken(value)) return value;
-  const match = /\/invite\/([A-Za-z0-9_-]{43})(?:[/?#]|$)/.exec(value);
-  return match ? match[1] : null;
-}
-
 /** The welcome screen's Join tab. Opens the invite page, which does the checks. */
 export async function joinHouseholdAction(_state: AuthFormState, formData: FormData): Promise<AuthFormState> {
   await requireVerifiedUser();
-  const token = tokenFromPaste(String(formData.get("inviteLink") ?? ""));
+  const token = inviteTokenFromPaste(String(formData.get("inviteLink") ?? ""));
   if (!token) return { error: "Paste the whole invite link from your email." };
   redirect(`/invite/${token}`);
 }
