@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { connectAgentAction, revokeAgentAction, type AgentFormState } from "@/slices/agents/actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 const initial: AgentFormState = { error: "" };
 
@@ -54,6 +55,7 @@ export function ConnectAgentForm({ oauthQuery, canWrite }: { oauthQuery: string;
 
 export function DisconnectAgentForm({ connectionId, clientName }: { connectionId: string; clientName: string }) {
   const [state, action, pending] = useActionState(revokeAgentAction, initial);
+  useActionToast(state, "Agent disconnected. Its access ended right away.");
   return (
     <form action={action} className="flex flex-col items-end gap-1">
       <input type="hidden" name="connectionId" value={connectionId} />

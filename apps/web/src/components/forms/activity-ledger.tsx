@@ -6,10 +6,13 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/lib/toast-store";
 import { restoreTransactionAction } from "@/slices/activity/actions";
 import { TransactionEditor } from "./transaction-editor";
 
 const UNDO_MS = 8_000;
+/** Matches --motion-base: the row slides out, then hides. */
+const LEAVE_MS = 200;
 
 type AccountChoice = { id: string; name: string; archived?: boolean };
 
@@ -53,6 +56,9 @@ export function ActivityLedger({
   recurringChoices?: Array<{ id: string; name: string }>;
 }) {
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
+  const [leaving, setLeaving] = useState<ReadonlySet<string>>(new Set());
+  // Rows on screen at first render arrive with the page; only later rows animate in.
+  const [initialIds] = useState(() => new Set(transactions.map((item) => item.id)));
   const [undo, setUndo] = useState<{ id: string; payee: string } | null>(null);
   const [undoError, setUndoError] = useState("");
   const [restoring, setRestoring] = useState(false);
@@ -76,6 +82,12 @@ export function ActivityLedger({
       return;
     }
     const id = undo.id;
+    toast(`Restored ${undo.payee}.`);
+    setLeaving((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
     setHidden((current) => {
       const next = new Set(current);
       next.delete(id);
@@ -91,19 +103,22 @@ export function ActivityLedger({
       {visible.map((item) => {
         const split = item.splits.length > 1;
         return (
-          <article key={item.id} className="rounded-xl bg-card px-4 py-3 ring-1 ring-foreground/10">
+          <article
+            key={item.id}
+            className={`rounded-xl bg-card px-4 py-3 ring-1 ring-foreground/10 ${leaving.has(item.id) ? "dl-item-leaving" : initialIds.has(item.id) ? "" : "dl-item"}`}
+          >
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-medium">{item.payee}</p>
+              <div className="min-w-0">
+                <p className="font-medium break-words">{item.payee}</p>
                 <p className="text-xs text-muted-foreground">
                   {item.occurredOn} · {item.accountName}
                   {item.accountArchived ? " · Archived" : ""}
                   {split ? "" : ` · ${item.splits[0]?.categoryName ?? "Uncategorized"}`}
                 </p>
                 {item.note ? <p className="text-xs text-muted-foreground">{item.note}</p> : null}
-                {item.sources ? <p className="text-[11px] text-muted-foreground">{attributionLine(item)}</p> : null}
+                {item.sources ? <p className="text-xs text-muted-foreground">{attributionLine(item)}</p> : null}
               </div>
-              <div className="text-right">
+              <div className="shrink-0 text-right">
                 <p className={`font-serif text-lg tabular-nums ${item.amountCents > 0 ? "text-income" : ""}`}>
                   {formatCents(item.amountCents)}
                 </p>
@@ -151,7 +166,8 @@ export function ActivityLedger({
               categories={categories}
               recurringChoices={recurringChoices}
               onDeleted={(deleted) => {
-                setHidden((current) => new Set(current).add(deleted.id));
+                setLeaving((current) => new Set(current).add(deleted.id));
+                window.setTimeout(() => setHidden((current) => new Set(current).add(deleted.id)), LEAVE_MS);
                 setUndoError("");
                 setUndo(deleted);
               }}
@@ -162,7 +178,7 @@ export function ActivityLedger({
       {undo ? (
         <div
           role="status"
-          className="fixed inset-x-4 bottom-24 z-30 mx-auto flex max-w-md flex-col gap-2 rounded-xl bg-card px-4 py-3 shadow-lg ring-1 ring-foreground/10 md:bottom-8"
+          className="dl-toast-in fixed inset-x-4 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-md flex-col gap-2 rounded-xl bg-card px-4 py-3 shadow-lg ring-1 ring-foreground/10 md:bottom-8"
         >
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm">Deleted {undo.payee}.</p>

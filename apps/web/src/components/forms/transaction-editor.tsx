@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { deleteTransactionAction, separateBankMatchAction, updateTransactionAction } from "@/slices/activity/actions";
 import { RecurringLinkControl } from "@/components/recurring/recurring-forms";
 import { SplitControl, type SplitRow } from "./split-control";
+import { useActionToast } from "@/lib/use-action-toast";
+import { toast } from "@/lib/toast-store";
 
 type Option = { id: string; name: string; archived?: boolean };
 
@@ -45,6 +47,7 @@ export function TransactionEditor({
   const field = `edit-${transaction.id}`;
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState(updateTransactionAction, { error: "" });
+  useActionToast(state, "Transaction saved.");
   const [payee, setPayee] = useState(transaction.payee);
   const [occurredOn, setOccurredOn] = useState(transaction.occurredOn);
   const [accountId, setAccountId] = useState(transaction.accountId);
@@ -80,6 +83,7 @@ export function TransactionEditor({
     const result = await separateBankMatchAction(transaction.id);
     setSeparating(false);
     if (result.error) setRemoveError(result.error);
+    else toast("Split into two transactions: yours and the bank's.");
   }
 
   return (

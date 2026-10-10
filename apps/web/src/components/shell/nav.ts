@@ -10,11 +10,17 @@ export const bookNav = [
 
 export const settingsNav = { href: "/settings", label: "Settings" } as const;
 
+/** Members, invites, and ownership: next to Settings on desktop and in the phone Account menu (PEN-208). */
+export const householdNav = { href: "/household", label: "Household" } as const;
+
+/** The phone header's Account menu, in order. */
+export const accountNav = [householdNav, settingsNav] as const;
+
 /** Recurring bills and paychecks: a sidebar entry on desktop, reached from Plan on a phone. */
 export const recurringNav = { href: "/recurring", label: "Recurring" } as const;
 
-/** Desktop sidebar. Recurring sits under Plan; Settings is a destination here, not a phone tab. */
-export const desktopNav = [...bookNav.slice(0, 5), recurringNav, ...bookNav.slice(5), settingsNav] as const;
+/** Desktop sidebar. Recurring sits under Plan; Household and Settings are destinations here, not phone tabs. */
+export const desktopNav = [...bookNav.slice(0, 5), recurringNav, ...bookNav.slice(5), householdNav, settingsNav] as const;
 
 /** Phone tabs: Recurring lives under the Plan tab, so Plan stays lit there. */
 export function isPhoneTabActive(pathname: string, href: string): boolean {

@@ -24,6 +24,8 @@ import {
   updatePayeeRuleAction,
   type PayeeRuleApplyPreview,
 } from "@/slices/activity/payee-rules";
+import { useActionToast } from "@/lib/use-action-toast";
+import { toast } from "@/lib/toast-store";
 
 const selectClass = "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm";
 
@@ -60,6 +62,7 @@ export function PayeeRules({ rules, categories }: { rules: Rule[]; categories: C
 
 function PayeeRuleCreate({ categories }: { categories: CategoryMenuEntry[] }) {
   const [state, action, pending] = useActionState(createPayeeRuleAction, { error: "" });
+  useActionToast(state, "Payee rule added.");
   if (categories.length === 0) {
     return <p className="text-sm text-muted-foreground">Add a category before saving a payee rule.</p>;
   }
@@ -84,6 +87,7 @@ function PayeeRuleCreate({ categories }: { categories: CategoryMenuEntry[] }) {
 
 function PayeeRuleRow({ rule, categories }: { rule: Rule; categories: CategoryMenuEntry[] }) {
   const [state, action, pending] = useActionState(updatePayeeRuleAction, { error: "" });
+  useActionToast(state, "Payee rule saved.");
   const field = `payee-rule-${rule.id}`;
   return (
     <div className="space-y-2">
@@ -114,6 +118,7 @@ function PayeeRuleRow({ rule, categories }: { rule: Rule; categories: CategoryMe
 
 function RemovePayeeRule({ rule }: { rule: Rule }) {
   const [removed, remove, removing] = useActionState(deletePayeeRuleAction, { error: "" });
+  useActionToast(removed, "Payee rule deleted.");
   const copy = describePayeeRuleRemoval(rule);
   return (
     <Dialog>
@@ -180,6 +185,7 @@ function ApplyPayeeRule({ rule }: { rule: Rule }) {
         return;
       }
       setApplied(result.message);
+      toast(result.message);
     });
   }
 

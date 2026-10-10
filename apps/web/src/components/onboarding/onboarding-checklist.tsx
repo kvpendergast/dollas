@@ -1,9 +1,9 @@
 import type { OnboardingStatus } from "@/slices/onboarding/service";
 import Link from "next/link";
-import { Check } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { ChecklistMark } from "./checklist-mark";
 import { SkipOnboardingButton, StarterCategoriesButton } from "./onboarding-forms";
 
 function Progress({ done, total }: { done: number; total: number }) {
@@ -21,19 +21,9 @@ function Progress({ done, total }: { done: number; total: number }) {
         aria-valuenow={done}
         aria-label="Setup progress"
       >
-        <div className="h-full rounded-full bg-primary" style={{ width: `${share}%` }} />
+        <div className="dl-transition h-full origin-left rounded-full bg-primary" style={{ transform: `scaleX(${share / 100})` }} />
       </div>
     </div>
-  );
-}
-
-function Mark({ done }: { done: boolean }) {
-  return done ? (
-    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground" aria-hidden="true">
-      <Check className="size-3.5" strokeWidth={3} />
-    </span>
-  ) : (
-    <span className="mt-0.5 size-5 shrink-0 rounded-full border-2 border-border" aria-hidden="true" />
   );
 }
 
@@ -85,9 +75,9 @@ export function OnboardingChecklist({ status }: { status: OnboardingStatus }) {
             const next = step.id === status.nextStep;
             return (
               <li key={step.id} className="flex gap-3 py-3 first:pt-0 last:pb-0">
-                <Mark done={step.done} />
+                <ChecklistMark id={step.id} done={step.done} />
                 <div className="min-w-0 flex-1 space-y-1">
-                  <p className={cn("text-sm font-medium", step.done && "text-muted-foreground line-through decoration-1")}>
+                  <p className={cn("dl-transition text-sm font-medium", step.done && "text-muted-foreground line-through decoration-1")}>
                     {step.title}
                     {step.optional ? <span className="ml-2 text-xs font-normal text-muted-foreground">Optional</span> : null}
                   </p>

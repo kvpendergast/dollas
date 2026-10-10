@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Home, Landmark, List, Repeat, Settings, Tags, WalletCards } from "lucide-react";
+import { BarChart3, Home, Landmark, List, Repeat, Settings, Tags, Users, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { desktopNav, isNavActive } from "./nav";
@@ -13,12 +13,13 @@ const icons = {
   Plan: WalletCards,
   Recurring: Repeat,
   History: BarChart3,
+  Household: Users,
   Settings,
 } as const;
 
 export function DesktopNav({ pathname }: { pathname: string }) {
   return (
-    <nav aria-label="Household" className="mt-8">
+    <nav aria-label="Main" className="mt-8">
       <ul className="space-y-1">
         {desktopNav.map((item) => {
           const Icon = icons[item.label];
@@ -28,7 +29,7 @@ export function DesktopNav({ pathname }: { pathname: string }) {
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${active ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                className={`dl-transition flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${active ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
               >
                 <Icon aria-hidden="true" className="size-4" />
                 {item.label}

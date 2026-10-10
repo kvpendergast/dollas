@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { setBudgetAction } from "@/slices/plan/actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 export function BudgetForm({
   categoryId,
@@ -17,6 +18,7 @@ export function BudgetForm({
   defaultDollars: string;
 }) {
   const [state, action, pending] = useActionState(setBudgetAction, { error: "" });
+  useActionToast(state, "Budget saved.");
   return (
     <form action={action} className="flex flex-wrap items-center gap-2">
       <input type="hidden" name="categoryId" value={categoryId} />

@@ -1,5 +1,7 @@
 import { filterHref, formatCents, type SpendingFilter, type TrendBucket } from "@dollas/domain";
 import Link from "next/link";
+import { ChartLegend, ChartRows } from "@/components/charts/chart-rows";
+import { compactCents, trendRows, trendSummary } from "@/components/charts/chart-text";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { NamedSlice, SpendingDashboard } from "@/slices/spending/service";
 
@@ -11,64 +13,42 @@ import type { NamedSlice, SpendingDashboard } from "@/slices/spending/service";
  * yet" for it.
  */
 
-function tone(direction: "less" | "more" | "same"): string {
-  if (direction === "less") return "text-income";
-  if (direction === "more") return "text-over";
-  return "text-muted-foreground";
-}
+/** A phone shows the latest eight buckets; wider screens show them all. */
+const PHONE_BUCKETS = 8;
+const BAR_HEIGHT = 120;
 
 function TrendChart({ buckets, unit }: { buckets: TrendBucket[]; unit: "week" | "month" }) {
   const max = Math.max(1, ...buckets.map((bucket) => bucket.spentCents));
-  const previous = unit === "week" ? "than the week before" : "than the month before";
+  const phoneFrom = Math.max(0, buckets.length - PHONE_BUCKETS);
   return (
-    <div>
-      <div className="mb-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-2">
-          <span className="inline-block h-3 w-3 rounded-sm bg-bar" />
-          Spent {unit === "week" ? "each week" : "each month"}
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <span className="bar-partial inline-block h-3 w-3 rounded-sm" />
-          So far
-        </span>
-      </div>
-      <div className="overflow-x-auto pb-2">
-        <div className="flex items-end gap-2" style={{ minWidth: `${buckets.length * 64}px` }} role="list" aria-label={`Spending by ${unit}`}>
-          {buckets.map((bucket) => {
-            const height = Math.round((bucket.spentCents / max) * 120);
-            return (
-              <div key={bucket.from} role="listitem" className="w-14 shrink-0">
-                <div className="flex h-32 items-end justify-center">
-                  <div
-                    className={bucket.partial ? "bar-partial w-5 rounded-t-sm" : "w-5 rounded-t-sm bg-bar"}
-                    style={{ height: Math.max(bucket.spentCents > 0 ? 4 : 0, height) }}
-                    title={`${bucket.partial ? "So far " : ""}${formatCents(bucket.spentCents)}`}
-                  />
-                </div>
-                <p className="mt-2 text-center text-xs font-medium">{bucket.label}</p>
-                <p className="text-center font-serif text-xs tabular-nums">{formatCents(bucket.spentCents)}</p>
-                {bucket.partial ? (
-                  <p className="text-center text-[11px] font-medium text-amber-800">so far</p>
-                ) : (
-                  <p className="text-center text-[11px] text-transparent" aria-hidden="true">
-                    so far
-                  </p>
-                )}
-                {bucket.change == null ? null : bucket.change.comparable ? (
-                  <p className={`text-center text-[11px] leading-tight ${tone(bucket.change.direction)}`} title={previous}>
-                    {bucket.change.direction === "same"
-                      ? "Same"
-                      : `${formatCents(Math.abs(bucket.change.deltaCents))} ${bucket.change.direction}`}
-                  </p>
-                ) : (
-                  <p className="text-center text-[11px] leading-tight text-muted-foreground">Not comparable yet</p>
-                )}
+    <figure>
+      <figcaption className="sr-only">{trendSummary(buckets, unit)}</figcaption>
+      <ChartLegend
+        items={[
+          { label: `Spent ${unit === "week" ? "each week" : "each month"}`, swatch: "bg-bar" },
+          { label: "So far", swatch: "bar-partial" },
+        ]}
+      />
+      <div aria-hidden="true" data-chart="trend" className="flex items-end gap-1.5 sm:gap-2">
+        {buckets.map((bucket, index) => {
+          const height = Math.round((bucket.spentCents / max) * BAR_HEIGHT);
+          return (
+            <div key={bucket.from} className={`min-w-0 flex-1 ${index < phoneFrom ? "hidden sm:block" : ""}`}>
+              <div className="flex items-end justify-center" style={{ height: BAR_HEIGHT + 4 }}>
+                <div
+                  className={`dl-bar w-[55%] max-w-6 rounded-t-sm ${bucket.partial ? "bar-partial" : "bg-bar"}`}
+                  style={{ height: Math.max(bucket.spentCents > 0 ? 4 : 0, height), ["--i" as string]: index }}
+                />
               </div>
-            );
-          })}
-        </div>
+              <p className="mt-2 text-center text-xs leading-tight font-medium">{bucket.label}</p>
+              <p className="text-center text-xs tabular-nums text-muted-foreground">{compactCents(bucket.spentCents)}</p>
+              <p className={`text-center text-xs font-medium ${bucket.partial ? "text-amber-800" : "invisible"}`}>so far</p>
+            </div>
+          );
+        })}
       </div>
-    </div>
+      <ChartRows title={unit === "week" ? "Week by week" : "Month by month"} rows={trendRows(buckets, unit)} visible={4} />
+    </figure>
   );
 }
 

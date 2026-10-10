@@ -115,11 +115,11 @@ export function FilterBar({
           </Button>
         </div>
         <details className="group @container rounded-lg border border-border">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-sm font-medium">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-sm font-medium">
             <span>Filters{count > 0 ? ` (${count})` : ""}</span>
             <span className="text-xs text-muted-foreground group-open:hidden">Accounts, categories, people, source, amount</span>
           </summary>
-          <div className="grid gap-5 border-t border-border p-3 @lg:grid-cols-2 @4xl:grid-cols-4">
+          <div className="dl-sheet grid gap-5 border-t border-border p-3 @lg:grid-cols-2 @4xl:grid-cols-4">
             <Fieldset legend="Custom dates">
               <div className="grid grid-cols-2 gap-2">
                 <label className="space-y-1 text-xs text-muted-foreground">

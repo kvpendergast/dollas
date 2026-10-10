@@ -12,6 +12,7 @@ import {
   type ImportPreview,
   type OpenCsvImport,
 } from "@/slices/activity/import-csv";
+import { useActionToast } from "@/lib/use-action-toast";
 
 const initial = { error: "", message: "", stage: "upload" as const, stamp: "", inspection: null, preview: null };
 const undoInitial = { error: "", message: "" };
@@ -27,6 +28,7 @@ export function ImportForm({
   undoneNotice: string;
 }) {
   const [state, action, pending] = useActionState(importCsvAction, initial);
+  useActionToast(state, (s) => s.message || null);
   const [stamp, setStamp] = useState("");
   const [intent, setIntent] = useState("");
   const [draft, setDraft] = useState<{ key: string; mapping: ColumnMapping } | null>(null);
@@ -528,6 +530,7 @@ function ImportPreviewTable({
 
 function OpenImports({ batches, undoneNotice }: { batches: OpenCsvImport[]; undoneNotice: string }) {
   const [state, action, pending] = useActionState(undoCsvImportAction, undoInitial);
+  useActionToast(state, (s) => s.message || "Import undone.");
   const notice = state.message || undoneNotice;
   if (batches.length === 0 && !notice && !state.error) return null;
   return (

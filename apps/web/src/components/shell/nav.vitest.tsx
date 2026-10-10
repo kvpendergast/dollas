@@ -36,7 +36,7 @@ describe("settings navigation", () => {
 
 describe("recurring navigation", () => {
   it("adds Recurring to the desktop sidebar under Plan, not to the phone tabs", () => {
-    expect(desktopNav.map((item) => item.label)).toEqual(["Home", "Activity", "Accounts", "Categories", "Plan", "Recurring", "History", "Settings"]);
+    expect(desktopNav.map((item) => item.label)).toEqual(["Home", "Activity", "Accounts", "Categories", "Plan", "Recurring", "History", "Household", "Settings"]);
     expect(bookNav.map((item) => item.label)).not.toContain("Recurring");
     const desktop = renderToStaticMarkup(<DesktopNav pathname="/recurring/abc" />);
     expect(desktop).toContain('href="/recurring"');
@@ -67,5 +67,25 @@ describe("settings copy", () => {
     expect(blocked.body).toContain("Hand ownership to another member");
     expect(blocked.body).toContain("delete the household");
     expect(blocked.body).not.toMatch(setupLeak);
+  });
+});
+
+describe("household navigation (PEN-208)", () => {
+  it("puts Household in the desktop sidebar and the phone Account menu, next to Settings, not in the phone tabs", () => {
+    const labels = desktopNav.map((item) => item.label);
+    expect(labels.indexOf("Household")).toBe(labels.indexOf("Settings") - 1);
+    const desktop = renderToStaticMarkup(<DesktopNav pathname="/household" />);
+    expect(desktop).toContain('href="/household"');
+    expect(desktop).toMatch(/href="\/household"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/household"/);
+    expect(desktop).toContain('aria-label="Main"');
+
+    const account = renderToStaticMarkup(<AccountMenuPanel pathname="/household" />);
+    expect(account.indexOf('href="/household"')).toBeGreaterThan(-1);
+    expect(account.indexOf('href="/household"')).toBeLessThan(account.indexOf('href="/settings"'));
+    expect(account).toContain('aria-current="page"');
+
+    const phone = renderToStaticMarkup(<PhoneTabBar pathname="/household" />);
+    expect(phone).not.toContain('href="/household"');
+    expect(bookNav).toHaveLength(6);
   });
 });

@@ -18,6 +18,7 @@ import {
   type AuthFormState,
 } from "@/slices/auth/actions";
 import { joinHouseholdAction, startHouseholdAction } from "@/slices/household/actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 const initial: AuthFormState = { error: "" };
 
@@ -215,6 +216,7 @@ function useCountdown(seconds: number, generation: number) {
 
 export function ForgotPasswordForm() {
   const [state, action, pending] = useActionState(requestPasswordResetAction, initial);
+  useActionToast(state, (s) => s.notice || null);
   return (
     <form action={action} className="space-y-3">
       <div className="space-y-1.5">
@@ -265,6 +267,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
 export function ResendVerificationForm({ defaultEmail }: { defaultEmail: string }) {
   const [state, action, pending] = useActionState(resendVerificationAction, initial);
+  useActionToast(state, (s) => s.notice || null);
   const [wasPending, setWasPending] = useState(pending);
   const [generation, setGeneration] = useState(0);
   if (pending !== wasPending) {

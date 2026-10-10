@@ -8,6 +8,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { Input } from "@/components/ui/input";
 import { deleteSavedFilterAction, renameSavedFilterAction, saveFilterAction, type SavedFilterFormState } from "@/slices/spending/actions";
 import type { FilterContext } from "@/slices/spending/load";
+import { useActionToast } from "@/lib/use-action-toast";
 
 const EMPTY: SavedFilterFormState = { error: "", message: "" };
 
@@ -23,7 +24,9 @@ function sameFilter(a: SpendingFilter, b: SpendingFilter): boolean {
 
 function SavedRow({ id, name, href, createdBy }: { id: string; name: string; href: string; createdBy: string | null }) {
   const [renameState, renameAction, renaming] = useActionState(renameSavedFilterAction, EMPTY);
+  useActionToast(renameState, "Filter renamed.");
   const [deleteState, deleteAction, deleting] = useActionState(deleteSavedFilterAction, EMPTY);
+  useActionToast(deleteState, "Filter deleted.");
   const [editing, setEditing] = useState(false);
   return (
     <li className="space-y-1 py-2">
@@ -84,6 +87,7 @@ function SavedRow({ id, name, href, createdBy }: { id: string; name: string; hre
 /** The household's saved filters: apply one here, save the current filter, rename, or delete. */
 export function SavedFilters({ path, anchor = "", ctx }: { path: string; anchor?: string; ctx: FilterContext }) {
   const [saveState, saveAction, saving] = useActionState(saveFilterAction, EMPTY);
+  useActionToast(saveState, "Filter saved.");
   const current = ctx.saved.find((row) => sameFilter(row.filter, ctx.filter));
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -103,10 +107,10 @@ export function SavedFilters({ path, anchor = "", ctx }: { path: string; anchor?
         </nav>
       ) : null}
       <details className="w-full">
-        <summary className="w-fit cursor-pointer list-none py-1 text-xs font-medium text-primary hover:underline">
+        <summary className="flex min-h-11 w-fit cursor-pointer list-none items-center text-sm font-medium text-primary hover:underline">
           {current ? `Manage saved filters` : "Save this filter"}
         </summary>
-        <div className="mt-2 max-w-md space-y-3 rounded-lg border border-border bg-card p-3 shadow-sm">
+        <div className="dl-sheet mt-2 max-w-md space-y-3 rounded-lg border border-border bg-card p-3 shadow-sm">
           {!current ? (
             <form action={saveAction} className="space-y-1">
               <input type="hidden" name="filter" value={JSON.stringify(ctx.filter)} />

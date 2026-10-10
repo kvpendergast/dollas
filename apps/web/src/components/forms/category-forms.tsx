@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createCategoryAction, createCategoryGroupAction } from "@/slices/categories/actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 const selectClass = "h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm";
 
 export function CategoryGroupForm() {
   const [state, action, pending] = useActionState(createCategoryGroupAction, { error: "" });
+  useActionToast(state, "Group added.");
   return (
     <form action={action} className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
       <div className="space-y-1.5">
@@ -62,6 +64,7 @@ function KindChoices({ locked = false }: { locked?: boolean }) {
 
 export function CategoryForm({ groups }: { groups: Array<{ id: string; name: string }> }) {
   const [state, action, pending] = useActionState(createCategoryAction, { error: "" });
+  useActionToast(state, "Category added.");
   if (groups.length === 0) {
     return (
       <div className="space-y-3">
