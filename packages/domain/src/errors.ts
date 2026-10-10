@@ -246,3 +246,10 @@ export class RecurringError extends DomainError {
     super("recurring", message);
   }
 }
+
+/** A spending filter or saved filter that cannot be used. The message is safe to show. */
+export class InvalidFilterError extends DomainError {
+  constructor(message: string) {
+    super("invalid_filter", message);
+  }
+}

@@ -522,3 +522,34 @@ export {
 } from "./recurring/status";
 
 export { normalizedPayee, suggestRecurringItems, type RecurringSuggestion, type SuggestionTransaction } from "./recurring/suggest";
+export {
+  FILTER_SOURCES,
+  MEMBER_ROLES,
+  RANGE_LABELS,
+  RANGE_PRESETS,
+  RECURRING_CHOICES,
+  SEARCH_MAX_LENGTH,
+  SOURCE_LABELS,
+  UNCATEGORIZED,
+  UNKNOWN_MEMBER,
+  SAVED_FILTER_NAME_MAX,
+  activeFilterCount,
+  defineSavedFilterName,
+  centsToDollarText,
+  defineSpendingFilter,
+  emptySpendingFilter,
+  filterFromSearchParams,
+  filterHref,
+  filterToSearchParams,
+  parseDollarsToCents,
+  resolveFilterRange,
+  spendingFilterSchema,
+  type FilterSource,
+  type MemberRole,
+  type RangePreset,
+  type RecurringChoice,
+  type SpendingFilter,
+  type SpendingFilterInput,
+} from "./filters/spending-filter";
+export { buildSpendingTrend, trendUnit, type TrendBucket, type TrendUnit } from "./filters/trend";
+export { buildSpendingBreakdown, type BreakdownLine, type BreakdownSlice, type SpendingBreakdown } from "./filters/breakdown";

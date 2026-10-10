@@ -12,11 +12,14 @@ import {
   type TransactionEntry,
   type TransactionEntryInput,
   type TransactionEntryPatch,
+  type SpendingFilter,
 } from "@dollas/domain";
 import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, type SQL } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { withActor } from "@/db/actor";
 import type { AppTx } from "@/db/client";
-import { category, categoryGroup, ledgerAccount, payeeCategoryRule, recurringItem, recurringLink, transaction, transactionSplit } from "@/db/schema";
+import { category, categoryGroup, ledgerAccount, payeeCategoryRule, recurringItem, recurringLink, transaction, transactionSplit, user } from "@/db/schema";
+import { sourceOf, transactionConditions } from "@/slices/spending/filter-sql";
 import { ensureFallbackCategory } from "@/slices/connections/apply";
 import { linkRecurringMatches } from "@/slices/recurring/store";
 import { logInfo } from "@/lib/telemetry";
@@ -45,6 +48,12 @@ export type ListedTransaction = {
   bankMatched: boolean;
   /** The recurring bill or paycheck this transaction fulfils (PEN-206). */
   recurring: { id: string; name: string } | null;
+  /** Where it came from: manual, or csv and/or bank (PEN-212). */
+  sources: Array<"manual" | "csv" | "bank">;
+  /** Who added it and who last set its categories; null is Unknown (before attribution). */
+  addedBy: { id: string; name: string } | null;
+  categorizedBy: { id: string; name: string } | null;
+  note: string | null;
   splits: Array<{ categoryId: string; categoryName: string; amountCents: number }>;
 };
 
@@ -58,9 +67,14 @@ export type TransactionFilter = {
   payeeContains?: string;
   /** Deleted transactions, so they can be restored. */
   deletedOnly?: boolean;
+  /** The shared spending filter (PEN-212), with the household's today for date presets. */
+  spending?: { filter: SpendingFilter; today: string };
 };
 
 export type TransactionPage = { items: ListedTransaction[]; total: number };
+
+const addedBy = alias(user, "added_by");
+const categorizedBy = alias(user, "categorized_by");
 
 function categoryLabel(name: string, groupName: string | null): string {
   return groupName ? `${groupName} · ${name}` : name;
@@ -78,7 +92,9 @@ export async function listHouseholdTransactions(
   try {
     return succeed(
       await withActor(actor.userId, async (tx) => {
-        const where: SQL[] = [eq(transaction.householdId, actor.householdId)];
+        const where: SQL[] = filter.spending
+          ? transactionConditions(actor.householdId, filter.spending.filter, filter.spending.today)
+          : [eq(transaction.householdId, actor.householdId)];
         where.push(filter.deletedOnly ? isNotNull(transaction.deletedAt) : isNull(transaction.deletedAt));
         if (filter.accountId) where.push(eq(transaction.accountId, filter.accountId));
         if (filter.from) where.push(gte(transaction.occurredOn, filter.from));
@@ -109,9 +125,17 @@ export async function listHouseholdTransactions(
             bankMatchedAt: transaction.bankMatchedAt,
             recurringId: recurringItem.id,
             recurringName: recurringItem.name,
+            importFingerprint: transaction.importFingerprint,
+            note: transaction.note,
+            addedById: addedBy.id,
+            addedByName: addedBy.name,
+            categorizedById: categorizedBy.id,
+            categorizedByName: categorizedBy.name,
           })
           .from(transaction)
           .innerJoin(ledgerAccount, eq(ledgerAccount.id, transaction.accountId))
+          .leftJoin(addedBy, eq(addedBy.id, transaction.createdByUserId))
+          .leftJoin(categorizedBy, eq(categorizedBy.id, transaction.categorizedByUserId))
           .leftJoin(recurringLink, eq(recurringLink.transactionId, transaction.id))
           .leftJoin(recurringItem, eq(recurringItem.id, recurringLink.recurringItemId))
           .where(matching)
@@ -158,6 +182,10 @@ export async function listHouseholdTransactions(
             bankBacked: row.bankTransactionId !== null,
             bankMatched: row.bankMatchedAt !== null,
             recurring: row.recurringId && row.recurringName ? { id: row.recurringId, name: row.recurringName } : null,
+            sources: sourceOf(row),
+            addedBy: row.addedById && row.addedByName != null ? { id: row.addedById, name: row.addedByName } : null,
+            categorizedBy: row.categorizedById && row.categorizedByName != null ? { id: row.categorizedById, name: row.categorizedByName } : null,
+            note: row.note,
             splits: byTransaction.get(row.id) ?? [],
           })),
         };
@@ -266,6 +294,43 @@ async function loadEntry(tx: AppTx, householdId: string, transactionId: string):
   return { payee: existing.payee, occurredOn: existing.occurredOn, accountId: existing.accountId, amountCents: existing.amountCents, splits };
 }
 
+type SplitLine = { categoryId: string; amountCents: number };
+
+/**
+ * Writes a transaction's new category lines inside the caller's transaction, so
+ * the deferred balance trigger sees the final set. Same categories (only
+ * amounts moved, or nothing changed): update in place, so attribution keeps
+ * who categorized it (PEN-212). Different categories: replace the lines, which
+ * records this member as the one who categorized it.
+ */
+async function replaceSplits(tx: AppTx, householdId: string, transactionId: string, current: readonly SplitLine[], next: readonly SplitLine[]) {
+  const sameCategories =
+    current.length === next.length &&
+    new Set(next.map((line) => line.categoryId)).size === next.length &&
+    [...current.map((line) => line.categoryId)].sort().join() === [...next.map((line) => line.categoryId)].sort().join();
+  if (sameCategories) {
+    for (const line of next) {
+      const before = current.find((row) => row.categoryId === line.categoryId);
+      if (before?.amountCents === line.amountCents) continue;
+      await tx
+        .update(transactionSplit)
+        .set({ amountCents: line.amountCents })
+        .where(
+          and(
+            eq(transactionSplit.transactionId, transactionId),
+            eq(transactionSplit.householdId, householdId),
+            eq(transactionSplit.categoryId, line.categoryId),
+          ),
+        );
+    }
+    return;
+  }
+  await tx.delete(transactionSplit).where(and(eq(transactionSplit.transactionId, transactionId), eq(transactionSplit.householdId, householdId)));
+  await tx.insert(transactionSplit).values(
+    next.map((split) => ({ transactionId, householdId, categoryId: split.categoryId, amountCents: split.amountCents })),
+  );
+}
+
 /**
  * Edits one transaction: payee, date, account, amount, and categories or
  * splits. A full replacement from the Edit form or a partial patch from a
@@ -291,18 +356,7 @@ export async function amendHouseholdTransaction(
         .where(and(eq(transaction.id, transactionId), eq(transaction.householdId, actor.householdId), isNull(transaction.deletedAt)))
         .returning({ id: transaction.id });
       if (updated.length === 0) throw new Error(NOT_HERE);
-      // Replaced in this transaction so the deferred balance trigger sees the final set.
-      await tx
-        .delete(transactionSplit)
-        .where(and(eq(transactionSplit.transactionId, transactionId), eq(transactionSplit.householdId, actor.householdId)));
-      await tx.insert(transactionSplit).values(
-        next.splits.map((split) => ({
-          transactionId,
-          householdId: actor.householdId,
-          categoryId: split.categoryId,
-          amountCents: split.amountCents,
-        })),
-      );
+      await replaceSplits(tx, actor.householdId, transactionId, current.splits, next.splits);
       // An existing link stays (the member can unlink); an unlinked row may now match.
       await linkRecurringMatches(tx, actor.householdId, { transactionIds: [transactionId] });
       return next;

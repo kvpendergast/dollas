@@ -259,6 +259,8 @@ export const csvImport = pgTable(
       .references(() => household.id, { onDelete: "cascade" }),
     addedCount: integer("added_count").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    /** The member who ran the import (PEN-212). Set by trigger from app.user_id; null before attribution. */
+    createdByUserId: text("created_by_user_id").references(() => user.id, { onDelete: "set null" }),
     undoneAt: timestamp("undone_at", { withTimezone: true, mode: "date" }),
   },
   (table) => [
@@ -369,10 +371,21 @@ export const transaction = pgTable(
     /** The bank's own date and payee for a linked row, so "Not the same charge" can rebuild the bank copy. */
     bankOccurredOn: date("bank_occurred_on"),
     bankPayee: text("bank_payee"),
+    /**
+     * Attribution (PEN-212). Who added the row (entered it, imported the CSV,
+     * or ran the bank sync) and who last set its category lines. Set by
+     * triggers from app.user_id, so every write path records it; null for
+     * rows from before attribution, owner scripts, and unattended syncs
+     * ("Unknown").
+     */
+    createdByUserId: text("created_by_user_id").references(() => user.id, { onDelete: "set null" }),
+    categorizedByUserId: text("categorized_by_user_id").references(() => user.id, { onDelete: "set null" }),
   },
   (table) => [
     index("transaction_household_date_idx").on(table.householdId, table.occurredOn),
     index("transaction_import_batch_idx").on(table.importBatchId),
+    index("transaction_household_created_by_idx").on(table.householdId, table.createdByUserId),
+    index("transaction_household_categorized_by_idx").on(table.householdId, table.categorizedByUserId),
     unique("transaction_import_fingerprint_key").on(table.householdId, table.importFingerprint),
     unique("transaction_bank_identity_key").on(
       table.householdId,
@@ -524,6 +537,8 @@ export const transactionSplit = pgTable(
   },
   (table) => [
     check("transaction_split_amount_chk", sql`${table.amountCents} <> 0`),
+    index("transaction_split_transaction_idx").on(table.transactionId),
+    index("transaction_split_household_category_idx").on(table.householdId, table.categoryId),
     pgPolicy("split_all", {
       for: "all",
       using: sql`app_can_access_household(${table.householdId})`,
@@ -857,6 +872,35 @@ export const agentActivity = pgTable(
       for: "all",
       using: sql`${table.userId} = app_user_id() and app_can_access_household(${table.householdId})`,
       withCheck: sql`${table.userId} = app_user_id() and app_can_access_household(${table.householdId})`,
+    }),
+  ],
+).enableRLS();
+
+/**
+ * A household's saved spending filter (PEN-212), shared by every member and
+ * applied from Activity and the Spending dashboard. `filter` is the domain
+ * SpendingFilter, validated on write and on read.
+ */
+export const savedFilter = pgTable(
+  "saved_filter",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    filter: jsonb("filter").notNull(),
+    createdByUserId: text("created_by_user_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("saved_filter_name_chk", sql`char_length(${table.name}) between 1 and 60`),
+    uniqueIndex("saved_filter_household_name_key").on(table.householdId, sql`lower(${table.name})`),
+    pgPolicy("saved_filter_all", {
+      for: "all",
+      using: sql`app_can_access_household(${table.householdId})`,
+      withCheck: sql`app_can_access_household(${table.householdId})`,
     }),
   ],
 ).enableRLS();
