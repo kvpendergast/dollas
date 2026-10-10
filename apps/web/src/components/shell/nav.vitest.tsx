@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { AccountMenuPanel } from "@/components/shell/account-menu";
-import { bookNav, desktopNav } from "@/components/shell/nav";
+import { bookNav, desktopNav, isPhoneTabActive } from "@/components/shell/nav";
 import { PhoneTabBar } from "@/components/shell/phone-nav";
 import { DesktopNav } from "@/components/shell/sidebar";
 import { leaveHouseholdCopy, passwordSectionCopy } from "@/components/forms/settings-forms";
@@ -31,6 +31,20 @@ describe("settings navigation", () => {
     expect(account).toContain('href="/settings"');
     expect(account).toContain("Settings");
     expect(account).not.toMatch(setupLeak);
+  });
+});
+
+describe("recurring navigation", () => {
+  it("adds Recurring to the desktop sidebar under Plan, not to the phone tabs", () => {
+    expect(desktopNav.map((item) => item.label)).toEqual(["Home", "Activity", "Accounts", "Categories", "Plan", "Recurring", "History", "Settings"]);
+    expect(bookNav.map((item) => item.label)).not.toContain("Recurring");
+    const desktop = renderToStaticMarkup(<DesktopNav pathname="/recurring/abc" />);
+    expect(desktop).toContain('href="/recurring"');
+    const phone = renderToStaticMarkup(<PhoneTabBar pathname="/recurring" />);
+    expect(phone).not.toContain('href="/recurring"');
+    expect(isPhoneTabActive("/recurring/abc", "/plan")).toBe(true);
+    expect(isPhoneTabActive("/recurring", "/activity")).toBe(false);
+    expect(isPhoneTabActive("/plan", "/plan")).toBe(true);
   });
 });
 

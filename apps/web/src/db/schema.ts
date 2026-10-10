@@ -541,6 +541,126 @@ export const transactionSplit = pgTable(
  * by the signed-in member (see slices/agents/connections.ts).
  * Access and refresh tokens are stored as SHA-256 hashes, never the token.
  */
+/**
+ * A known bill or paycheck (PEN-206). Schedule math lives in the domain
+ * package; matching links transactions through recurring_link. Category and
+ * account are optional hints; when the account is set, only that account's
+ * transactions match.
+ */
+export const recurringItem = pgTable(
+  "recurring_item",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    payeeMatch: text("payee_match").notNull(),
+    /** Signed: negative is a bill, positive is income. */
+    amountCents: integer("amount_cents").notNull(),
+    cadence: text("cadence").notNull(),
+    anchorDate: date("anchor_date", { mode: "string" }).notNull(),
+    dayOfMonth: integer("day_of_month"),
+    secondDayOfMonth: integer("second_day_of_month"),
+    categoryId: uuid("category_id").references(() => category.id, { onDelete: "set null" }),
+    accountId: uuid("account_id").references(() => ledgerAccount.id, { onDelete: "set null" }),
+    tolerancePercent: integer("tolerance_percent").notNull().default(5),
+    toleranceCents: integer("tolerance_cents").notNull().default(0),
+    windowDays: integer("window_days").notNull().default(3),
+    startDate: date("start_date", { mode: "string" }).notNull(),
+    endDate: date("end_date", { mode: "string" }),
+    pausedAt: timestamp("paused_at", { withTimezone: true, mode: "date" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("recurring_item_name_chk", sql`char_length(${table.name}) between 1 and 80`),
+    check("recurring_item_payee_match_chk", sql`char_length(${table.payeeMatch}) between 2 and 200`),
+    check("recurring_item_amount_chk", sql`${table.amountCents} <> 0 and abs(${table.amountCents}) <= 100000000`),
+    check(
+      "recurring_item_cadence_chk",
+      sql`${table.cadence} in ('weekly', 'biweekly', 'semimonthly', 'monthly', 'quarterly', 'yearly')`,
+    ),
+    check("recurring_item_day_chk", sql`${table.dayOfMonth} is null or ${table.dayOfMonth} between 1 and 31`),
+    check(
+      "recurring_item_second_day_chk",
+      sql`(${table.cadence} = 'semimonthly') = (${table.secondDayOfMonth} is not null) and (${table.secondDayOfMonth} is null or ${table.secondDayOfMonth} between 1 and 31)`,
+    ),
+    check(
+      "recurring_item_tolerance_chk",
+      sql`${table.tolerancePercent} between 0 and 50 and ${table.toleranceCents} between 0 and 10000000 and ${table.windowDays} between 0 and 10`,
+    ),
+    check("recurring_item_dates_chk", sql`${table.endDate} is null or ${table.endDate} >= ${table.startDate}`),
+    index("recurring_item_household_idx").on(table.householdId),
+    pgPolicy("recurring_item_all", {
+      for: "all",
+      using: sql`app_can_access_household(${table.householdId})`,
+      withCheck: sql`app_can_access_household(${table.householdId})`,
+    }),
+  ],
+).enableRLS();
+
+/**
+ * One transaction fulfilling one occurrence of a recurring item. A transaction
+ * links to at most one item; an occurrence takes at most one transaction.
+ */
+export const recurringLink = pgTable(
+  "recurring_link",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    recurringItemId: uuid("recurring_item_id")
+      .notNull()
+      .references(() => recurringItem.id, { onDelete: "cascade" }),
+    transactionId: uuid("transaction_id")
+      .notNull()
+      .references(() => transaction.id, { onDelete: "cascade" }),
+    occurrenceDate: date("occurrence_date", { mode: "string" }).notNull(),
+    /** auto: matching linked it; manual: a member did. */
+    source: text("source").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("recurring_link_source_chk", sql`${table.source} in ('auto', 'manual')`),
+    uniqueIndex("recurring_link_transaction_key").on(table.transactionId),
+    uniqueIndex("recurring_link_occurrence_key").on(table.recurringItemId, table.occurrenceDate),
+    index("recurring_link_household_idx").on(table.householdId),
+    pgPolicy("recurring_link_all", {
+      for: "all",
+      using: sql`app_can_access_household(${table.householdId})`,
+      withCheck: sql`app_can_access_household(${table.householdId})`,
+    }),
+  ],
+).enableRLS();
+
+/** A member unlinked this transaction from this item; matching never relinks the pair. */
+export const recurringDismissal = pgTable(
+  "recurring_dismissal",
+  {
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    recurringItemId: uuid("recurring_item_id")
+      .notNull()
+      .references(() => recurringItem.id, { onDelete: "cascade" }),
+    transactionId: uuid("transaction_id")
+      .notNull()
+      .references(() => transaction.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.recurringItemId, table.transactionId] }),
+    index("recurring_dismissal_household_idx").on(table.householdId),
+    pgPolicy("recurring_dismissal_all", {
+      for: "all",
+      using: sql`app_can_access_household(${table.householdId})`,
+      withCheck: sql`app_can_access_household(${table.householdId})`,
+    }),
+  ],
+).enableRLS();
+
 export const oauthClient = pgTable("oauth_client", {
   id: text("id").primaryKey(),
   clientId: text("client_id").notNull().unique(),

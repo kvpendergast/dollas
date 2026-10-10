@@ -1,3 +1,4 @@
+import { linkRecurringMatches } from "@/slices/recurring/store";
 import {
   BANK_MATCH_WINDOW_DAYS,
   isAccountType,
@@ -171,10 +172,15 @@ export async function applyBankSync(
     ledgerIdByProvider.set(account.providerAccountId, account.ledgerAccountId);
   }
 
-  const added = await insertPlanned(tx, input.householdId, input.providerId, plannedTransactions, ledgerIdByProvider);
-  const matched = await linkPlanned(tx, input.householdId, input.providerId, plannedLinks);
-  const updated = await updatePlanned(tx, input.householdId, input.providerId, plannedUpdates);
+  const addedIds = await insertPlanned(tx, input.householdId, input.providerId, plannedTransactions, ledgerIdByProvider);
+  const linkedIds = await linkPlanned(tx, input.householdId, input.providerId, plannedLinks);
+  const updatedIds = await updatePlanned(tx, input.householdId, input.providerId, plannedUpdates);
   const removedCount = await removePlanned(tx, input.householdId, plannedRemovals);
+  // PEN-206: the one row per charge (new, or the CSV/manual row the bank merged into) links to a recurring item.
+  await linkRecurringMatches(tx, input.householdId, { transactionIds: [...addedIds, ...linkedIds, ...updatedIds] });
+  const added = addedIds.length;
+  const matched = linkedIds.length;
+  const updated = updatedIds.length;
 
   await tx
     .update(bankConnection)
@@ -310,13 +316,13 @@ async function insertPlanned(
   providerId: string,
   planned: readonly PlannedBankTransaction[],
   ledgerIdByProvider: ReadonlyMap<string, string>,
-): Promise<number> {
+): Promise<string[]> {
   const drafts = planned.flatMap((row) => {
     const accountId = ledgerIdByProvider.get(row.providerAccountId);
     if (!accountId) return [];
     return [{ ...row, accountId }];
   });
-  if (drafts.length === 0) return 0;
+  if (drafts.length === 0) return [];
   const saved = await tx
     .insert(transaction)
     .values(
@@ -349,7 +355,7 @@ async function insertPlanned(
     ];
   });
   if (splits.length > 0) await tx.insert(transactionSplit).values(splits);
-  return idByIdentity.size;
+  return [...idByIdentity.values()];
 }
 
 /** Record the bank identity on CSV or manual rows. The member's payee, date, category, splits, note, and deleted state stay. */
@@ -358,8 +364,8 @@ async function linkPlanned(
   householdId: string,
   providerId: string,
   links: readonly PlannedBankLink[],
-): Promise<number> {
-  let count = 0;
+): Promise<string[]> {
+  const ids: string[] = [];
   const now = new Date();
   for (const link of links) {
     const linked = await tx
@@ -374,9 +380,9 @@ async function linkPlanned(
       })
       .where(and(eq(transaction.id, link.transactionId), eq(transaction.householdId, householdId), isNull(transaction.bankTransactionId)))
       .returning({ id: transaction.id });
-    count += linked.length;
+    ids.push(...linked.map((row) => row.id));
   }
-  return count;
+  return ids;
 }
 
 async function updatePlanned(
@@ -384,8 +390,8 @@ async function updatePlanned(
   householdId: string,
   providerId: string,
   updates: readonly PlannedBankUpdate[],
-): Promise<number> {
-  let count = 0;
+): Promise<string[]> {
+  const ids: string[] = [];
   for (const update of updates) {
     const identity = {
       bankProviderId: providerId,
@@ -405,9 +411,9 @@ async function updatePlanned(
       .returning({ id: transaction.id });
     if (!row) continue;
     if (!update.deleted) await rebalanceSplits(tx, row.id, update.amountCents);
-    count += 1;
+    ids.push(row.id);
   }
-  return count;
+  return ids;
 }
 
 /** One split follows the new amount. Several splits are the member's; if they no longer add up, the amount follows them. */

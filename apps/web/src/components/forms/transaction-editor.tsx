@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { deleteTransactionAction, separateBankMatchAction, updateTransactionAction } from "@/slices/activity/actions";
+import { RecurringLinkControl } from "@/components/recurring/recurring-forms";
 import { SplitControl, type SplitRow } from "./split-control";
 
 type Option = { id: string; name: string; archived?: boolean };
@@ -23,6 +24,7 @@ export function TransactionEditor({
   transaction,
   accounts,
   categories,
+  recurringChoices = [],
   onDeleted,
 }: {
   transaction: {
@@ -32,10 +34,12 @@ export function TransactionEditor({
     amountCents: number;
     accountId: string;
     bankMatched?: boolean;
+    recurring?: { id: string; name: string } | null;
     splits: Array<{ categoryId: string; amountCents: number }>;
   };
   accounts: Option[];
   categories: CategoryMenuEntry[];
+  recurringChoices?: Array<{ id: string; name: string }>;
   onDeleted: (transaction: { id: string; payee: string }) => void;
 }) {
   const field = `edit-${transaction.id}`;
@@ -188,6 +192,14 @@ export function TransactionEditor({
             </Button>
           </div>
         </form>
+      ) : null}
+      {open ? (
+        <RecurringLinkControl
+          transactionId={transaction.id}
+          payee={transaction.payee}
+          recurring={transaction.recurring ?? null}
+          choices={recurringChoices}
+        />
       ) : null}
     </div>
   );

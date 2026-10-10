@@ -1,3 +1,4 @@
+import { linkRecurringMatches } from "@/slices/recurring/store";
 import {
   accountsForActiveLists,
   retainedImportFingerprints,
@@ -157,6 +158,7 @@ export function csvImportStore(tx: AppTx): CsvImportStore {
         }));
       });
       if (splits.length > 0) await tx.insert(transactionSplit).values(splits);
+      await linkRecurringMatches(tx, householdId, { transactionIds: [...idByFingerprint.values()] });
       return { batchId: batch.id, added: idByFingerprint.size };
     },
   };

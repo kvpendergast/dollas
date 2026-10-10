@@ -16,8 +16,9 @@ import {
 import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, type SQL } from "drizzle-orm";
 import { withActor } from "@/db/actor";
 import type { AppTx } from "@/db/client";
-import { category, categoryGroup, ledgerAccount, payeeCategoryRule, transaction, transactionSplit } from "@/db/schema";
+import { category, categoryGroup, ledgerAccount, payeeCategoryRule, recurringItem, recurringLink, transaction, transactionSplit } from "@/db/schema";
 import { ensureFallbackCategory } from "@/slices/connections/apply";
+import { linkRecurringMatches } from "@/slices/recurring/store";
 import { logInfo } from "@/lib/telemetry";
 import { UUID, failure, refuse, succeed, type ServiceActor, type ServiceResult, type Via } from "@/lib/service-result";
 
@@ -42,6 +43,8 @@ export type ListedTransaction = {
   bankBacked: boolean;
   /** Sync linked a bank charge to this CSV or manual row; "Not the same charge" can split them. */
   bankMatched: boolean;
+  /** The recurring bill or paycheck this transaction fulfils (PEN-206). */
+  recurring: { id: string; name: string } | null;
   splits: Array<{ categoryId: string; categoryName: string; amountCents: number }>;
 };
 
@@ -104,9 +107,13 @@ export async function listHouseholdTransactions(
             deletedAt: transaction.deletedAt,
             bankTransactionId: transaction.bankTransactionId,
             bankMatchedAt: transaction.bankMatchedAt,
+            recurringId: recurringItem.id,
+            recurringName: recurringItem.name,
           })
           .from(transaction)
           .innerJoin(ledgerAccount, eq(ledgerAccount.id, transaction.accountId))
+          .leftJoin(recurringLink, eq(recurringLink.transactionId, transaction.id))
+          .leftJoin(recurringItem, eq(recurringItem.id, recurringLink.recurringItemId))
           .where(matching)
           .orderBy(desc(transaction.occurredOn), asc(transaction.payee), asc(transaction.id))
           .limit(filter.limit)
@@ -150,6 +157,7 @@ export async function listHouseholdTransactions(
             deleted: row.deletedAt !== null,
             bankBacked: row.bankTransactionId !== null,
             bankMatched: row.bankMatchedAt !== null,
+            recurring: row.recurringId && row.recurringName ? { id: row.recurringId, name: row.recurringName } : null,
             splits: byTransaction.get(row.id) ?? [],
           })),
         };
@@ -228,6 +236,7 @@ export async function createHouseholdTransaction(
           amountCents: split.amountCents,
         })),
       );
+      await linkRecurringMatches(tx, actor.householdId, { transactionIds: [row.id] });
       return row.id;
     });
     logInfo("Transaction added", { action: "create-transaction", via, householdId: actor.householdId });
@@ -294,6 +303,8 @@ export async function amendHouseholdTransaction(
           amountCents: split.amountCents,
         })),
       );
+      // An existing link stays (the member can unlink); an unlinked row may now match.
+      await linkRecurringMatches(tx, actor.householdId, { transactionIds: [transactionId] });
       return next;
     });
     logInfo("Transaction edited", { action: "update-transaction", via, householdId: actor.householdId });
@@ -371,6 +382,7 @@ export async function restoreHouseholdTransaction(
         .update(transaction)
         .set({ deletedAt: null })
         .where(and(eq(transaction.id, transactionId), eq(transaction.householdId, actor.householdId)));
+      await linkRecurringMatches(tx, actor.householdId, { transactionIds: [transactionId] });
       return current?.payee ?? "";
     });
     logInfo("Transaction restored", { action: "restore-transaction", via, householdId: actor.householdId });
@@ -475,6 +487,7 @@ export async function separateBankMatch(
         categoryId,
         amountCents: copy.amountCents,
       });
+      await linkRecurringMatches(tx, actor.householdId, { transactionIds: [inserted.id] });
       return { id: row.id, bankCopyId: inserted.id, payee: copy.payee };
     });
     logInfo("Bank match separated", { action: "separate-bank-match", via, householdId: actor.householdId });

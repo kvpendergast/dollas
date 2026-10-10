@@ -14,7 +14,7 @@ import {
   type HistoryColumn,
   type SpendEstimate,
 } from "@dollas/domain";
-import { and, count, eq, gte, isNull, lte } from "drizzle-orm";
+import { and, asc, count, eq, gte, isNull, lte } from "drizzle-orm";
 import { withActor } from "@/db/actor";
 import {
   category,
@@ -23,6 +23,7 @@ import {
   ledgerAccount,
   transaction,
   transactionSplit,
+  recurringItem,
 } from "@/db/schema";
 import type { BooksContext } from "@/slices/access/guard";
 import { listPayeeRules } from "@/slices/activity/payee-rule-service";
@@ -209,6 +210,11 @@ export async function loadActivity(books: BooksContext) {
         .sort((a, b) => a.name.localeCompare(b.name)),
       categories,
       payeeRules: rules.value,
+      recurringChoices: await tx
+        .select({ id: recurringItem.id, name: recurringItem.name })
+        .from(recurringItem)
+        .where(eq(recurringItem.householdId, books.householdId))
+        .orderBy(asc(recurringItem.name)),
       transactions,
     };
   });

@@ -179,6 +179,8 @@ describe("pendingMigrationTags", () => {
       "0024_agent_oauth_access",
       "0025_bank_transaction_identity",
       "0026_bank_identity_backfill",
+      "0027_recurring_items",
+      "0028_recurring_item_grants",
     ]);
   });
 
