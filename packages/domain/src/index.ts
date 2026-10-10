@@ -8,6 +8,7 @@ export {
   HouseholdAccessError,
   LastOwnerError,
   MembershipError,
+  InviteError,
   InvalidAuthEmailError,
   InvalidCategoryError,
   PayeeCategoryRuleError,
@@ -28,6 +29,7 @@ export {
   UnverifiedEmailError,
   UsedSetupTokenError,
 } from "./errors";
+export type { InviteFailureReason } from "./errors";
 
 export {
   FORGOT_PASSWORD_FLOOR_MS,
@@ -382,3 +384,26 @@ export {
   type MemoryBankConnectionStore,
   type PublicBankConnection,
 } from "./connections/connect";
+
+export {
+  INVITE_MESSAGES,
+  INVITE_TTL_DAYS,
+  INVITE_TTL_MS,
+  decideInviteAcceptance,
+  deriveInviteToken,
+  hashInviteToken,
+  inviteError,
+  inviteErrorFromText,
+  inviteExpiresAt,
+  inviteLinkPath,
+  inviteState,
+  isInviteToken,
+  maskInviteEmail,
+  planCreateInvite,
+  planRevokeInvite,
+  type InviteAcceptance,
+  type InviteSeat,
+  type InviteState,
+  type InviteTimes,
+  type PendingInviteRef,
+} from "./household/invite";

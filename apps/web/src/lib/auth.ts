@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
-import { ConfigError, MEMBER_MAIL_FAILURE, memberFacingMessage, resolveGoogleSignIn } from "@dollas/domain";
+import { MEMBER_MAIL_FAILURE, memberFacingMessage, resolveGoogleSignIn } from "@dollas/domain";
 import { eq } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db/client";
@@ -9,6 +9,7 @@ import { schema, user } from "@/db/schema";
 import { redactSecrets } from "@/lib/redact";
 import { logError, logInfo } from "@/lib/telemetry";
 import { recordMailFailure } from "@/lib/mail-attempt";
+import { serverSecret, siteOrigin } from "@/lib/server-secret";
 import { deliverEmailChangeEmail, deliverPasswordResetEmail, deliverVerificationEmail } from "@/lib/verification-email";
 
 /** Matches the reset email copy: the link expires in an hour and Better Auth deletes it on use. */
@@ -34,23 +35,6 @@ export function googleSignInEnabled(env: Env = process.env): boolean {
   return decision.value.enabled;
 }
 
-function authBaseURL() {
-  if (process.env.BETTER_AUTH_URL) return process.env.BETTER_AUTH_URL;
-  if (process.env.VERCEL_ENV === "production" && process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
-  }
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "http://localhost:3000";
-}
-
-function authSecret() {
-  if (process.env.BETTER_AUTH_SECRET) return process.env.BETTER_AUTH_SECRET;
-  if (process.env.VERCEL_ENV) {
-    throw new ConfigError("BETTER_AUTH_SECRET is required");
-  }
-  return "dollas-local-dev-secret";
-}
-
 function deliverResetLinkLater(email: string, url: string): Promise<void> {
   const task = async () => {
     const sent = await deliverPasswordResetEmail({ email, url });
@@ -68,8 +52,8 @@ function deliverResetLinkLater(email: string, url: string): Promise<void> {
 function createAuth() {
   return betterAuth({
       appName: "dollas",
-      baseURL: authBaseURL(),
-      secret: authSecret(),
+      baseURL: siteOrigin(),
+      secret: serverSecret(),
       database: drizzleAdapter(getDb(), {
         provider: "pg",
         schema,

@@ -19,7 +19,7 @@ export type VerificationMessage = {
   text: string;
 };
 
-type MailKind = "verification" | "password reset";
+type MailKind = "verification" | "password reset" | "household invite";
 
 const verificationSubject = "Verify your email for dollas";
 const resetSubject = "Reset your dollas password";
@@ -138,8 +138,8 @@ async function deliverAuthEmail(
   const env = options.env ?? process.env;
   const apiKey = present(env, "RESEND_API_KEY");
   const from = present(env, "RESEND_FROM");
-  const label = kind === "verification" ? "verification email" : "password reset email";
-  const action = kind === "verification" ? "verification-email" : "password-reset-email";
+  const label = `${kind} email`;
+  const action = `${kind.replace(/ /g, "-")}-email`;
   const plan = mailPlan(env, label);
 
   if (plan.isErr()) {
@@ -216,5 +216,46 @@ export async function deliverPasswordResetEmail(
     devLine: `Reset password for ${input.email}: ${input.url}`,
     devLog: "Password reset link written to the dev log",
     sentLog: "Password reset email sent",
+  });
+}
+
+export type InviteMailMode = "send" | "local" | "unavailable";
+
+/**
+ * How an invite email would go out. "local" writes the link to the dev log.
+ * "unavailable" means a hosted deploy without Resend; the owner copies the link.
+ */
+export function inviteMailMode(env: Env = process.env): InviteMailMode {
+  const plan = mailPlan(env, "household invite email");
+  if (plan.isErr()) return "unavailable";
+  return plan.value.delivery === "send" ? "send" : "local";
+}
+
+function inviteText(input: { url: string; householdName: string; inviterName: string; expiresOn: string }): string {
+  return [
+    `${input.inviterName} invited you to keep the ${input.householdName} books together in dollas.`,
+    "",
+    "Open this link, then sign in or create a login with this email address:",
+    "",
+    input.url,
+    "",
+    `You get your own login and see the same accounts, transactions, categories, and budget. The link works once and expires on ${input.expiresOn}.`,
+    "If you were not expecting this, you can ignore this message.",
+  ].join("\n");
+}
+
+export async function deliverHouseholdInviteEmail(
+  input: { email: string; url: string; householdName: string; inviterName: string; expiresOn: string },
+  options: {
+    env?: Env;
+    send?: (message: VerificationMessage, apiKey: string) => Promise<void>;
+  } = {},
+): Promise<MailDeliveryResult> {
+  return deliverAuthEmail("household invite", input, options, {
+    subject: `${input.inviterName} invited you to the ${input.householdName} books`,
+    text: inviteText(input),
+    devLine: `Invite for ${input.email}: ${input.url}`,
+    devLog: "Household invite link written to the dev log",
+    sentLog: "Household invite email sent",
   });
 }

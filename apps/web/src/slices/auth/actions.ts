@@ -2,6 +2,8 @@
 
 import {
   FORGOT_PASSWORD_MESSAGE,
+  inviteLinkPath,
+  isInviteToken,
   hidesSetupDetail,
   MEMBER_MAIL_FAILURE,
   MEMBER_RESET_MAIL_FAILURE,
@@ -33,7 +35,23 @@ const INTENT_COOKIE = "dollas_intent";
 
 export type HouseholdIntent =
   | { mode: "start"; householdName: string }
-  | { mode: "join"; inviteCode: string };
+  | { mode: "join"; inviteToken: string };
+
+/** Only an invite page is allowed as a post-sign-in destination. Anything else goes home. */
+function inviteReturnPath(raw: FormDataEntryValue | null): string | null {
+  const token = String(raw ?? "");
+  return isInviteToken(token) ? inviteLinkPath(token) : null;
+}
+
+async function rememberInvite(token: string) {
+  const intent: HouseholdIntent = { mode: "join", inviteToken: token };
+  (await cookies()).set(INTENT_COOKIE, JSON.stringify(intent), {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7,
+  });
+}
 
 function messageFrom(error: unknown): string {
   return memberFacingMessage(error, MEMBER_MAIL_FAILURE);
@@ -42,9 +60,11 @@ function messageFrom(error: unknown): string {
 export async function signInAction(_state: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const invitePath = inviteReturnPath(formData.get("invite"));
+  if (invitePath) await rememberInvite(String(formData.get("invite")));
   try {
     await getAuth().api.signInEmail({
-      body: { email, password, callbackURL: "/" },
+      body: { email, password, callbackURL: invitePath ?? "/" },
       headers: await headers(),
     });
   } catch (error) {
@@ -61,7 +81,7 @@ export async function signInAction(_state: AuthFormState, formData: FormData): P
     logError(error, { action: "sign-in" });
     return { error: failure.message };
   }
-  redirect("/");
+  redirect(invitePath ?? "/");
 }
 
 export async function requestPasswordResetAction(_state: AuthFormState, formData: FormData): Promise<AuthFormState> {
@@ -142,29 +162,32 @@ export async function signUpAction(_state: AuthFormState, formData: FormData): P
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  const mode = String(formData.get("mode") ?? "start");
   const householdName = String(formData.get("householdName") ?? "").trim();
-  const inviteCode = String(formData.get("inviteCode") ?? "").trim();
+  const inviteToken = String(formData.get("invite") ?? "");
+  const invitePath = inviteReturnPath(inviteToken);
   if (name.length < 2) return { error: "Enter the name you use at home." };
-  if (mode === "start" && householdName.length < 2) return { error: "Name the household you are starting." };
-  if (mode === "join" && inviteCode.length < 4) return { error: "Enter an invite code." };
+  if (!invitePath && householdName.length < 2) return { error: "Name the household you are starting." };
   try {
     await getAuth().api.signUpEmail({
-      body: { name, email, password, callbackURL: "/welcome" },
+      // The verification link signs them in and returns to the invite page.
+      body: { name, email, password, callbackURL: invitePath ?? "/welcome" },
       headers: await headers(),
     });
   } catch (error) {
     logError(error, { action: "sign-up" });
     return { error: messageFrom(error) };
   }
-  const intent: HouseholdIntent = mode === "join" ? { mode: "join", inviteCode } : { mode: "start", householdName };
-  const jar = await cookies();
-  jar.set(INTENT_COOKIE, JSON.stringify(intent), {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
+  if (invitePath) {
+    await rememberInvite(inviteToken);
+  } else {
+    const intent: HouseholdIntent = { mode: "start", householdName };
+    (await cookies()).set(INTENT_COOKIE, JSON.stringify(intent), {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+  }
   redirect("/verify-email");
 }
 
@@ -178,7 +201,7 @@ export async function readHouseholdIntent(): Promise<HouseholdIntent | null> {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as HouseholdIntent;
-    if (parsed.mode === "join" && typeof parsed.inviteCode === "string") return parsed;
+    if (parsed.mode === "join" && typeof parsed.inviteToken === "string" && isInviteToken(parsed.inviteToken)) return parsed;
     if (parsed.mode === "start" && typeof parsed.householdName === "string") return parsed;
   } catch (error) {
     logError(error, { action: "read-intent" });

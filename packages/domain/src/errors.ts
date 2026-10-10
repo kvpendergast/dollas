@@ -190,3 +190,30 @@ export class TransactionError extends DomainError {
     super("transaction", message);
   }
 }
+
+/**
+ * A household invite that cannot be created, revoked, or accepted.
+ * `reason` lets the accept page pick a next step. The message is safe to show.
+ */
+export class InviteError extends DomainError {
+  readonly reason: InviteFailureReason;
+
+  constructor(reason: InviteFailureReason, message: string) {
+    super("invite", message);
+    this.reason = reason;
+  }
+}
+
+export type InviteFailureReason =
+  | "not_owner"
+  | "invalid_email"
+  | "already_member"
+  | "already_invited"
+  | "not_found"
+  | "not_pending"
+  | "revoked"
+  | "expired"
+  | "used"
+  | "wrong_email"
+  | "unverified"
+  | "other_household";

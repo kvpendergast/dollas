@@ -27,6 +27,7 @@ export const APP_ROLE_SQL = "CREATE ROLE dollas_app NOLOGIN NOSUPERUSER NOBYPASS
  * Re-applied on every owner startup. Migration 0001 grants only when the role
  * already exists, and an existing Neon database may have migrated first.
  * INSERT stays revoked on household, household_member, and household_invite.
+ * Invites are created, revoked, and accepted only through the 0022 functions.
  */
 export const APP_GRANT_SQL = `
 DO $$
@@ -47,8 +48,14 @@ BEGIN
   GRANT EXECUTE ON FUNCTION app_user_id() TO dollas_app;
   GRANT EXECUTE ON FUNCTION app_can_access_household(uuid) TO dollas_app;
   GRANT EXECUTE ON FUNCTION create_household(text) TO dollas_app;
-  GRANT EXECUTE ON FUNCTION accept_invite(text) TO dollas_app;
-  GRANT EXECUTE ON FUNCTION create_invite() TO dollas_app;
+  REVOKE ALL ON FUNCTION create_household_invite(text, text, text, text) FROM PUBLIC;
+  REVOKE ALL ON FUNCTION revoke_household_invite(text, text) FROM PUBLIC;
+  REVOKE ALL ON FUNCTION household_invite_preview(text) FROM PUBLIC;
+  REVOKE ALL ON FUNCTION accept_household_invite(text) FROM PUBLIC;
+  GRANT EXECUTE ON FUNCTION create_household_invite(text, text, text, text) TO dollas_app;
+  GRANT EXECUTE ON FUNCTION revoke_household_invite(text, text) TO dollas_app;
+  GRANT EXECUTE ON FUNCTION household_invite_preview(text) TO dollas_app;
+  GRANT EXECUTE ON FUNCTION accept_household_invite(text) TO dollas_app;
   REVOKE ALL ON FUNCTION leave_household(text) FROM PUBLIC;
   REVOKE ALL ON FUNCTION transfer_household_ownership(text, text) FROM PUBLIC;
   REVOKE ALL ON FUNCTION delete_household(text, text) FROM PUBLIC;

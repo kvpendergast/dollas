@@ -8,11 +8,16 @@ import {
   createFakeBankProvider,
   createProviderRegistry,
   createQueryBankConnectionStore,
+  deriveInviteToken,
+  hashInviteToken,
+  inviteExpiresAt,
+  inviteLinkPath,
   parseTokenKeyRing,
   toIsoDate,
   type CivilDate,
 } from "@dollas/domain";
 import { redactSecrets } from "../lib/redact";
+import { serverSecret, siteOrigin } from "../lib/server-secret";
 import { drizzleBankConnectionQueries } from "../slices/connections/store";
 import { loadEnv, requiredEnv } from "./env";
 import {
@@ -33,7 +38,7 @@ const DEMO_EMAIL = "ada@maple.local";
 const DEMO_PASSWORD = "maple-demo";
 const DEMO_NAME = "Ada Maple";
 const HOUSEHOLD_NAME = "Maple House";
-const INVITE_CODE = "MAPLE-HOUSE";
+const INVITE_EMAIL = "sam@maple.local";
 
 type ExpensePlan = {
   key: string;
@@ -113,11 +118,17 @@ async function main() {
     userId: demo.id,
     role: "owner",
   });
+  // One open email invite, so the Household page shows a pending row.
+  // The link is derived from BETTER_AUTH_SECRET, the same way the app does it.
+  const inviteId = crypto.randomUUID();
+  const inviteToken = await deriveInviteToken(serverSecret(), inviteId);
   await db.insert(householdInvite).values({
+    id: inviteId,
     householdId: house.id,
-    code: INVITE_CODE,
+    email: INVITE_EMAIL,
+    tokenHash: await hashInviteToken(inviteToken),
     createdBy: demo.id,
-    expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
+    expiresAt: inviteExpiresAt(new Date()),
   });
 
   const [checking, , visa] = await db
@@ -313,7 +324,7 @@ async function main() {
   if (connected.isErr()) throw connected.error;
 
   console.log(`Seeded ${HOUSEHOLD_NAME} for ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
-  console.log(`Invite code ${INVITE_CODE}`);
+  console.log(`Invite for ${INVITE_EMAIL}: ${siteOrigin()}${inviteLinkPath(inviteToken)}`);
   console.log(`Transactions ${drafts.length}, as of ${toIsoDate(asOf)}`);
   await client.end();
 }
