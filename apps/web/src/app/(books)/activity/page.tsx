@@ -134,7 +134,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
           Transactions
         </h2>
         <FilterBar path="/activity" anchor="#transactions" ctx={filters} />
-        <Pager page={activity.page} pageCount={activity.pageCount} total={activity.total} hrefFor={hrefFor} />
+        {activity.total > 0 ? <Pager page={activity.page} pageCount={activity.pageCount} total={activity.total} hrefFor={hrefFor} /> : null}
         {activity.transactions.length === 0 ? (
           filtered ? (
             <NextStep title="Nothing matches these filters" body="Try a wider date range, or clear the filters." href="/activity#transactions" action="Clear filters" />
