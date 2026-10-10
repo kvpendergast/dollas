@@ -6,11 +6,12 @@ import {
   compareCatalogOrder,
   homeAccountTotalCents,
   isAccountType,
-  summarizeCategoryMonth,
+  planSoFar,
   toIsoDate,
   type AccountType,
   type CivilDate,
   type HistoryColumn,
+  type SpendingFilter,
 } from "@dollas/domain";
 import { and, asc, count, eq, gte, isNull, lte } from "drizzle-orm";
 import { withActor } from "@/db/actor";
@@ -93,8 +94,12 @@ export async function loadHome(books: BooksContext) {
       .select({
         categoryId: categoryBudget.categoryId,
         amountCents: categoryBudget.amountCents,
+        categoryName: category.name,
+        groupName: categoryGroup.name,
       })
       .from(categoryBudget)
+      .innerJoin(category, eq(category.id, categoryBudget.categoryId))
+      .leftJoin(categoryGroup, eq(categoryGroup.id, category.groupId))
       .where(
         and(
           eq(categoryBudget.householdId, books.householdId),
@@ -138,17 +143,10 @@ export async function loadHome(books: BooksContext) {
     current.spentCents += effect.spentCents;
     spentByCategory.set(row.categoryId, current);
   }
-  const budgetByCategory = new Map(rows.budgets.map((row) => [row.categoryId, row.amountCents]));
-  const categories = [...spentByCategory.entries()]
-    .map(([categoryId, value]) =>
-      summarizeCategoryMonth({
-        categoryId,
-        name: value.name,
-        spentCents: value.spentCents,
-        budgetCents: budgetByCategory.get(categoryId) ?? null,
-      }),
-    )
-    .sort((a, b) => b.spentCents - a.spentCents);
+  const plan = planSoFar({
+    spent: [...spentByCategory.entries()].map(([categoryId, value]) => ({ categoryId, name: value.name, spentCents: value.spentCents })),
+    budgets: rows.budgets.map((row) => ({ categoryId: row.categoryId, name: categoryLabel(row.categoryName, row.groupName), budgetCents: row.amountCents })),
+  });
   const budgetedCents = rows.budgets.reduce((sum, row) => sum + row.amountCents, 0);
   const estimate = await loadSpendEstimate(books);
   return {
@@ -156,7 +154,8 @@ export async function loadHome(books: BooksContext) {
     spentCents,
     leftCents: incomeCents - spentCents,
     budgetedCents,
-    categories: categories.slice(0, 5),
+    /** Spent against budget for every budgeted category, plus spending outside the plan (PEN-212). */
+    plan,
     hasAccounts: accountsForActiveLists(accounts, books.householdId).length > 0,
     accountBalanceCents: accountTotal.value,
     /** Home's estimate card: the same numbers as the Spend estimate page and get_spend_estimate. */
@@ -174,10 +173,17 @@ export async function loadHome(books: BooksContext) {
 
 export const ACTIVITY_PAGE_SIZE = 60;
 
-export async function loadActivity(books: BooksContext) {
-  const listed = await listHouseholdTransactions(books, { limit: ACTIVITY_PAGE_SIZE, offset: 0 });
+/** Activity: one page of transactions under the shared spending filter (PEN-212), plus the editors' choices. */
+export async function loadActivity(books: BooksContext, view: { filter?: SpendingFilter; page?: number } = {}) {
+  const page = Math.max(1, Math.floor(view.page ?? 1));
+  const listed = await listHouseholdTransactions(books, {
+    limit: ACTIVITY_PAGE_SIZE,
+    offset: (page - 1) * ACTIVITY_PAGE_SIZE,
+    spending: view.filter ? { filter: view.filter, today: toIsoDate(books.asOf) } : undefined,
+  });
   if (!listed.ok) throw new Error(listed.memberMessage);
   const transactions = listed.value.items;
+  const total = listed.value.total;
   const rules = await listPayeeRules(books);
   if (!rules.ok) throw new Error(rules.memberMessage);
   return withActor(books.userId, async (tx) => {
@@ -223,6 +229,9 @@ export async function loadActivity(books: BooksContext) {
         .where(eq(recurringItem.householdId, books.householdId))
         .orderBy(asc(recurringItem.name)),
       transactions,
+      total,
+      page,
+      pageCount: Math.max(1, Math.ceil(total / ACTIVITY_PAGE_SIZE)),
     };
   });
 }

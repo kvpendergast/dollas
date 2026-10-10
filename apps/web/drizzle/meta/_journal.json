@@ -204,6 +204,20 @@
       "when": 1791659893385,
       "tag": "0028_recurring_item_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791661999790,
+      "tag": "0029_spending_filters",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791662041236,
+      "tag": "0030_spending_filter_attribution",
+      "breakpoints": true
     }
   ]
 }

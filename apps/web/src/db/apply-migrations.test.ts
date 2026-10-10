@@ -181,6 +181,8 @@ describe("pendingMigrationTags", () => {
       "0026_bank_identity_backfill",
       "0027_recurring_items",
       "0028_recurring_item_grants",
+      "0029_spending_filters",
+      "0030_spending_filter_attribution",
     ]);
   });
 

@@ -1,4 +1,4 @@
-import { formatCents, monthLabel } from "@dollas/domain";
+import { formatCents, monthLabel, type CategoryMonth, type PlanSoFar } from "@dollas/domain";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,89 @@ function estimateParts(
   if (estimate.recurringExpectedCents > 0) parts.push(`${money(estimate.recurringExpectedCents)} in recurring bills still due`);
   if (estimate.paceCents > 0) parts.push(`${money(estimate.paceCents)} of everyday spending ahead`);
   return `${parts.join(" + ")}.`;
+}
+
+function PlanRow({ row, money }: { row: CategoryMonth; money: (cents: number) => string }) {
+  const over = row.standing === "over";
+  const budget = row.budgetCents;
+  const share = budget && budget > 0 ? Math.min(100, Math.round((row.spentCents / budget) * 100)) : 0;
+  return (
+    <li className="space-y-1">
+      <div className="flex items-baseline justify-between gap-3 text-sm">
+        <span className="min-w-0 truncate">{row.name}</span>
+        <span className={`shrink-0 tabular-nums ${over ? "text-over" : ""}`}>
+          {budget == null ? money(row.spentCents) : `${money(row.spentCents)} of ${money(budget)}`}
+          {over ? " · over" : ""}
+        </span>
+      </div>
+      {budget != null ? (
+        <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+          <div className={`h-full rounded-full ${over ? "bg-over" : "bg-primary"}`} style={{ width: `${over ? 100 : share}%` }} />
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+function PlanSoFarCard({ plan, hasAccounts, money }: { plan: PlanSoFar; hasAccounts: boolean; money: (cents: number) => string }) {
+  if (!plan.hasBudget) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Spending so far</CardTitle>
+          <CardDescription>
+            No budget this month.{" "}
+            <Link href="/plan" className="font-medium text-primary underline-offset-4 hover:underline">
+              Set one on Plan
+            </Link>{" "}
+            to see spent against budget.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {plan.unbudgeted.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{hasAccounts ? "Nothing spent yet this month." : "No dollas in here yet. Add an account."}</p>
+          ) : (
+            <ul className="space-y-3">
+              {plan.unbudgeted.map((row) => (
+                <PlanRow key={row.categoryId} row={row} money={money} />
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+  const over = plan.spentInPlanCents > plan.budgetedCents;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>The plan so far</CardTitle>
+        <CardDescription className={over ? "text-over" : undefined}>
+          {money(plan.spentInPlanCents)} of {money(plan.budgetedCents)} budgeted spent this month.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <ul className="space-y-3">
+          {plan.budgeted.map((row) => (
+            <PlanRow key={row.categoryId} row={row} money={money} />
+          ))}
+        </ul>
+        {plan.unbudgeted.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Not in the plan</p>
+            <ul className="space-y-2">
+              {plan.unbudgeted.map((row) => (
+                <PlanRow key={row.categoryId} row={row} money={money} />
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        <Link href="/plan" className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
+          Open the plan
+        </Link>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default async function HomePage() {
@@ -83,28 +166,7 @@ export default async function HomePage() {
           </Link>
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>The plan so far</CardTitle>
-          <CardDescription>{formatCents(home.budgetedCents)} budgeted this month.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {home.categories.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {home.hasAccounts ? "Nothing spent yet this month." : "No dollas in here yet. Add an account."}
-            </p>
-          ) : null}
-          {home.categories.map((category) => (
-            <div key={category.categoryId} className="flex items-baseline justify-between gap-3 text-sm">
-              <span>{category.name}</span>
-              <span className={category.standing === "over" ? "text-over tabular-nums" : "tabular-nums"}>
-                {formatCents(category.spentCents)}
-                {category.standing === "over" ? " · over budget" : ""}
-              </span>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+      <PlanSoFarCard plan={home.plan} hasAccounts={home.hasAccounts} money={money} />
     </div>
   );
 }

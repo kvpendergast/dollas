@@ -50,8 +50,9 @@ BEGIN
   GRANT SELECT ON household_member TO dollas_app;
   REVOKE ALL ON household_invite FROM dollas_app;
   GRANT SELECT ON household_invite TO dollas_app;
-  GRANT SELECT, INSERT, UPDATE, DELETE ON ledger_account, category, category_group, category_budget, transaction, transaction_split, payee_category_rule, bank_connection, bank_account, csv_import, csv_column_mapping, recurring_item, recurring_link, recurring_dismissal TO dollas_app;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON ledger_account, category, category_group, category_budget, transaction, transaction_split, payee_category_rule, bank_connection, bank_account, csv_import, csv_column_mapping, recurring_item, recurring_link, recurring_dismissal, saved_filter TO dollas_app;
   GRANT EXECUTE ON FUNCTION app_user_id() TO dollas_app;
+  GRANT EXECUTE ON FUNCTION app_member_or_null() TO dollas_app;
   GRANT EXECUTE ON FUNCTION app_can_access_household(uuid) TO dollas_app;
   GRANT EXECUTE ON FUNCTION create_household(text) TO dollas_app;
   REVOKE ALL ON FUNCTION create_household_invite(text, text, text, text) FROM PUBLIC;

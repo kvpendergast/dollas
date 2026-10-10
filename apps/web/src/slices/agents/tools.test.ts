@@ -399,9 +399,39 @@ describe("Dollas MCP tools", () => {
       assert.equal((await ada.call("disconnect_bank_connection", { connection_id: linked.value.connectionId })).isError, true);
       await ada.ok("disconnect_bank_connection", { connection_id: linked.value.connectionId, confirm: true });
 
+      // Spending filters (PEN-212): the full filter on list_transactions, the breakdown, saved filter CRUD, confirm, RLS.
+      const filtered = await ada.ok("list_transactions", { range: "custom", from: "2026-09-01", to: "2026-09-30", search: "corner", sources: ["manual"] });
+      for (const row of filtered.items as Array<{ payee: string; occurred_on: string; sources: string[]; added_by: { id: string } | null }>) {
+        assert.match(row.payee, /corner/i);
+        assert.ok(row.occurred_on.startsWith("2026-09"));
+        assert.deepEqual(row.sources, ["manual"]);
+        assert.equal(row.added_by?.id, ids.ada, "attribution shows who added it");
+      }
+      assert.equal((await ada.call("list_transactions", { min_cents: 500, max_cents: 100 })).isError, true, "a bad filter is a member-facing error");
+      const breakdown = await ada.ok("get_spending_breakdown", { range: "this_year" });
+      assert.equal(breakdown.kind, "spending_breakdown");
+      assert.equal(typeof (breakdown.totals as Record<string, number>).spent_cents, "number");
+      assert.ok(Array.isArray(breakdown.by_category) && Array.isArray(breakdown.by_member) && Array.isArray((breakdown.trend as { buckets: unknown[] }).buckets));
+      const savedFilter = await ada.ok("create_saved_filter", { name: "Groceries all year", filter: { range: "this_year", category_ids: [groceries] } });
+      const savedId = savedFilter.id as string;
+      assert.deepEqual((savedFilter.filter as { category_ids: string[] }).category_ids, [groceries]);
+      assert.equal((await ada.call("create_saved_filter", { name: "groceries ALL year", filter: {} })).isError, true, "names are unique, any case");
+      const fromSaved = await ada.ok("get_spending_breakdown", { saved_filter_id: savedId });
+      assert.deepEqual((fromSaved.filter as { category_ids: string[]; range: string }).category_ids, [groceries]);
+      const overridden = await ada.ok("list_transactions", { saved_filter_id: savedId, range: "all" });
+      assert.equal((overridden as { total: number }).total >= 0, true);
+      await ada.ok("rename_saved_filter", { saved_filter_id: savedId, name: "Groceries, this year" });
+      assert.deepEqual(((await ada.ok("list_saved_filters")).items as Array<{ name: string }>).map((row) => row.name), ["Groceries, this year"]);
+      assert.equal(((await birchAgent.ok("list_saved_filters")).items as unknown[]).length, 0, "saved filters stay in their household");
+      assert.equal((await birchAgent.call("get_spending_breakdown", { saved_filter_id: savedId })).isError, true, "another household cannot use it");
+      assert.equal((await birchAgent.call("delete_saved_filter", { saved_filter_id: savedId, confirm: true })).isError, true);
+      assert.equal((await ada.call("delete_saved_filter", { saved_filter_id: savedId })).isError, true, "delete_saved_filter needs confirm");
+      await ada.ok("delete_saved_filter", { saved_filter_id: savedId, confirm: true });
+      assert.equal(((await ada.ok("list_saved_filters")).items as unknown[]).length, 0);
+
       // Scope: a read grant runs every read tool and no write tool.
       const reader = await clientFor(ids.ada, maple, "read");
-      for (const name of ["whoami", "list_accounts", "list_transactions", "list_categories", "get_plan", "get_month_summary", "list_household"]) {
+      for (const name of ["whoami", "list_accounts", "list_transactions", "list_categories", "get_plan", "get_month_summary", "list_household", "get_spending_breakdown", "list_saved_filters"]) {
         await reader.ok(name);
       }
       const sneaky = await reader.call("create_transaction", {
