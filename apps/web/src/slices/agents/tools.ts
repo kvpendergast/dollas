@@ -9,6 +9,7 @@ import { categoryTools } from "@/slices/categories/tools";
 import { connectionTools } from "@/slices/connections/tools";
 import { householdTools } from "@/slices/household/tools";
 import { planTools } from "@/slices/plan/tools";
+import { recurringTools } from "@/slices/recurring/tools";
 import { settingsTools } from "@/slices/settings/tools";
 import { tool, type AgentToolContext } from "./tool-kit";
 
@@ -49,6 +50,7 @@ export const DOLLAS_TOOLS: readonly DollasTool<AgentToolContext>[] = [
   ...csvImportTools,
   ...categoryTools,
   ...planTools,
+  ...recurringTools,
   ...householdTools,
   ...settingsTools,
   ...connectionTools,

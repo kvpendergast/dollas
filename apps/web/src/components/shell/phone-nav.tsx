@@ -3,7 +3,7 @@
 import { BarChart3, Home, Landmark, List, Tags, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { bookNav, isNavActive } from "./nav";
+import { bookNav, isPhoneTabActive } from "./nav";
 
 const icons = {
   Home,
@@ -23,7 +23,7 @@ export function PhoneTabBar({ pathname }: { pathname: string }) {
       <ul className="grid grid-cols-6">
         {bookNav.map((item) => {
           const Icon = icons[item.label];
-          const active = isNavActive(pathname, item.href);
+          const active = isPhoneTabActive(pathname, item.href);
           return (
             <li key={item.href}>
               <Link

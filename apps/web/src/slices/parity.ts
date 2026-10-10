@@ -87,6 +87,13 @@ export const ACTION_PARITY: Record<string, Parity> = {
   signOutAction: { uiOnly: SESSION },
   readHouseholdIntent: { uiOnly: SESSION },
   clearHouseholdIntent: { uiOnly: SESSION },
+  // recurring items
+  createRecurringItemAction: { tools: ["create_recurring_item"] },
+  updateRecurringItemAction: { tools: ["update_recurring_item"] },
+  setRecurringPausedAction: { tools: ["pause_recurring_item", "resume_recurring_item"] },
+  deleteRecurringItemAction: { tools: ["delete_recurring_item"] },
+  linkRecurringTransactionAction: { tools: ["link_recurring_transaction"] },
+  unlinkRecurringTransactionAction: { tools: ["unlink_recurring_transaction"] },
   // agents
   connectAgentAction: { uiOnly: AGENT_CONSENT },
   revokeAgentAction: { uiOnly: AGENT_CONSENT },
@@ -96,12 +103,14 @@ export const ACTION_PARITY: Record<string, Parity> = {
 export const PAGE_PARITY: Record<string, Parity> = {
   "/": { tools: ["get_month_summary"] },
   "/accounts": { tools: ["list_accounts", "list_bank_connections"] },
-  "/activity": { tools: ["list_transactions", "list_payee_rules", "list_csv_imports", "list_accounts", "list_categories"] },
+  "/activity": { tools: ["list_transactions", "list_recurring_items", "list_payee_rules", "list_csv_imports", "list_accounts", "list_categories"] },
   "/categories": { tools: ["list_categories"] },
   "/history": { tools: ["get_spending_history"] },
   "/household": { tools: ["list_household"] },
   "/plan": { tools: ["get_plan", "preview_copy_last_month"] },
   "/projection": { tools: ["get_spend_estimate"] },
+  "/recurring": { tools: ["list_recurring_items", "suggest_recurring_items", "list_categories", "list_accounts"] },
+  "/recurring/[id]": { tools: ["get_recurring_item"] },
   // The Connected agents card on this page is UI-only (AGENT_CONSENT).
   "/settings": { tools: ["get_my_profile"] },
   "/welcome": { uiOnly: BEFORE_HOUSEHOLD },

@@ -252,6 +252,48 @@ describe("Dollas MCP tools", () => {
       assert.deepEqual((deleted.items as Array<{ id: string }>).map((row) => row.id), [t2]);
       await ada.ok("restore_transaction", { transaction_id: t2 });
 
+      // Recurring items (PEN-206): create backfills, unlink sticks, manual link, pause, confirm guard, RLS.
+      const gymTxn = (
+        await ada.ok("create_transaction", { account_id: checking, occurred_on: "2026-09-06", payee: "CITY GYM 0042", amount_cents: -4100, category_id: dining })
+      ).id as string;
+      const gym = await ada.ok("create_recurring_item", {
+        name: "Gym",
+        payee_match: "city gym",
+        amount_cents: -4000,
+        cadence: "monthly",
+        anchor_date: "2026-09-05",
+        category_id: dining,
+      });
+      assert.equal(gym.linked, 1, "creating an item links matching history");
+      const gymId = gym.id as string;
+      const recurringList = await ada.ok("list_recurring_items");
+      assert.deepEqual((recurringList.items as Array<{ name: string }>).map((row) => row.name), ["Gym"]);
+      const gymDetail = await ada.ok("get_recurring_item", { item_id: gymId });
+      assert.deepEqual((gymDetail.history as Array<{ transaction_id: string; occurrence_date: string }>).map((row) => [row.transaction_id, row.occurrence_date]), [
+        [gymTxn, "2026-09-05"],
+      ]);
+      const gymListed = await ada.ok("list_transactions", { payee_contains: "city gym" });
+      assert.deepEqual((gymListed.items as Array<{ recurring_item: unknown }>)[0]?.recurring_item, { id: gymId, name: "Gym" });
+      await ada.ok("unlink_recurring_transaction", { transaction_id: gymTxn });
+      assert.equal((await ada.ok("update_recurring_item", { item_id: gymId, window_days: 5 })).linked, 0, "a member's unlink sticks");
+      assert.equal((await ada.call("unlink_recurring_transaction", { transaction_id: gymTxn })).isError, true, "nothing to unlink");
+      const relinked = await ada.ok("link_recurring_transaction", { item_id: gymId, transaction_id: gymTxn });
+      assert.equal(relinked.occurrence_date, "2026-09-05");
+      await ada.ok("pause_recurring_item", { item_id: gymId });
+      assert.equal(((await ada.ok("get_recurring_item", { item_id: gymId })).paused as boolean), true);
+      await ada.ok("resume_recurring_item", { item_id: gymId });
+      assert.ok(Array.isArray((await ada.ok("suggest_recurring_items")).items));
+      const spareItem = (await ada.ok("create_recurring_item", { name: "Paycheck", amount_cents: 250000, cadence: "semimonthly", anchor_date: "2026-09-15", second_day_of_month: 30 })).id as string;
+      assert.equal((await ada.call("create_recurring_item", { name: "Bad", amount_cents: 100, cadence: "semimonthly", anchor_date: "2026-09-15" })).isError, true);
+      assert.equal((await ada.call("delete_recurring_item", { item_id: spareItem })).isError, true, "delete_recurring_item needs confirm");
+      await ada.ok("delete_recurring_item", { item_id: spareItem, confirm: true });
+      const birchAgent = await clientFor(ids.cy, birch, "write");
+      assert.equal(((await birchAgent.ok("list_recurring_items")).items as unknown[]).length, 0);
+      assert.equal((await birchAgent.call("get_recurring_item", { item_id: gymId })).isError, true);
+      assert.equal((await birchAgent.call("unlink_recurring_transaction", { transaction_id: gymTxn })).isError, true);
+      assert.equal((await birchAgent.call("delete_recurring_item", { item_id: gymId, confirm: true })).isError, true);
+      assert.equal((await owner`select 1 from recurring_link where transaction_id = ${gymTxn}`).length, 1, "Birch changed nothing");
+
       // Payee rules, including apply-to-existing.
       const rule = (await ada.ok("create_payee_rule", { pattern: "Diner", category_id: groceries })).id as string;
       assert.equal(((await ada.ok("list_payee_rules")).items as unknown[]).length, 1);

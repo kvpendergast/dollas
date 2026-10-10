@@ -85,6 +85,7 @@ export default async function ActivityPage() {
       ) : null}
       <ActivityLedger
         categories={activity.categories}
+        recurringChoices={activity.recurringChoices}
         transactions={activity.transactions.map((item) => ({
           ...item,
           accounts: editAccounts(newEntryAccounts, activity.accounts, item.accountId),

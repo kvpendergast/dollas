@@ -190,6 +190,20 @@
       "when": 1791657643885,
       "tag": "0026_bank_identity_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791659892091,
+      "tag": "0027_recurring_items",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791659893385,
+      "tag": "0028_recurring_item_grants",
+      "breakpoints": true
     }
   ]
 }

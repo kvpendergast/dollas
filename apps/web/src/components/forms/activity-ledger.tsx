@@ -1,6 +1,8 @@
 "use client";
 
 import { formatCents, type CategoryMenuEntry } from "@dollas/domain";
+import { Repeat } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +22,7 @@ type LedgerTransaction = {
   accountName: string;
   accountArchived: boolean;
   bankMatched?: boolean;
+  recurring?: { id: string; name: string } | null;
   splits: Array<{ categoryId: string; categoryName: string; amountCents: number }>;
   accounts: AccountChoice[];
 };
@@ -27,9 +30,11 @@ type LedgerTransaction = {
 export function ActivityLedger({
   transactions,
   categories,
+  recurringChoices = [],
 }: {
   transactions: LedgerTransaction[];
   categories: CategoryMenuEntry[];
+  recurringChoices?: Array<{ id: string; name: string }>;
 }) {
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [undo, setUndo] = useState<{ id: string; payee: string } | null>(null);
@@ -85,6 +90,14 @@ export function ActivityLedger({
                   {formatCents(item.amountCents)}
                 </p>
                 <div className="flex flex-wrap justify-end gap-1">
+                  {item.recurring ? (
+                    <Badge asChild variant="outline" className="border-primary/40 text-primary">
+                      <Link href={`/recurring/${item.recurring.id}`} title={`Linked to the recurring item ${item.recurring.name}`}>
+                        <Repeat aria-hidden="true" />
+                        {item.recurring.name}
+                      </Link>
+                    </Badge>
+                  ) : null}
                   {item.bankMatched ? (
                     <Badge variant="outline" title="Bank sync matched this to your entry instead of adding a copy.">
                       Matched to bank
@@ -112,11 +125,13 @@ export function ActivityLedger({
                 item.accountId,
                 item.amountCents,
                 item.bankMatched ? "matched" : "",
+                item.recurring?.id ?? "",
                 item.splits.map((part) => `${part.categoryId}:${part.amountCents}`).join(","),
               ].join("|")}
               transaction={item}
               accounts={item.accounts}
               categories={categories}
+              recurringChoices={recurringChoices}
               onDeleted={(deleted) => {
                 setHidden((current) => new Set(current).add(deleted.id));
                 setUndoError("");

@@ -56,11 +56,16 @@ export default async function PlanPage({
             previousHref={previous.isOk() ? `/plan?month=${formatBudgetMonth(previous.value)}` : null}
             nextHref={next.isOk() ? `/plan?month=${formatBudgetMonth(next.value)}` : null}
           />
+          <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline">
+            <Link href="/recurring">Recurring bills and paychecks</Link>
+          </Button>
           {showCopy || previous.isErr() ? null : (
             <Button asChild variant="outline">
               <Link href={`/plan?month=${monthKey}&copy=preview`}>Copy last month</Link>
             </Button>
           )}
+          </div>
         </div>
         {parsed.isErr() ? (
           <p role="alert" className="text-sm text-over">

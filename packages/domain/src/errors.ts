@@ -239,3 +239,10 @@ export type AgentAccessFailureReason =
   | "insufficient_scope"
   | "revoked"
   | "invalid_scope_choice";
+
+/** A recurring item that cannot be saved, linked, or unlinked. The message is safe to show. */
+export class RecurringError extends DomainError {
+  constructor(message: string) {
+    super("recurring", message);
+  }
+}
