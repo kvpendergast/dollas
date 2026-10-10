@@ -205,6 +205,15 @@ export {
 } from "./activity/direction";
 
 export {
+  amendTransactionEntry,
+  defineTransactionEntry,
+  PAYEE_MAX_LENGTH,
+  type TransactionEntry,
+  type TransactionEntryInput,
+  type TransactionEntryPatch,
+} from "./activity/entry";
+
+export {
   deleteTransaction,
   restoreTransaction,
   retainedImportFingerprints,

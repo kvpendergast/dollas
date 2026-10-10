@@ -1,21 +1,19 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { createDollasMcpServer, toolAccess, type DollasMcpServices } from "@dollas/mcp";
+import { createDollasMcpServer } from "@dollas/mcp";
 import {
   AGENT_MESSAGES,
   agentAccessError,
   agentChallengeScopes,
   decideAgentGrant,
   type AgentAccess,
-  type AgentGrant,
   type AgentTokenClaims,
 } from "@dollas/domain";
 import { getAuth } from "@/lib/auth";
 import { protectedResourceMetadataUrl } from "@/lib/agent-oauth";
 import { logError, logInfo } from "@/lib/telemetry";
-import { loadBooksForMember, type BooksContext } from "@/slices/access/member";
-import { addHouseholdAccount } from "@/slices/accounts/service";
-import { loadAccounts } from "@/slices/books/queries";
+import { loadBooksForMember } from "@/slices/access/member";
 import { agentConnectionIsLive, recordAgentUse } from "@/slices/agents/connections";
+import { dollasTool, DOLLAS_TOOLS } from "@/slices/agents/tools";
 
 /**
  * The authenticated MCP endpoint (Streamable HTTP, stateless, JSON responses).
@@ -23,7 +21,8 @@ import { agentConnectionIsLive, recordAgentUse } from "@/slices/agents/connectio
  * Every request: verify the bearer access token with the OAuth provider, turn
  * it into a member + household grant, confirm the member still has the
  * connection and can still open the household, then run the tool through the
- * same services and RLS (withActor as dollas_app) the web pages use.
+ * same services and RLS (withActor as dollas_app) the web pages use. The
+ * tools are listed in ./tools.ts and live next to their slice's services.
  */
 
 type Challenge = {
@@ -72,7 +71,7 @@ export function accessNeeded(body: unknown): AgentAccess {
     const rpc = message as JsonRpcMessage;
     if (rpc.method !== "tools/call") continue;
     const name = typeof rpc.params?.name === "string" ? rpc.params.name : "";
-    if (toolAccess(name) === "write") return "write";
+    if (dollasTool(name)?.access === "write") return "write";
   }
   return "read";
 }
@@ -80,46 +79,6 @@ export function accessNeeded(body: unknown): AgentAccess {
 export async function verifyAgentToken(token: string): Promise<AgentTokenClaims> {
   const verified = await getAuth().api.verifyAgentAccessToken({ body: { token } });
   return verified.claims as AgentTokenClaims;
-}
-
-function bindServices(books: BooksContext, grant: AgentGrant): DollasMcpServices {
-  const actor = { userId: books.userId, householdId: books.householdId };
-  return {
-    async whoami() {
-      return {
-        ok: true,
-        value: {
-          member: { name: books.userName, role: books.role },
-          household: { name: books.householdName, currency: books.currency, timezone: books.timezone },
-          access: grant.access,
-        },
-      };
-    },
-    async listAccounts({ includeArchived }) {
-      try {
-        const accounts = await loadAccounts(books);
-        return {
-          ok: true,
-          value: accounts
-            .filter((item) => includeArchived || !item.archivedAt)
-            .map((item) => ({
-              id: item.id,
-              name: item.name,
-              type: item.type,
-              balanceCents: item.balanceCents,
-              archived: Boolean(item.archivedAt),
-            })),
-        };
-      } catch (error) {
-        logError(error, { action: "mcp-list-accounts", householdId: books.householdId });
-        return { ok: false, message: "Could not load accounts. Try again." };
-      }
-    },
-    async addAccount(input) {
-      const added = await addHouseholdAccount(actor, input, "mcp");
-      return added.ok ? { ok: true, value: added.value } : { ok: false, message: added.memberMessage };
-    },
-  };
 }
 
 async function readJson(request: Request): Promise<{ ok: true; body: unknown } | { ok: false }> {
@@ -177,7 +136,10 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
   }
 
   await recordAgentUse(grant);
-  const server = createDollasMcpServer(grant, bindServices(books, grant));
+  const server = createDollasMcpServer(grant, DOLLAS_TOOLS, { books, grant }, {
+    onError: (error, toolName) =>
+      logError(error, { action: "mcp-tool", tool: toolName, userId: grant.userId, householdId: grant.householdId }),
+  });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,

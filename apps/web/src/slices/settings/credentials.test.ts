@@ -29,6 +29,6 @@ describe("credential changes stay out of MCP", () => {
     assert.equal(membership.includes("changeEmail"), false);
     assert.equal(membership.includes("newPassword"), false);
     assert.equal(membership.includes("currentPassword"), false);
-    assert.match(membership, /A future MCP tool can call this/);
+    assert.match(membership, /MCP tools call this too/);
   });
 });

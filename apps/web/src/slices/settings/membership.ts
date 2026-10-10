@@ -24,7 +24,7 @@ import { account, household, householdMember, user } from "@/db/schema";
 import { logError, logInfo } from "@/lib/telemetry";
 
 /**
- * Membership services. A page action and a future MCP tool both call these.
+ * Membership services. A page action and an MCP tool both call these.
  * They do not accept a password, a new password, or an email change.
  * Those stay in credentials.ts and are UI-only.
  *
@@ -98,7 +98,7 @@ function householdIdOf(actor: MembershipActor): string | null {
   return UUID.test(actor.householdId) ? actor.householdId : null;
 }
 
-/** Reads this member's profile and the household they belong to. A future MCP tool can call this. */
+/** Reads this member's profile and the household they belong to. MCP tools call this too. */
 export async function describeMembership(
   actor: MembershipActor,
   database: AppDatabase = getDb(),
@@ -159,7 +159,7 @@ export async function describeMembership(
   }
 }
 
-/** Changes the signed-in member's name. A future MCP tool can call this. */
+/** Changes the signed-in member's name. MCP tools call this too. */
 export async function updateProfileName(
   actor: MembershipActor,
   rawName: string,
@@ -194,7 +194,7 @@ export async function updateProfileName(
   }
 }
 
-/** Leaves the household. The last owner is refused. A future MCP tool can call this. */
+/** Leaves the household. The last owner is refused. MCP tools call this too. */
 export async function leaveHousehold(
   actor: MembershipActor,
   database: AppDatabase = getDb(),
@@ -220,7 +220,7 @@ export async function leaveHousehold(
   return { ok: true, value: { userId: actor.userId } };
 }
 
-/** Makes another member the owner and the caller a member. A future MCP tool can call this. */
+/** Makes another member the owner and the caller a member. MCP tools call this too. */
 export async function transferOwnership(
   actor: MembershipActor,
   targetUserId: string,
@@ -261,7 +261,7 @@ export async function transferOwnership(
 
 /**
  * Deletes one household after the owner types its name.
- * Rows in every other household stay. A future MCP tool can call this.
+ * Rows in every other household stay. MCP tools call this too.
  */
 export async function deleteHousehold(
   actor: MembershipActor,

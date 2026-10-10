@@ -21,22 +21,24 @@ import { and, eq } from "drizzle-orm";
 import { withActor } from "@/db/actor";
 import { bankConnection } from "@/db/schema";
 import { logError, logInfo } from "@/lib/telemetry";
+import type { ServiceResult } from "@/lib/service-result";
 import { applyBankSync } from "./apply";
 import { requireBankConnectionKeys } from "./keys";
+import { memberBankMessage } from "./messages";
 import { readPlaidEnv } from "./plaid-config";
 import { loadBankConnections, type BankConnectionListItem } from "./queries";
 import { bankProviderRegistry } from "./registry";
 import { drizzleBankConnectionQueries } from "./store";
 
 /**
- * Bank slice services. A page action and a future MCP tool both call these.
+ * Bank slice services. A page action and an MCP tool both call these.
  * They run on the server as the signed-in member. They do not read form data
  * and they do not render.
  *
  * Functions marked UI-only finish a bank login or touch provider secrets.
  * MCP must not call those. A bank password, a Plaid key, a link token, and a
  * public token are not MCP inputs or outputs. Listing connections, syncing,
- * and disconnecting are the operations a later MCP tool can call.
+ * and disconnecting are what the MCP tools call.
  */
 export type BankActor = {
   userId: string;
@@ -49,9 +51,99 @@ export type BankServiceResult<T> =
 
 const CONNECTION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-/** Lists this household's bank connections. No tokens. A future MCP tool can call this. */
+/** Lists this household's bank connections. No tokens. The Accounts page uses this. */
 export async function listBankConnections(actor: BankActor): Promise<BankConnectionListItem[]> {
   return loadBankConnections(actor);
+}
+
+export type BankConnectionStatus = {
+  id: string;
+  provider: string;
+  label: string;
+  transactionsSince: string | null;
+  accounts: Array<{ name: string; balanceCents: number; currency: string }>;
+};
+
+/**
+ * Connection status for MCP: provider, label, sync window, and linked
+ * accounts with balances. Never the encrypted token, an access URL, a
+ * provider account id, or a cursor.
+ */
+export async function bankConnectionStatus(actor: BankActor): Promise<ServiceResult<BankConnectionStatus[]>> {
+  try {
+    const listed = await loadBankConnections(actor);
+    return {
+      ok: true,
+      value: listed.map((item) => ({
+        id: item.id,
+        provider: item.providerId,
+        label: item.label,
+        transactionsSince: item.transactionsSince,
+        accounts: item.accounts.map((account) => ({ name: account.name, balanceCents: account.balanceCents, currency: account.currency })),
+      })),
+    };
+  } catch (error) {
+    logError(error, { action: "list-bank-connections", householdId: actor.householdId });
+    return { ok: false, error, memberMessage: "Could not load bank connections." };
+  }
+}
+
+/** Plain result with the member message filled in, for callers outside this slice. */
+export function shownBankResult<T>(outcome: BankServiceResult<T>, fallback: string): ServiceResult<T> {
+  if (outcome.ok) return outcome;
+  return { ok: false, error: outcome.error, memberMessage: outcome.memberMessage ?? memberBankMessage(outcome.error, fallback) };
+}
+
+/**
+ * UI-only. Claims a SimpleFIN setup token and stores the access URL
+ * encrypted. MCP must not call this: the setup token and the access URL are
+ * bank secrets and never an MCP input or output.
+ */
+export async function linkSimpleFinConnection(
+  actor: BankActor,
+  input: { token: string; label: string; sinceRaw: string },
+): Promise<BankServiceResult<{ connectionId: string }>> {
+  const sinceRaw = input.sinceRaw.trim();
+  let since = defaultTransactionsSince(new Date());
+  if (sinceRaw) {
+    if (!isIsoDate(sinceRaw)) return fail(new Error("date"), "Use a start date like 2026-01-01.");
+    since = sinceRaw;
+  }
+  const keys = readKeys(actor, "link-simplefin");
+  if (!keys.ok) return keys;
+  logInfo("simplefin.claim.started", { action: "link-simplefin", householdId: actor.householdId });
+  try {
+    const outcome = await withActor(actor.userId, async (tx) => {
+      const connected = await connectBank(
+        {
+          registry: bankProviderRegistry(),
+          store: createQueryBankConnectionStore(drizzleBankConnectionQueries(tx)),
+          keys: keys.value,
+        },
+        {
+          householdId: actor.householdId,
+          providerId: SIMPLEFIN_PROVIDER_ID,
+          setup: { token: input.token },
+          label: input.label.trim() || undefined,
+        },
+      );
+      if (connected.isErr()) return connected;
+      await tx
+        .update(bankConnection)
+        .set({ transactionsSince: since })
+        .where(and(eq(bankConnection.id, connected.value.id), eq(bankConnection.householdId, actor.householdId)));
+      return connected;
+    });
+    if (outcome.isErr()) {
+      logError(outcome.error, { action: "link-simplefin", householdId: actor.householdId });
+      return fail(outcome.error);
+    }
+    logInfo("simplefin.claim.finished", { action: "link-simplefin", householdId: actor.householdId, connectionId: outcome.value.id });
+    return { ok: true, value: { connectionId: outcome.value.id } };
+  } catch (error) {
+    logError(error, { action: "link-simplefin", householdId: actor.householdId });
+    return fail(error);
+  }
 }
 
 /**
@@ -166,11 +258,12 @@ export async function exchangePlaidPublicToken(
  * The entries are the functions themselves, not name strings.
  */
 export const UI_ONLY_SERVICES = [
+  linkSimpleFinConnection,
   createPlaidLinkToken,
   exchangePlaidPublicToken,
 ] as const;
 
-/** Syncs one household connection. A future MCP tool can call this. */
+/** Syncs one household connection. The Accounts page and the sync_bank_connection tool call this. */
 export async function syncBankConnection(
   actor: BankActor,
   connectionId: string,
@@ -222,7 +315,7 @@ export async function syncBankConnection(
   return syncSimpleFinConnection(actor, connectionId, keys.value, loaded.encryptedAccessToken, since);
 }
 
-/** Disconnects one household connection and deletes the stored token. A future MCP tool can call this. */
+/** Disconnects one household connection and deletes the stored token. The Accounts page and an MCP tool call this. */
 export async function disconnectBankConnection(
   actor: BankActor,
   connectionId: string,
@@ -439,4 +532,20 @@ function isSimpleFin(provider: BankProvider): provider is SimpleFinProvider {
 
 function isPlaid(provider: BankProvider): provider is PlaidProvider {
   return provider.id === PLAID_PROVIDER_ID && "syncItem" in provider;
+}
+
+/** One sentence about what a sync wrote. */
+export function syncMessage(written: { accounts: number; transactions: number; updated: number; removed: number }): string {
+  const accountLabel = written.accounts === 1 ? "account" : "accounts";
+  if (written.transactions === 0 && written.updated === 0 && written.removed === 0) {
+    return `Updated ${written.accounts} ${accountLabel}. No new transactions.`;
+  }
+  const parts = [`Synced ${written.accounts} ${accountLabel}`];
+  if (written.transactions > 0) {
+    parts.push(`added ${written.transactions} ${written.transactions === 1 ? "transaction" : "transactions"}`);
+  }
+  if (written.updated > 0) parts.push(`updated ${written.updated}`);
+  if (written.removed > 0) parts.push(`hid ${written.removed} removed by the bank`);
+  if (parts.length === 1) return `${parts[0]}.`;
+  return `${parts[0]} and ${parts.slice(1).join(", ")}.`;
 }

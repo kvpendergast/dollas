@@ -21,11 +21,12 @@ import {
   categoryBudget,
   categoryGroup,
   ledgerAccount,
-  payeeCategoryRule,
   transaction,
   transactionSplit,
 } from "@/db/schema";
 import type { BooksContext } from "@/slices/access/guard";
+import { listPayeeRules } from "@/slices/activity/payee-rule-service";
+import { listHouseholdTransactions } from "@/slices/activity/transactions";
 
 function monthStart(asOf: CivilDate): string {
   return toIsoDate({ year: asOf.year, month: asOf.month, day: 1 });
@@ -163,7 +164,14 @@ export async function loadHome(books: BooksContext) {
   };
 }
 
+export const ACTIVITY_PAGE_SIZE = 60;
+
 export async function loadActivity(books: BooksContext) {
+  const listed = await listHouseholdTransactions(books, { limit: ACTIVITY_PAGE_SIZE, offset: 0 });
+  if (!listed.ok) throw new Error(listed.memberMessage);
+  const transactions = listed.value.items;
+  const rules = await listPayeeRules(books);
+  if (!rules.ok) throw new Error(rules.memberMessage);
   return withActor(books.userId, async (tx) => {
     const accounts = await tx
       .select()
@@ -184,75 +192,6 @@ export async function loadActivity(books: BooksContext) {
         .leftJoin(categoryGroup, eq(categoryGroup.id, category.groupId))
         .where(eq(category.householdId, books.householdId))
     ).sort(compareListed);
-    const rows = await tx
-      .select({
-        id: transaction.id,
-        occurredOn: transaction.occurredOn,
-        payee: transaction.payee,
-        amountCents: transaction.amountCents,
-        accountId: transaction.accountId,
-        accountName: ledgerAccount.name,
-        accountArchivedAt: ledgerAccount.archivedAt,
-        categoryId: category.id,
-        categoryName: category.name,
-        groupName: categoryGroup.name,
-        splitCents: transactionSplit.amountCents,
-      })
-      .from(transaction)
-      .innerJoin(ledgerAccount, eq(ledgerAccount.id, transaction.accountId))
-      .leftJoin(transactionSplit, eq(transactionSplit.transactionId, transaction.id))
-      .leftJoin(category, eq(category.id, transactionSplit.categoryId))
-      .leftJoin(categoryGroup, eq(categoryGroup.id, category.groupId))
-      .where(postedInHousehold(books.householdId));
-    const grouped = new Map<
-      string,
-      {
-        id: string;
-        occurredOn: string;
-        payee: string;
-        amountCents: number;
-        accountId: string;
-        accountName: string;
-        accountArchived: boolean;
-        splits: Array<{ categoryId: string; categoryName: string; amountCents: number }>;
-      }
-    >();
-    for (const row of rows) {
-      const current = grouped.get(row.id) ?? {
-        id: row.id,
-        occurredOn: row.occurredOn,
-        payee: row.payee,
-        amountCents: row.amountCents,
-        accountId: row.accountId,
-        accountName: row.accountName,
-        accountArchived: row.accountArchivedAt !== null,
-        splits: [],
-      };
-      if (row.categoryId && row.categoryName && row.splitCents != null) {
-        current.splits.push({
-          categoryId: row.categoryId,
-          categoryName: categoryLabel(row.categoryName, row.groupName),
-          amountCents: row.splitCents,
-        });
-      }
-      grouped.set(row.id, current);
-    }
-    const transactions = [...grouped.values()].sort((a, b) => {
-      if (a.occurredOn === b.occurredOn) return a.payee.localeCompare(b.payee);
-      return a.occurredOn < b.occurredOn ? 1 : -1;
-    });
-    const rules = await tx
-      .select({
-        id: payeeCategoryRule.id,
-        pattern: payeeCategoryRule.pattern,
-        categoryId: payeeCategoryRule.categoryId,
-        categoryName: category.name,
-        groupName: categoryGroup.name,
-      })
-      .from(payeeCategoryRule)
-      .innerJoin(category, eq(category.id, payeeCategoryRule.categoryId))
-      .leftJoin(categoryGroup, eq(categoryGroup.id, category.groupId))
-      .where(eq(payeeCategoryRule.householdId, books.householdId));
     return {
       accounts: accounts
         .flatMap((account) => {
@@ -269,15 +208,8 @@ export async function loadActivity(books: BooksContext) {
         })
         .sort((a, b) => a.name.localeCompare(b.name)),
       categories,
-      payeeRules: rules
-        .map((rule) => ({
-          id: rule.id,
-          pattern: rule.pattern,
-          categoryId: rule.categoryId,
-          categoryName: categoryLabel(rule.categoryName, rule.groupName),
-        }))
-        .sort((a, b) => a.pattern.localeCompare(b.pattern)),
-      transactions: transactions.slice(0, 60),
+      payeeRules: rules.value,
+      transactions,
     };
   });
 }
