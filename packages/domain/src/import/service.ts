@@ -13,7 +13,7 @@ export type CommitMappedImportResult = ImportWriteResult & {
 /**
  * Parse a CSV, propose a column mapping, and reuse a saved mapping when the
  * header signature (or the single saved account mapping for a no-header file)
- * matches. Pages and a future MCP tool call this before asking the member.
+ * matches. Pages and the inspect_csv tool call this before asking the member.
  */
 export async function proposeCsvMapping(
   store: CsvImportStore,

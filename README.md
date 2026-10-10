@@ -7,7 +7,7 @@ A self-hosted household budgeting app. One shared set of books, separate logins.
 - pnpm workspace with vertical slices
 - Next.js app in `apps/web`
 - Shared domain in `packages/domain` (integer cents, neverthrow, typed errors)
-- MCP server in `packages/mcp`, served at `/api/mcp` over Streamable HTTP with OAuth (a few starter tools)
+- MCP server at `/api/mcp` over Streamable HTTP with OAuth: every web action is a tool (toolkit in `packages/mcp`, tools next to slice services)
 - Postgres with row-level security
 - Better Auth: Google sign-in counts as a verified email; email and password cannot see household data until the address is verified
 - shadcn/ui on a sage palette
@@ -90,7 +90,44 @@ An AI agent can use a household's books over MCP. Add `<BETTER_AUTH_URL>/api/mcp
 
 The OAuth tables (`oauth_client`, `oauth_access_token`, `oauth_refresh_token`, `oauth_consent`, and the rest) are not household-scoped, like the Better Auth session tables. Better Auth reads them before there is a member or household context. `dollas_app` gets select, insert, update, and delete on them and nothing else. The app reads them only for the signed-in member's own rows. `agent_activity` (last used) is household-scoped with row-level security. No new environment variables: the issuer and resource URLs come from `BETTER_AUTH_URL`.
 
-The current tools are `whoami`, `list_accounts`, and `add_account` (write). Agents never see bank passwords, bank connection tokens, or another household's data.
+### Tools
+
+Anything a member can do in the web app is also a tool on `/api/mcp` (54 today), and both call the same slice service, so validation, rules, and row-level security are shared:
+
+- Reads: `whoami`, `get_month_summary`, `get_spend_estimate`, `get_spending_history`, `list_accounts`, `list_transactions`, `list_categories`, `list_payee_rules`, `list_csv_imports`, `get_plan`, `preview_copy_last_month`, `preview_payee_rule_apply`, `inspect_csv`, `preview_csv_import`, `list_household`, `get_my_profile`, `list_bank_connections`.
+- Writes (need `dollas:write`): accounts (`create_account`, `update_account`, `archive_account`, `unarchive_account`, `delete_account`), transactions (`create_transaction`, `update_transaction`, `categorize_transaction`, `split_transaction`, `delete_transaction`, `restore_transaction`), CSV import (`commit_csv_import`, `undo_csv_import`), categories (`create_category_group`, `rename_category_group`, `remove_category_group`, `create_category`, `move_category`, `reorder_category_group`, `reorder_category`, `change_category_kind`), payee rules (`create_payee_rule`, `update_payee_rule`, `delete_payee_rule`, `apply_payee_rule`), the plan (`set_budget`, `clear_budget`, `copy_last_month`), the household (`create_invite`, `copy_invite_link`, `revoke_invite`, `update_my_name`, `transfer_ownership`, `leave_household`, `delete_household`), and banks (`sync_bank_connection`, `disconnect_bank_connection`).
+
+Conventions: snake_case names and fields, zod input schemas, money in integer cents (`amount_cents`, signed; negative is money out), dates `YYYY-MM-DD`, months `YYYY-MM`. Every result is a one-line text summary plus structured JSON. Lists take `limit` and `cursor` and return `next_cursor`. Failures are the same member-facing message the page shows. Destructive tools (`delete_transaction`, `delete_account`, `undo_csv_import`, `delete_payee_rule`, `disconnect_bank_connection`, `transfer_ownership`, `leave_household`, `delete_household`) need `confirm: true`; `delete_household` also needs the household name typed exactly.
+
+UI-only on purpose: entering bank passwords or provider keys and finishing a bank login (SimpleFIN setup token, Plaid Link), changing your own email, password, or sign-in methods, signing in or up, starting or joining a household, and connecting or disconnecting agents. Tools can report bank connection status but never take or return bank secrets, provider tokens, or access URLs.
+
+### Adding an action: the parity rule
+
+Tools live next to the services they call: `src/slices/<slice>/tools.ts` (or `*-tools.ts`), registered in `src/slices/agents/tools.ts`. `packages/mcp` is the toolkit (`toolFor`, `confirmInput`, `pageInput`, scope and confirm guards, replies).
+
+`src/slices/parity.ts` lists every exported server action and every page, each mapped to the tools that cover it or marked `uiOnly` with a reason. `src/slices/agents/parity.test.ts` runs in CI and fails when:
+
+- a `"use server"` file exports something not listed, or the list names an action that no longer exists;
+- a page has no entry, or an entry names a tool that does not exist;
+- a tool is not reachable from any action, page, or `AGENT_ONLY_TOOLS` reason;
+- a server action file imports `drizzle-orm` or `@/db` (the logic belongs in the slice service, where the tool can call it);
+- a slice tools file is not registered, or a destructive tool lacks `confirm`.
+
+So a new server action means: put the logic in the slice service, keep the action a thin form wrapper, add a tool next to the service that calls it, and add one line to `parity.ts`.
+
+### Pointing an agent at a local Dollas
+
+Run `pnpm dev` (with the seed). Any MCP client that does OAuth for remote servers works against `http://localhost:3000/api/mcp`; sign in as `ada@maple.local` / `maple-demo` and pick read or read and write on the consent screen.
+
+- MCP Inspector: `npx @modelcontextprotocol/inspector`, choose Streamable HTTP, URL `http://localhost:3000/api/mcp`, then Open Auth Settings → Quick OAuth Flow (or just Connect).
+- Claude Code: `claude mcp add --transport http dollas http://localhost:3000/api/mcp`, then `/mcp` to sign in.
+- Cursor (`.cursor/mcp.json`) and other clients that take a URL:
+
+  ```json
+  { "mcpServers": { "dollas": { "url": "http://localhost:3000/api/mcp" } } }
+  ```
+
+- Scripted, no browser: `pnpm --filter @dollas/web mcp:local tools` lists tools; `pnpm --filter @dollas/web mcp:local call get_plan '{"month":"2026-10"}'` calls one (`@file.json` reads arguments from a file). It runs the full OAuth flow as the seeded member (`DOLLAS_EMAIL`, `DOLLAS_PASSWORD`, `DOLLAS_ACCESS=read|write` override), caches its client and rotating refresh token in the OS temp dir, and refuses non-loopback URLs.
 
 ## Checks
 
@@ -100,7 +137,7 @@ pnpm lint
 pnpm typecheck
 ```
 
-Domain tests cover household access (members only, and unverified email/password stays out) and the partial-month history rule: the current month is not treated as finished, and its year-over-year change is “Not comparable yet” with no dollar delta. Web tests cover startup migrations: an already current schema is a no-op, and startup does not read `DATABASE_MIGRATE_URL` when `DATABASE_URL` or `DATABASE_URL_UNPOOLED` is set. When Postgres is running on localhost, they also check that a non-owner login cannot read another household without a membership predicate, and that the table owner can until the session assumes `dollas_app`. They also cover verification and password-reset email: Resend sends the link when it is configured, and local development without those variables still writes the link to the server log. Agent tests cover PKCE (S256 only, wrong verifier rejected), hashed tokens and expiry, refresh rotation, a read token refused by a write tool, disconnect cutting off access and refresh tokens, row-level security through an MCP call, and the discovery documents. Domain tests cover a forgot-password response that stays the same whether or not the address has a login, the resend cooldown, and the unverified sign-in message versus a wrong password.
+Domain tests cover household access (members only, and unverified email/password stays out) and the partial-month history rule: the current month is not treated as finished, and its year-over-year change is “Not comparable yet” with no dollar delta. Web tests cover startup migrations: an already current schema is a no-op, and startup does not read `DATABASE_MIGRATE_URL` when `DATABASE_URL` or `DATABASE_URL_UNPOOLED` is set. When Postgres is running on localhost, they also check that a non-owner login cannot read another household without a membership predicate, and that the table owner can until the session assumes `dollas_app`. They also cover verification and password-reset email: Resend sends the link when it is configured, and local development without those variables still writes the link to the server log. Agent tests cover PKCE (S256 only, wrong verifier rejected), hashed tokens and expiry, refresh rotation, a read token refused by a write tool, disconnect cutting off access and refresh tokens, row-level security through an MCP call, and the discovery documents. Tool tests call every tool against Postgres (each has a happy path), refuse every write tool for a read grant, require `confirm` on destructive tools, and check that another household's agent can neither see nor change Maple's rows; bank sync runs against a loopback SimpleFIN bridge and the output never contains the access URL. The parity test keeps the web app and the tool list in step. Domain tests cover a forgot-password response that stays the same whether or not the address has a login, the resend cooldown, and the unverified sign-in message versus a wrong password.
 
 CI runs a gitleaks secret scan and a code-quality scan (lint, types, and tests).
 

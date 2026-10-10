@@ -30,7 +30,7 @@ import { deliverHouseholdInviteEmail, inviteMailMode, type InviteMailMode } from
 /**
  * Household invite services.
  *
- * MCP-able (a page action and a future MCP tool both call these):
+ * MCP-able (a page action and an MCP tool both call these):
  *   listHouseholdPeople, createHouseholdInvite, copyHouseholdInviteLink, revokeHouseholdInvite.
  * UI-only (bound to the browser sign-in, so no MCP tool may call them):
  *   previewHouseholdInvite, acceptHouseholdInvite.
@@ -171,7 +171,7 @@ async function loadPeople(actor: InviteActor, database: AppDatabase) {
   );
 }
 
-/** Members with roles, and open invites. Any member can read this. A future MCP tool can call this. */
+/** Members with roles, and open invites. Any member can read this. MCP tools call this too. */
 export async function listHouseholdPeople(
   actor: InviteActor,
   deps: InviteDeps = {},
@@ -208,7 +208,7 @@ function mailOutcome(mode: InviteMailMode, sent: MailDeliveryResult): InviteMail
 /**
  * Owner-only. Invites one email address for seven days and emails the link
  * through Resend when it is set up. The invite and its copyable link exist
- * even when mail is not set up or fails. A future MCP tool can call this.
+ * even when mail is not set up or fails. MCP tools call this too.
  */
 export async function createHouseholdInvite(
   actor: InviteActor,
@@ -285,7 +285,7 @@ export async function createHouseholdInvite(
   });
 }
 
-/** Owner-only. The same link the email carried, for an open invite. A future MCP tool can call this. */
+/** Owner-only. The same link the email carried, for an open invite. MCP tools call this too. */
 export async function copyHouseholdInviteLink(
   actor: InviteActor,
   inviteId: string,
@@ -304,7 +304,7 @@ export async function copyHouseholdInviteLink(
   }
 }
 
-/** Owner-only. The link stops working right away. A future MCP tool can call this. */
+/** Owner-only. The link stops working right away. MCP tools call this too. */
 export async function revokeHouseholdInvite(
   actor: InviteActor,
   inviteId: string,

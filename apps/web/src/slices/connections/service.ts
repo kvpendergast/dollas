@@ -31,14 +31,14 @@ import { bankProviderRegistry } from "./registry";
 import { drizzleBankConnectionQueries } from "./store";
 
 /**
- * Bank slice services. A page action and a future MCP tool both call these.
+ * Bank slice services. A page action and an MCP tool both call these.
  * They run on the server as the signed-in member. They do not read form data
  * and they do not render.
  *
  * Functions marked UI-only finish a bank login or touch provider secrets.
  * MCP must not call those. A bank password, a Plaid key, a link token, and a
  * public token are not MCP inputs or outputs. Listing connections, syncing,
- * and disconnecting are the operations a later MCP tool can call.
+ * and disconnecting are what the MCP tools call.
  */
 export type BankActor = {
   userId: string;
