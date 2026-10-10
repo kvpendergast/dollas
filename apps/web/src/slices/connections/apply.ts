@@ -10,6 +10,7 @@ import {
   shiftCivilDate,
   type PayeeCategoryRule,
   type PlannedBankLink,
+  type PlannedBankRekey,
   type PlannedBankRemoval,
   type PlannedBankTransaction,
   type PlannedBankUpdate,
@@ -52,14 +53,27 @@ export async function applyBankSync(
     })
     .from(ledgerAccount)
     .where(eq(ledgerAccount.householdId, input.householdId));
-  const links = await tx
+  const linkRows = await tx
     .select({
       providerId: bankAccount.providerId,
       providerAccountId: bankAccount.providerAccountId,
       ledgerAccountId: bankAccount.ledgerAccountId,
+      connectionId: bankAccount.connectionId,
+      providerName: bankAccount.providerAccountName,
+      mask: bankAccount.providerAccountMask,
     })
     .from(bankAccount)
     .where(eq(bankAccount.householdId, input.householdId));
+  // PEN-251: a link whose connection was disconnected is inactive. Only those
+  // can be reattached to a new provider account, and only their rows re-keyed.
+  const links = linkRows.map((link) => ({
+    providerId: link.providerId,
+    providerAccountId: link.providerAccountId,
+    ledgerAccountId: link.ledgerAccountId,
+    active: link.connectionId != null,
+    providerName: link.providerName,
+    mask: link.mask,
+  }));
   const books = await loadSyncBooks(tx, input.householdId, input.providerId, [
     ...input.transactions,
     ...(input.modified ?? []),
@@ -96,6 +110,7 @@ export async function applyBankSync(
           books,
           rules,
           fallbacks,
+          since: input.since,
         })
       : planBankSync({
           providerId: input.providerId,
@@ -108,6 +123,7 @@ export async function applyBankSync(
           books,
           rules,
           fallbacks,
+          since: input.since,
         });
   if (plan.isErr()) throw plan.error;
   const plannedTransactions = "added" in plan.value ? plan.value.added : plan.value.transactions;
@@ -118,7 +134,17 @@ export async function applyBankSync(
     throw new ProviderSyncError("The bank sent a transaction Dollas could not categorize. Try syncing again.");
   }
 
+  const providerAccounts = new Map(input.accounts.map((account) => [account.providerAccountId, account]));
+  const described = (providerAccountId: string) => {
+    const account = providerAccounts.get(providerAccountId);
+    const name = account?.name.trim() ?? "";
+    return {
+      providerAccountName: name.length >= 1 && name.length <= 200 && !/[\u0000-\u001f\u007f]/.test(name) ? name : null,
+      providerAccountMask: account?.mask && /^[A-Za-z0-9]{1,8}$/.test(account.mask) ? account.mask : null,
+    };
+  };
   const ledgerIdByProvider = new Map<string, string>();
+  let reattached = 0;
   for (const account of plan.value.accounts) {
     if (account.kind === "create") {
       const [created] = await tx
@@ -138,6 +164,7 @@ export async function applyBankSync(
         ledgerAccountId: created.id,
         balanceCents: account.balanceCents,
         currency: account.currency,
+        ...described(account.providerAccountId),
       });
       ledgerIdByProvider.set(account.providerAccountId, created.id);
       continue;
@@ -151,7 +178,32 @@ export async function applyBankSync(
         ledgerAccountId: account.ledgerAccountId,
         balanceCents: account.balanceCents,
         currency: account.currency,
+        ...described(account.providerAccountId),
       });
+    } else if (account.kind === "reattach") {
+      // Re-point the disconnected link only if it is still disconnected (a
+      // concurrent relink cannot steal an active one).
+      const moved = await tx
+        .update(bankAccount)
+        .set({
+          providerAccountId: account.providerAccountId,
+          connectionId: input.connectionId,
+          balanceCents: account.balanceCents,
+          currency: account.currency,
+          ...described(account.providerAccountId),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(bankAccount.householdId, input.householdId),
+            eq(bankAccount.providerId, input.providerId),
+            eq(bankAccount.providerAccountId, account.previousProviderAccountId),
+            isNull(bankAccount.connectionId),
+          ),
+        )
+        .returning({ id: bankAccount.id });
+      if (moved.length === 0) throw new ProviderSyncError("That bank account changed while syncing. Try syncing again.");
+      reattached += 1;
     } else {
       await tx
         .update(bankAccount)
@@ -159,6 +211,7 @@ export async function applyBankSync(
           connectionId: input.connectionId,
           balanceCents: account.balanceCents,
           currency: account.currency,
+          ...described(account.providerAccountId),
           updatedAt: new Date(),
         })
         .where(
@@ -172,6 +225,8 @@ export async function applyBankSync(
     ledgerIdByProvider.set(account.providerAccountId, account.ledgerAccountId);
   }
 
+  // Re-key before inserting, so nothing new can take an identity a re-keyed row needs.
+  const rekeyedIds = await rekeyPlanned(tx, input.householdId, input.providerId, plan.value.rekeys);
   const addedIds = await insertPlanned(tx, input.householdId, input.providerId, plannedTransactions, ledgerIdByProvider);
   const linkedIds = await linkPlanned(tx, input.householdId, input.providerId, plannedLinks);
   const updatedIds = await updatePlanned(tx, input.householdId, input.providerId, plannedUpdates);
@@ -199,7 +254,14 @@ export async function applyBankSync(
       .where(and(eq(bankConnection.id, input.connectionId), eq(bankConnection.householdId, input.householdId)));
   }
 
-  return { accounts: plan.value.accounts.length, transactions: added, matched, updated, removed: removedCount };
+  return {
+    accounts: plan.value.accounts.length,
+    transactions: added,
+    matched,
+    updated,
+    removed: removedCount,
+    reconnected: { accounts: reattached, transactions: rekeyedIds.length },
+  };
 }
 
 export type BankSyncCounts = {
@@ -210,6 +272,8 @@ export type BankSyncCounts = {
   matched: number;
   updated: number;
   removed: number;
+  /** PEN-251: accounts and charges carried over from a disconnected connection to this one instead of being added again. */
+  reconnected: { accounts: number; transactions: number };
 };
 
 /**
@@ -238,6 +302,7 @@ async function loadSyncBooks(
     bankTransactionId: transaction.bankTransactionId,
     bankMatchedAt: transaction.bankMatchedAt,
     importFingerprint: transaction.importFingerprint,
+    bankOccurredOn: transaction.bankOccurredOn,
   };
   const known = await tx
     .select(columns)
@@ -286,6 +351,7 @@ async function loadSyncBooks(
           : null,
       importFingerprint: row.importFingerprint,
       matched: row.bankMatchedAt != null,
+      bankOccurredOn: row.bankOccurredOn,
     });
   }
   return rows;
@@ -381,6 +447,38 @@ async function linkPlanned(
       .where(and(eq(transaction.id, link.transactionId), eq(transaction.householdId, householdId), isNull(transaction.bankTransactionId)))
       .returning({ id: transaction.id });
     ids.push(...linked.map((row) => row.id));
+  }
+  return ids;
+}
+
+/**
+ * PEN-251: move a charge's identity to the id the reconnected provider uses.
+ * Only the identity columns change; the update matches on the old identity,
+ * so a row that changed meanwhile is left alone. The row keeps its id, so
+ * recurring links, splits, notes, attribution, and a soft delete all stay.
+ */
+async function rekeyPlanned(
+  tx: AppTx,
+  householdId: string,
+  providerId: string,
+  rekeys: readonly PlannedBankRekey[],
+): Promise<string[]> {
+  const ids: string[] = [];
+  for (const rekey of rekeys) {
+    const moved = await tx
+      .update(transaction)
+      .set({ bankAccountRef: rekey.providerAccountId, bankTransactionId: rekey.providerTransactionId })
+      .where(
+        and(
+          eq(transaction.householdId, householdId),
+          eq(transaction.id, rekey.transactionId),
+          eq(transaction.bankProviderId, providerId),
+          eq(transaction.bankAccountRef, rekey.previous.providerAccountId),
+          eq(transaction.bankTransactionId, rekey.previous.providerTransactionId),
+        ),
+      )
+      .returning({ id: transaction.id });
+    ids.push(...moved.map((row) => row.id));
   }
   return ids;
 }

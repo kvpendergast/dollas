@@ -392,6 +392,8 @@ export {
   type BankSyncPlan,
   type PlannedBankAccount,
   type PlannedBankLink,
+  type PlannedBankRekey,
+  planReattachments,
   type SyncBookTransaction,
   type PlannedBankRemoval,
   type PlannedBankTransaction,

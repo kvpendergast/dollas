@@ -420,12 +420,14 @@ function parseAccount(entry: unknown): Result<ProviderAccount, ProviderSyncError
   const available = typeof balanceRecord.available === "number" ? balanceRecord.available : null;
   const balanceCents = plaidBalanceToCents(type, current, available);
   if (balanceCents.isErr()) return err(balanceCents.error);
+  const mask = typeof record.mask === "string" && /^[A-Za-z0-9]{1,8}$/.test(record.mask.trim()) ? record.mask.trim() : null;
   return ok({
     providerAccountId,
     name,
     type,
     currency,
     balanceCents: balanceCents.value,
+    ...(mask ? { mask } : {}),
   });
 }
 

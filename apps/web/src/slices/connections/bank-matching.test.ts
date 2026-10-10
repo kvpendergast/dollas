@@ -202,7 +202,7 @@ describe("idempotent bank sync and cross-source matching (PEN-203)", () => {
       const mapleConnection = linked.value.connectionId;
       const first = await syncBankConnection(ada, mapleConnection);
       assert.ok(first.ok, JSON.stringify(first));
-      assert.deepEqual(first.value, { accounts: 1, transactions: 1, matched: 2, updated: 0, removed: 0 });
+      assert.deepEqual(first.value, { accounts: 1, transactions: 1, matched: 2, updated: 0, removed: 0, reconnected: { accounts: 0, transactions: 0 } });
       assert.match(syncMessage(first.value), /matched 2 you already had/);
 
       let rows = await rowsOn(mapleChecking.id);
@@ -224,7 +224,7 @@ describe("idempotent bank sync and cross-source matching (PEN-203)", () => {
       // ---- Re-running sync is a no-op. ----
       const again = await syncBankConnection(ada, mapleConnection);
       assert.ok(again.ok);
-      assert.deepEqual(again.value, { accounts: 1, transactions: 0, matched: 0, updated: 0, removed: 0 });
+      assert.deepEqual(again.value, { accounts: 1, transactions: 0, matched: 0, updated: 0, removed: 0, reconnected: { accounts: 0, transactions: 0 } });
       assert.equal(syncMessage(again.value), "Updated 1 account. No new transactions.");
       assert.equal((await rowsOn(mapleChecking.id)).length, 4);
 
@@ -353,14 +353,14 @@ describe("idempotent bank sync and cross-source matching (PEN-203)", () => {
           }),
         );
       const page1 = { added: [plaidTxn("pending-1", "2026-09-04", -4200, { pending: true }), plaidTxn("bus-1", "2026-09-06", -1500, { payee: "TRANSIT" })] };
-      assert.deepEqual(await plaidSync(page1), { accounts: 1, transactions: 1, matched: 0, updated: 0, removed: 0 }, "pending is not booked");
+      assert.deepEqual(await plaidSync(page1), { accounts: 1, transactions: 1, matched: 0, updated: 0, removed: 0, reconnected: { accounts: 0, transactions: 0 } }, "pending is not booked");
       const page2 = {
         added: [plaidTxn("posted-1", "2026-09-08", -4200, { authorizedOn: "2026-09-04", pendingTransactionId: "pending-1" })],
         removed: ["pending-1"],
       };
-      assert.deepEqual(await plaidSync(page2), { accounts: 1, transactions: 0, matched: 1, updated: 0, removed: 0 }, "posted row links to the typed-in row");
-      assert.deepEqual(await plaidSync(page1), { accounts: 1, transactions: 0, matched: 0, updated: 0, removed: 0 }, "replaying page 1 is a no-op");
-      assert.deepEqual(await plaidSync(page2), { accounts: 1, transactions: 0, matched: 0, updated: 0, removed: 0 }, "replaying page 2 is a no-op");
+      assert.deepEqual(await plaidSync(page2), { accounts: 1, transactions: 0, matched: 1, updated: 0, removed: 0, reconnected: { accounts: 0, transactions: 0 } }, "posted row links to the typed-in row");
+      assert.deepEqual(await plaidSync(page1), { accounts: 1, transactions: 0, matched: 0, updated: 0, removed: 0, reconnected: { accounts: 0, transactions: 0 } }, "replaying page 1 is a no-op");
+      assert.deepEqual(await plaidSync(page2), { accounts: 1, transactions: 0, matched: 0, updated: 0, removed: 0, reconnected: { accounts: 0, transactions: 0 } }, "replaying page 2 is a no-op");
       let plaidRows = await rowsOn(plaidChecking.id);
       assert.equal(plaidRows.length, 2);
       assert.deepEqual(
@@ -384,7 +384,7 @@ describe("idempotent bank sync and cross-source matching (PEN-203)", () => {
       assert.deepEqual([unlinked?.deleted_at, unlinked?.bank_transaction_id], [null, null], "the matched row is unlinked and kept");
       assert.deepEqual(
         await plaidSync({ added: [plaidTxn("bus-1", "2026-09-06", -1500, { payee: "TRANSIT" })] }),
-        { accounts: 1, transactions: 0, matched: 0, updated: 0, removed: 0 },
+        { accounts: 1, transactions: 0, matched: 0, updated: 0, removed: 0, reconnected: { accounts: 0, transactions: 0 } },
         "a removed (deleted) charge listed again does not come back",
       );
 
@@ -400,7 +400,7 @@ describe("idempotent bank sync and cross-source matching (PEN-203)", () => {
       assert.equal(orphan?.import_fingerprint, "bank:plaid:orphan", "a row not tied to a Plaid account keeps its legacy fingerprint");
       assert.deepEqual(
         await plaidSync({ added: [plaidTxn("old/id é", "2026-09-02", -100), plaidTxn("orphan", "2026-09-02", -100)] }),
-        { accounts: 1, transactions: 0, matched: 0, updated: 0, removed: 0 },
+        { accounts: 1, transactions: 0, matched: 0, updated: 0, removed: 0, reconnected: { accounts: 0, transactions: 0 } },
         "backfilled and legacy identities are both known",
       );
     } finally {

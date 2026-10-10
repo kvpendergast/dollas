@@ -28,6 +28,12 @@ export type ProviderAccount = {
   type: ProviderAccountType;
   currency: string;
   balanceCents?: Cents;
+  /**
+   * The last digits the bank shows for the account (Plaid `mask`), when the
+   * provider sends them. Not secret. Used with the type to recognize the same
+   * account after a reconnect gives it a new provider id (PEN-251).
+   */
+  mask?: string;
 };
 
 /**
