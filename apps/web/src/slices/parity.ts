@@ -108,7 +108,7 @@ export const PAGE_PARITY: Record<string, Parity> = {
   "/history": { tools: ["get_spending_history"] },
   "/household": { tools: ["list_household"] },
   "/plan": { tools: ["get_plan", "preview_copy_last_month"] },
-  "/projection": { tools: ["get_spend_estimate"] },
+  "/estimate": { tools: ["get_spend_estimate"] },
   "/recurring": { tools: ["list_recurring_items", "suggest_recurring_items", "list_categories", "list_accounts"] },
   "/recurring/[id]": { tools: ["get_recurring_item"] },
   // The Connected agents card on this page is UI-only (AGENT_CONSENT).

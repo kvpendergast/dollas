@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/*": ["./drizzle/**/*.sql", "./drizzle/meta/_journal.json"],
   },
+  async redirects() {
+    // PEN-205: the page is called Spend estimate everywhere, so is its route.
+    return [{ source: "/projection", destination: "/estimate", permanent: true }];
+  },
 };
 
 export default nextConfig;

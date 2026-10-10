@@ -1,10 +1,11 @@
 import type { HistoryColumn, SpendEstimate } from "@dollas/domain";
 import { failure, succeed, type ServiceResult } from "@/lib/service-result";
 import type { BooksContext } from "@/slices/access/member";
-import { loadHistory, loadHome, loadProjection } from "./queries";
+import { loadSpendEstimate } from "./estimate";
+import { loadHistory, loadHome } from "./queries";
 
 /**
- * Read services for Home, History, and the spend projection, shared by those
+ * Read services for Home, History, and the Spend estimate, shared by those
  * pages and MCP tools. Results are integer cents.
  */
 
@@ -27,11 +28,15 @@ export async function getSpendingHistory(books: BooksContext): Promise<ServiceRe
   }
 }
 
-/** This month's spend so far and the projected month-end spend. */
+/**
+ * Spend estimate for the rest of this month and all of next: spent so far,
+ * recurring items still expected, and the pace of everyday spending, per
+ * category. Home's estimate card shows the same numbers.
+ */
 export async function getSpendEstimate(books: BooksContext): Promise<ServiceResult<SpendEstimate>> {
   try {
-    return succeed(await loadProjection(books));
+    return succeed(await loadSpendEstimate(books));
   } catch (error) {
-    return failure(error, "Could not load the spend estimate.", { action: "load-projection", householdId: books.householdId });
+    return failure(error, "Could not load the spend estimate.", { action: "load-spend-estimate", householdId: books.householdId });
   }
 }

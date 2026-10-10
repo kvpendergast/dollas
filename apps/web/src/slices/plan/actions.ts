@@ -28,6 +28,7 @@ export async function setBudgetAction(_state: { error: string }, formData: FormD
   if (!result.ok) return { error: result.memberMessage };
   revalidatePath("/plan");
   revalidatePath("/");
+  revalidatePath("/estimate");
   return { error: "" };
 }
 
@@ -39,5 +40,6 @@ export async function copyPreviousMonthAction(_state: { error: string }, formDat
   if (!copied.ok) return { error: copied.memberMessage };
   revalidatePath("/plan");
   revalidatePath("/");
+  revalidatePath("/estimate");
   redirect(`/plan?month=${formatBudgetMonth(month.value)}`);
 }

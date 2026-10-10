@@ -12,6 +12,7 @@ export default async function HomePage() {
   const books = await requireBooks();
   const home = await loadHome(books);
   const leftTone = home.leftCents < 0 ? "text-over" : "text-income";
+  const money = (cents: number) => formatCents(cents, books.currency);
   return (
     <div className="space-y-6">
       <div>
@@ -57,15 +58,21 @@ export default async function HomePage() {
             <CardTitle>Spend estimate</CardTitle>
             <Badge>Estimate</Badge>
           </div>
-          <CardDescription>Labeled as an estimate. The month is not finished.</CardDescription>
+          <CardDescription>Where this month is probably headed. The month is not finished.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="font-serif text-5xl tabular-nums">{formatCents(home.estimate.estimateCents)}</p>
-          <p className="text-sm text-muted-foreground">
-            {formatCents(home.estimate.spentSoFarCents)} spent across {home.estimate.daysElapsed} of {home.estimate.daysInMonth} days.
+          <p className="font-serif text-5xl tabular-nums">{money(home.estimate.estimateCents)}</p>
+          <p className="text-sm text-muted-foreground tabular-nums">
+            {money(home.estimate.spentSoFarCents)} spent so far + {money(home.estimate.recurringExpectedCents)} in recurring bills +{" "}
+            {money(home.estimate.paceCents)} of everyday spending ahead.
           </p>
-          <Link href="/projection" className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
-            See the estimate
+          <p className="text-sm text-muted-foreground">
+            {home.estimate.paceBasis === "not_enough_history"
+              ? "Not enough history yet for an everyday pace, so this counts recurring bills only."
+              : `About ${money(home.estimate.dailyPaceCents)} a day of everyday spending.`}
+          </p>
+          <Link href="/estimate" className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
+            See the breakdown and next month
           </Link>
         </CardContent>
       </Card>

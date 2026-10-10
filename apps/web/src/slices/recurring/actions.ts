@@ -20,6 +20,8 @@ export type RecurringFormState = { error: string; message: string; savedId?: str
 function revalidateRecurring() {
   revalidatePath("/recurring", "layout");
   revalidatePath("/activity");
+  revalidatePath("/");
+  revalidatePath("/estimate");
 }
 
 function linkedCopy(linked: number): string {

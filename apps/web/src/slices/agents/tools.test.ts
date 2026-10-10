@@ -344,11 +344,15 @@ describe("Dollas MCP tools", () => {
       assert.equal((copied.copied as unknown[]).length, 1);
       assert.equal((await ada.call("get_plan", { month: "2026-13" })).isError, true);
 
-      // Home, projection, history.
+      // Home, Spend estimate, history.
       const summary = await ada.ok("get_month_summary");
       assert.equal(typeof summary.spent_cents, "number");
       const estimate = await ada.ok("get_spend_estimate");
       assert.equal(estimate.kind, "estimate");
+      const estimateNow = estimate.this_month as Record<string, number>;
+      assert.equal(estimateNow.estimate_cents, (summary.estimate as Record<string, number>).estimate_cents, "Home and Spend estimate agree");
+      assert.equal(estimateNow.spent_so_far_cents, summary.spent_cents);
+      assert.ok("next_month" in estimate && "pace" in estimate && Array.isArray(estimate.categories));
       const history = await ada.ok("get_spending_history");
       assert.equal((history.months as unknown[]).length, 12);
 

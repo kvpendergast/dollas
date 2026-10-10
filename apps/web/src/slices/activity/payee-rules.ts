@@ -11,7 +11,7 @@ function revalidateMoney() {
   revalidatePath("/");
   revalidatePath("/plan");
   revalidatePath("/history");
-  revalidatePath("/projection");
+  revalidatePath("/estimate");
 }
 
 function ruleInput(formData: FormData) {
