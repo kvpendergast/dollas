@@ -132,12 +132,12 @@ function SliceList({
 
 export function SpendingDashboardView({ board }: { board: SpendingDashboard }) {
   const filter = board.filter;
-  const drill = (patch: Partial<SpendingFilter>) => filterHref("/activity", { ...filter, ...patch }, "all");
+  const drill = (patch: Partial<SpendingFilter>) => `${filterHref("/activity", { ...filter, ...patch }, "all")}#transactions`;
   const spent = board.totals.spentCents;
   const range = board.from || board.to ? `${board.from ?? "the start"} to ${board.to ?? "today"}` : "all dates";
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Card size="sm">
           <CardHeader>
             <CardDescription>Spent</CardDescription>

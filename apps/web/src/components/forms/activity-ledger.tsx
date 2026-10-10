@@ -38,7 +38,7 @@ function attributionLine(item: Pick<LedgerTransaction, "sources" | "addedBy" | "
   // A CSV row the bank matched already wears a "Matched to bank" badge; call it imported.
   const sources = item.sources ?? ["manual"];
   const source = SOURCE_WORDS[sources.includes("csv") ? "csv" : sources.includes("bank") ? "bank" : "manual"];
-  const added = item.addedBy ? `${source} by ${item.addedBy.name}` : `${source} · added by Unknown`;
+  const added = `${source} by ${item.addedBy ? item.addedBy.name : "Unknown"}`;
   if (item.categorizedBy && item.categorizedBy.id !== item.addedBy?.id) return `${added} · categorized by ${item.categorizedBy.name}`;
   return added;
 }

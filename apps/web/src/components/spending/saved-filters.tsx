@@ -82,7 +82,7 @@ function SavedRow({ id, name, href, createdBy }: { id: string; name: string; hre
 }
 
 /** The household's saved filters: apply one here, save the current filter, rename, or delete. */
-export function SavedFilters({ path, ctx }: { path: string; ctx: FilterContext }) {
+export function SavedFilters({ path, anchor = "", ctx }: { path: string; anchor?: string; ctx: FilterContext }) {
   const [saveState, saveAction, saving] = useActionState(saveFilterAction, EMPTY);
   const current = ctx.saved.find((row) => sameFilter(row.filter, ctx.filter));
   return (
@@ -93,7 +93,7 @@ export function SavedFilters({ path, ctx }: { path: string; ctx: FilterContext }
           {ctx.saved.map((row) => (
             <Link
               key={row.id}
-              href={filterHref(path, row.filter, ctx.defaultRange)}
+              href={filterHref(path, row.filter, ctx.defaultRange) + anchor}
               aria-current={current?.id === row.id ? "true" : undefined}
               className="rounded-full border border-border px-3 py-1 text-xs hover:bg-muted aria-[current=true]:border-primary aria-[current=true]:bg-primary aria-[current=true]:text-primary-foreground"
             >
@@ -102,11 +102,11 @@ export function SavedFilters({ path, ctx }: { path: string; ctx: FilterContext }
           ))}
         </nav>
       ) : null}
-      <details className="relative">
-        <summary className="cursor-pointer list-none rounded-full px-2 py-1 text-xs font-medium text-primary hover:underline">
+      <details className="w-full">
+        <summary className="w-fit cursor-pointer list-none py-1 text-xs font-medium text-primary hover:underline">
           {current ? `Manage saved filters` : "Save this filter"}
         </summary>
-        <div className="mt-2 w-[min(28rem,calc(100vw-3rem))] space-y-3 rounded-lg border border-border bg-card p-3 shadow-sm">
+        <div className="mt-2 max-w-md space-y-3 rounded-lg border border-border bg-card p-3 shadow-sm">
           {!current ? (
             <form action={saveAction} className="space-y-1">
               <input type="hidden" name="filter" value={JSON.stringify(ctx.filter)} />
@@ -127,7 +127,7 @@ export function SavedFilters({ path, ctx }: { path: string; ctx: FilterContext }
           {ctx.saved.length > 0 ? (
             <ul className="divide-y divide-border">
               {ctx.saved.map((row) => (
-                <SavedRow key={row.id} id={row.id} name={row.name} createdBy={row.createdBy} href={filterHref(path, row.filter, ctx.defaultRange)} />
+                <SavedRow key={row.id} id={row.id} name={row.name} createdBy={row.createdBy} href={filterHref(path, row.filter, ctx.defaultRange) + anchor} />
               ))}
             </ul>
           ) : null}

@@ -8,6 +8,8 @@ export type TrendBucket = {
   spentCents: number;
   /** Contains today and runs past it: shown hatched as "so far". */
   partial: boolean;
+  /** Starts after its natural week or month start because the range does; the next bucket does not compare against it. */
+  clipped: boolean;
   /** Change from the previous bucket; a partial bucket is not comparable yet. */
   change: { comparable: true; deltaCents: number; direction: "less" | "more" | "same" } | { comparable: false; label: "Not comparable yet" } | null;
 };
@@ -53,8 +55,9 @@ export function buildSpendingTrend(input: {
     }
     const naturalEnd = end;
     if (end > to) end = to;
-    const label = unit === "week" ? `${shortDay(cursor)}` : `${MONTHS[Number(cursor.slice(5, 7)) - 1]} ${cursor.slice(2, 4)}`;
-    buckets.push({ from: cursor, to: end, label, spentCents: 0, partial: today >= cursor && today < naturalEnd && today <= end, change: null });
+    const clipped = unit === "week" ? (dayNumber(cursor) + 3) % 7 !== 0 : cursor.slice(8) !== "01";
+    const label = unit === "week" || clipped ? `${shortDay(cursor)}${clipped && unit === "month" ? "–" : ""}` : `${MONTHS[Number(cursor.slice(5, 7)) - 1]} ${cursor.slice(2, 4)}`;
+    buckets.push({ from: cursor, to: end, label, spentCents: 0, partial: today >= cursor && today < naturalEnd && today <= end, clipped: clipped && buckets.length === 0, change: null });
     cursor = addDays(end, 1);
   }
   for (const line of input.lines) {
@@ -68,6 +71,8 @@ export function buildSpendingTrend(input: {
       bucket.change = { comparable: false, label: "Not comparable yet" };
       return;
     }
+    // A bucket after a clipped first bucket would compare against a part of a week or month.
+    if (buckets[index - 1].clipped) return;
     const deltaCents = bucket.spentCents - buckets[index - 1].spentCents;
     bucket.change = { comparable: true, deltaCents, direction: deltaCents < 0 ? "less" : deltaCents > 0 ? "more" : "same" };
   });

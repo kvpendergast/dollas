@@ -21,7 +21,7 @@ describe("buildSpendingTrend", () => {
       ["2026-10-01", "2026-10-04", 1500, false],
       ["2026-10-05", "2026-10-10", 2300, true],
     ]);
-    expect(trend.buckets[0].change).toBeNull();
+    expect(trend.buckets[0]).toMatchObject({ change: null, clipped: true });
     expect(trend.buckets[1].change).toEqual({ comparable: false, label: "Not comparable yet" });
   });
 
@@ -37,10 +37,26 @@ describe("buildSpendingTrend", () => {
       today: "2026-10-10",
     });
     expect(trend.unit).toBe("month");
-    expect(trend.buckets.map((b) => b.label)).toEqual(["Jul 26", "Aug 26", "Sep 26", "Oct 26"]);
-    expect(trend.buckets[1].change).toEqual({ comparable: true, deltaCents: -200, direction: "less" });
+    expect(trend.buckets.map((b) => b.label)).toEqual(["Jul 12–", "Aug 26", "Sep 26", "Oct 26"]);
+    expect(trend.buckets[0].clipped).toBe(true);
+    expect(trend.buckets[1].change).toBeNull();
     expect(trend.buckets[2].change).toEqual({ comparable: true, deltaCents: 0, direction: "same" });
     expect(trend.buckets[3]).toMatchObject({ partial: true, change: { comparable: false } });
+  });
+
+  it("compares finished months to each other", () => {
+    const trend = buildSpendingTrend({
+      lines: [
+        { occurredOn: "2026-07-15", spentCents: 1000 },
+        { occurredOn: "2026-08-15", spentCents: 800 },
+      ],
+      from: "2026-07-01",
+      to: "2026-09-30",
+      today: "2026-10-10",
+    });
+    expect(trend.buckets[0].clipped).toBe(false);
+    expect(trend.buckets[1].change).toEqual({ comparable: true, deltaCents: -200, direction: "less" });
+    expect(trend.buckets[2].change).toEqual({ comparable: true, deltaCents: -800, direction: "less" });
   });
 
   it("a past range has no partial bucket", () => {

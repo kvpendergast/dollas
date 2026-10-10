@@ -19,11 +19,11 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
           Where the money went, filtered any way you like, and month over month. Pick a category or account to see its transactions.
         </p>
       </div>
-      <section className="space-y-4" aria-labelledby="spending-heading">
+      <section id="spending" className="scroll-mt-20 space-y-4" aria-labelledby="spending-heading">
         <h2 id="spending-heading" className="font-serif text-2xl">
           Spending
         </h2>
-        <FilterBar path="/history" ctx={filters} />
+        <FilterBar path="/history" anchor="#spending" ctx={filters} />
         <SpendingDashboardView board={board.value} />
       </section>
       <section className="space-y-4" aria-labelledby="months-heading">

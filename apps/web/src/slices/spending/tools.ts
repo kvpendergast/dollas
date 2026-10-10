@@ -140,6 +140,7 @@ function shownBoard(board: SpendingDashboard) {
         label: bucket.label,
         spent_cents: bucket.spentCents,
         partial: bucket.partial,
+        clipped: bucket.clipped,
         change: bucket.change == null ? null : bucket.change.comparable ? { delta_cents: bucket.change.deltaCents, direction: bucket.change.direction } : { comparable: false, label: bucket.change.label },
       })),
     },

@@ -66,7 +66,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
     loadCsvImportPanel(),
   ]);
   const filtered = filterToSearchParams(filters.filter, "all").toString() !== "";
-  const hrefFor = (page: number) => filterHref("/activity", filters.filter, "all", page > 1 ? { page: String(page) } : {});
+  const hrefFor = (page: number) => `${filterHref("/activity", filters.filter, "all", page > 1 ? { page: String(page) } : {})}#transactions`;
   const newEntryAccounts = accountsForActiveLists(activity.accounts, books.householdId);
   return (
     <div className="space-y-6">
@@ -74,6 +74,10 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
         <h1 className="font-serif text-4xl">Activity</h1>
         <p className="text-sm text-muted-foreground">
           What came in, what went out, splits included.{" "}
+          <a href="#transactions" className="font-medium text-primary underline-offset-4 hover:underline">
+            Find a transaction
+          </a>{" "}
+          ·{" "}
           <a href="#import" className="font-medium text-primary underline-offset-4 hover:underline">
             Import a CSV
           </a>{" "}
@@ -101,11 +105,11 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
           ) : null}
         </CardContent>
       </Card>
-      <section className="space-y-4" aria-labelledby="ledger-heading">
+      <section id="transactions" className="scroll-mt-20 space-y-4" aria-labelledby="ledger-heading">
         <h2 id="ledger-heading" className="font-serif text-2xl">
           Transactions
         </h2>
-        <FilterBar path="/activity" ctx={filters} />
+        <FilterBar path="/activity" anchor="#transactions" ctx={filters} />
         <Pager page={activity.page} pageCount={activity.pageCount} total={activity.total} hrefFor={hrefFor} />
         {activity.transactions.length === 0 ? (
           <p className="text-sm text-muted-foreground">

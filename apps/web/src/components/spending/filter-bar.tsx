@@ -47,9 +47,9 @@ const selectClass = "h-9 w-full rounded-md border border-input bg-background px-
 
 type Chip = { label: string; href: string };
 
-function chipsFor(path: string, ctx: FilterContext): Chip[] {
+function chipsFor(path: string, anchor: string, ctx: FilterContext): Chip[] {
   const { filter, defaultRange, choices } = ctx;
-  const without = (patch: Partial<SpendingFilter>) => filterHref(path, { ...filter, ...patch }, defaultRange);
+  const without = (patch: Partial<SpendingFilter>) => filterHref(path, { ...filter, ...patch }, defaultRange) + anchor;
   const chips: Chip[] = [];
   const range = resolveFilterRange(filter, ctx.today);
   if (filter.range !== defaultRange) {
@@ -82,17 +82,28 @@ function chipsFor(path: string, ctx: FilterContext): Chip[] {
   return chips;
 }
 
-export function FilterBar({ path, ctx, searchPlaceholder = "Search payees and notes" }: { path: string; ctx: FilterContext; searchPlaceholder?: string }) {
-  const { filter, choices, defaultRange } = ctx;
-  const chips = chipsFor(path, ctx);
+/** `anchor` (e.g. "#transactions") keeps the results in view after a filter change, which matters on a phone. */
+export function FilterBar({
+  path,
+  ctx,
+  anchor = "",
+  searchPlaceholder = "Search payees and notes",
+}: {
+  path: string;
+  ctx: FilterContext;
+  anchor?: string;
+  searchPlaceholder?: string;
+}) {
+  const { filter, choices } = ctx;
+  const chips = chipsFor(path, anchor, ctx);
   const count = activeFilterCount(filter);
-  const clearHref = path;
+  const clearHref = path + anchor;
   return (
     <div className="space-y-3">
-      <form action={path} method="get" className="space-y-3" role="search" aria-label="Filter transactions">
+      <form action={path + anchor} method="get" className="space-y-3" role="search" aria-label="Filter transactions">
         <div className="flex flex-wrap items-center gap-2">
           <Input type="search" name="q" defaultValue={filter.search} placeholder={searchPlaceholder} aria-label="Search" className="h-9 min-w-0 flex-1 basis-48" maxLength={100} />
-          <select name="range" defaultValue={filter.range} aria-label="Dates" className={`${selectClass} w-auto`}>
+          <select name="range" defaultValue={filter.range} aria-label="Dates" className="h-9 rounded-md border border-input bg-background px-2 text-sm">
             {RANGE_PRESETS.map((preset) => (
               <option key={preset} value={preset}>
                 {RANGE_LABELS[preset]}
@@ -103,12 +114,12 @@ export function FilterBar({ path, ctx, searchPlaceholder = "Search payees and no
             Search
           </Button>
         </div>
-        <details className="group rounded-lg border border-border">
+        <details className="group @container rounded-lg border border-border">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-sm font-medium">
             <span>Filters{count > 0 ? ` (${count})` : ""}</span>
             <span className="text-xs text-muted-foreground group-open:hidden">Accounts, categories, people, source, amount</span>
           </summary>
-          <div className="grid gap-5 border-t border-border p-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-5 border-t border-border p-3 @lg:grid-cols-2 @4xl:grid-cols-4">
             <Fieldset legend="Custom dates">
               <div className="grid grid-cols-2 gap-2">
                 <label className="space-y-1 text-xs text-muted-foreground">
@@ -201,7 +212,7 @@ export function FilterBar({ path, ctx, searchPlaceholder = "Search payees and no
                 </label>
               </div>
             </Fieldset>
-            <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-4">
+            <div className="flex items-end gap-2 @lg:col-span-2 @4xl:col-span-4">
               <Button type="submit" size="sm">
                 Apply filters
               </Button>
@@ -232,7 +243,7 @@ export function FilterBar({ path, ctx, searchPlaceholder = "Search payees and no
           </li>
         </ul>
       ) : null}
-      <SavedFilters path={path} ctx={ctx} />
+      <SavedFilters path={path} anchor={anchor} ctx={ctx} />
     </div>
   );
 }
