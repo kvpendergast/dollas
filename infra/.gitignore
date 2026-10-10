@@ -1,0 +1,5 @@
+node_modules/
+bin/
+# Stack config holds encrypted secrets (owner URL, Vercel token). Keep it out of
+# git until PEN-211 decides how stacks are shared; `pulumi config` recreates it.
+Pulumi.*.yaml
