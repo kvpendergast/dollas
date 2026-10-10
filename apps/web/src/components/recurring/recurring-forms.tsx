@@ -213,7 +213,7 @@ export function RecurringItemForm({
             </div>
           ) : null}
           <div className="space-y-1.5">
-            <Label htmlFor={`${field}-start`}>Starts</Label>
+            <Label htmlFor={`${field}-start`}>Starts (optional)</Label>
             <Input id={`${field}-start`} name="startDate" type="date" className="h-10" defaultValue={values.startDate ?? ""} />
           </div>
           <div className="space-y-1.5">
@@ -419,6 +419,7 @@ export function MakeRecurringButton({ suggestion }: { suggestion: RecurringFormV
       {suggestion.secondDayOfMonth ? <input type="hidden" name="secondDayOfMonth" value={suggestion.secondDayOfMonth} /> : null}
       <input type="hidden" name="categoryId" value={suggestion.categoryId ?? ""} />
       <input type="hidden" name="accountId" value={suggestion.accountId ?? ""} />
+      <input type="hidden" name="tolerancePercent" value={suggestion.tolerancePercent} />
       <Button type="submit" variant="outline" className="h-10" disabled={pending} aria-label={`Make ${suggestion.name} recurring`}>
         {pending ? "Adding" : "Make recurring"}
       </Button>

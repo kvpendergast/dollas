@@ -82,7 +82,8 @@ export async function linkRecurringMatches(tx: AppTx, householdId: string, scope
       .where(and(eq(transaction.householdId, householdId), inArray(transaction.id, [...scope.transactionIds]), isNull(transaction.deletedAt)));
   } else {
     const item = items[0];
-    const from = addDays(scope.today, -BACKFILL_DAYS) > item.startDate ? addDays(scope.today, -BACKFILL_DAYS) : item.startDate;
+    const lookback = addDays(scope.today, -BACKFILL_DAYS);
+    const from = item.startDate && item.startDate > lookback ? item.startDate : lookback;
     candidates = await tx
       .select(candidateColumns)
       .from(transaction)

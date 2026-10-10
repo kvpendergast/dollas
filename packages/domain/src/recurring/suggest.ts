@@ -7,7 +7,8 @@ import { addDays, dayNumber, type Cadence } from "./schedule";
  * like a bill or paycheck. A group is one normalized payee (lowercase, digits
  * and punctuation dropped) and one sign. It qualifies with at least three live
  * transactions in the lookback, at least three quarters of the gaps between
- * them in one cadence band, every amount within 10% of the median, and a last
+ * them in one cadence band, every amount within 10% of the median (the
+ * suggested tolerance covers the spread), and a last
  * charge recent enough that it has not stopped. Payees an item already covers
  * are left out. Yearly and quarterly need more history than the lookback, so
  * they are not suggested.
@@ -30,6 +31,8 @@ export type RecurringSuggestion = {
   secondDayOfMonth: number | null;
   accountId: string | null;
   categoryId: string | null;
+  /** Wide enough for the spread seen (5 or 10 percent). */
+  tolerancePercent: number;
   count: number;
 };
 
@@ -73,7 +76,8 @@ export function suggestRecurringItems(input: {
     if (!band) continue;
     const amounts = rows.map((row) => row.amountCents).sort((a, b) => a - b);
     const median = amounts[Math.floor(amounts.length / 2)];
-    if (amounts.some((amount) => Math.abs(amount - median) > Math.abs(median) * 0.1)) continue;
+    const spread = Math.max(...amounts.map((amount) => Math.abs(amount - median) / Math.abs(median)));
+    if (spread > 0.1) continue;
     const last = rows[rows.length - 1];
     if (dayNumber(input.today) - dayNumber(last.occurredOn) > band.max * 2) continue;
     const payeeMatch = commonPrefix(rows.map((row) => row.payee)) || last.payee.trim();
@@ -92,6 +96,7 @@ export function suggestRecurringItems(input: {
       secondDayOfMonth,
       accountId: allSame(rows.map((row) => row.accountId)),
       categoryId: mostCommon(rows.map((row) => row.categoryId).filter((id): id is string => id != null)) ?? null,
+      tolerancePercent: spread > 0.05 ? 10 : 5,
       count: rows.length,
     });
   }

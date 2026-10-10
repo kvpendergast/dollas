@@ -88,59 +88,61 @@ export default async function RecurringItemPage({ params }: { params: Promise<{ 
 
         <Card>
           <CardHeader>
-            <CardTitle>Edit</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RecurringItemForm
-              submitLabel="Save"
-              categories={page.categories}
-              accounts={page.accounts}
-              values={{
-                id: item.id,
-                name: item.name,
-                payeeMatch: item.payeeMatch,
-                amountCents: item.amountCents,
-                cadence: item.cadence,
-                anchorDate: item.anchorDate,
-                dayOfMonth: item.dayOfMonth,
-                secondDayOfMonth: item.secondDayOfMonth,
-                categoryId: item.categoryId,
-                accountId: item.accountId,
-                tolerancePercent: item.tolerancePercent,
-                toleranceCents: item.toleranceCents,
-                windowDays: item.windowDays,
-                startDate: item.startDate,
-                endDate: item.endDate,
-              }}
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      {item.history.length > 0 ? (
-        <Card>
-          <CardHeader>
             <CardTitle>History</CardTitle>
             <CardDescription>Every transaction linked to {item.name}, newest first.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="divide-y divide-border">
-              {item.history.map((row) => (
-                <li key={row.transactionId} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                  <div className="min-w-0">
-                    <p className="truncate">{row.payee}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {row.occurredOn} · for {row.occurrenceDate}
-                      {row.source === "manual" ? " · linked by hand" : ""}
-                    </p>
-                  </div>
-                  <span className="tabular-nums">{money(row.amountCents)}</span>
-                </li>
-              ))}
-            </ul>
+            {item.history.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nothing linked yet. Link a transaction from Activity.</p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {item.history.map((row) => (
+                  <li key={row.transactionId} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                    <div className="min-w-0">
+                      <p className="truncate">{row.payee}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {row.occurredOn} · for {row.occurrenceDate}
+                        {row.source === "manual" ? " · linked by hand" : ""}
+                      </p>
+                    </div>
+                    <span className="tabular-nums">{money(row.amountCents)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
-      ) : null}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Edit</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RecurringItemForm
+            submitLabel="Save"
+            categories={page.categories}
+            accounts={page.accounts}
+            values={{
+              id: item.id,
+              name: item.name,
+              payeeMatch: item.payeeMatch,
+              amountCents: item.amountCents,
+              cadence: item.cadence,
+              anchorDate: item.anchorDate,
+              dayOfMonth: item.dayOfMonth,
+              secondDayOfMonth: item.secondDayOfMonth,
+              categoryId: item.categoryId,
+              accountId: item.accountId,
+              tolerancePercent: item.tolerancePercent,
+              toleranceCents: item.toleranceCents,
+              windowDays: item.windowDays,
+              startDate: item.startDate,
+              endDate: item.endDate,
+            }}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

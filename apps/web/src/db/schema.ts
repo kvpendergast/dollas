@@ -567,7 +567,8 @@ export const recurringItem = pgTable(
     tolerancePercent: integer("tolerance_percent").notNull().default(5),
     toleranceCents: integer("tolerance_cents").notNull().default(0),
     windowDays: integer("window_days").notNull().default(3),
-    startDate: date("start_date", { mode: "string" }).notNull(),
+    /** Null: no lower bound (backfill still looks back only 180 days). */
+    startDate: date("start_date", { mode: "string" }),
     endDate: date("end_date", { mode: "string" }),
     pausedAt: timestamp("paused_at", { withTimezone: true, mode: "date" }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
@@ -590,7 +591,10 @@ export const recurringItem = pgTable(
       "recurring_item_tolerance_chk",
       sql`${table.tolerancePercent} between 0 and 50 and ${table.toleranceCents} between 0 and 10000000 and ${table.windowDays} between 0 and 10`,
     ),
-    check("recurring_item_dates_chk", sql`${table.endDate} is null or ${table.endDate} >= ${table.startDate}`),
+    check(
+      "recurring_item_dates_chk",
+      sql`${table.endDate} is null or ${table.startDate} is null or ${table.endDate} >= ${table.startDate}`,
+    ),
     index("recurring_item_household_idx").on(table.householdId),
     pgPolicy("recurring_item_all", {
       for: "all",

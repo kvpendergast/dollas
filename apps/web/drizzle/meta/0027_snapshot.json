@@ -1,5 +1,5 @@
 {
-  "id": "b25c0f16-fe2c-4075-beda-989ee4225340",
+  "id": "de30b6cf-5ccb-49dd-927c-908909a921fb",
   "prevId": "6469c411-7023-4f8f-a940-8fb63c01a5b5",
   "version": "7",
   "dialect": "postgresql",
@@ -3104,7 +3104,7 @@
           "name": "start_date",
           "type": "date",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "end_date": {
           "name": "end_date",
@@ -3236,7 +3236,7 @@
         },
         "recurring_item_dates_chk": {
           "name": "recurring_item_dates_chk",
-          "value": "\"recurring_item\".\"end_date\" is null or \"recurring_item\".\"end_date\" >= \"recurring_item\".\"start_date\""
+          "value": "\"recurring_item\".\"end_date\" is null or \"recurring_item\".\"start_date\" is null or \"recurring_item\".\"end_date\" >= \"recurring_item\".\"start_date\""
         }
       },
       "isRLSEnabled": true

@@ -11,7 +11,7 @@
  *   day) and `secondDayOfMonth`, each clamped the same way. If both clamp to
  *   the same day (30th and 31st in February) that month has one occurrence.
  *
- * Occurrences never fall before `startDate` or after `endDate`.
+ * Occurrences never fall before `startDate` (when set) or after `endDate`.
  */
 export const CADENCES = ["weekly", "biweekly", "semimonthly", "monthly", "quarterly", "yearly"] as const;
 export type Cadence = (typeof CADENCES)[number];
@@ -33,7 +33,8 @@ export type RecurringSchedule = {
   dayOfMonth: number | null;
   /** Twice a month only: the second day (1-31). */
   secondDayOfMonth: number | null;
-  startDate: string;
+  /** Null: no lower bound. */
+  startDate: string | null;
   endDate: string | null;
 };
 
@@ -87,7 +88,7 @@ function monthIndex(year: number, month: number): number {
 
 /** Every expected date from `from` to `to`, inclusive, in order. */
 export function occurrencesBetween(schedule: RecurringSchedule, from: string, to: string): string[] {
-  const lower = from > schedule.startDate ? from : schedule.startDate;
+  const lower = schedule.startDate && schedule.startDate > from ? schedule.startDate : from;
   const upper = schedule.endDate && schedule.endDate < to ? schedule.endDate : to;
   if (!isCivilDate(lower) || !isCivilDate(upper) || !isCivilDate(schedule.anchorDate) || lower > upper) return [];
   const out: string[] = [];

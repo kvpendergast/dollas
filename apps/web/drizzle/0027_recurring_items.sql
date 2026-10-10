@@ -22,7 +22,7 @@ CREATE TABLE "recurring_item" (
 	"tolerance_percent" integer DEFAULT 5 NOT NULL,
 	"tolerance_cents" integer DEFAULT 0 NOT NULL,
 	"window_days" integer DEFAULT 3 NOT NULL,
-	"start_date" date NOT NULL,
+	"start_date" date,
 	"end_date" date,
 	"paused_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE "recurring_item" (
 	CONSTRAINT "recurring_item_day_chk" CHECK ("recurring_item"."day_of_month" is null or "recurring_item"."day_of_month" between 1 and 31),
 	CONSTRAINT "recurring_item_second_day_chk" CHECK (("recurring_item"."cadence" = 'semimonthly') = ("recurring_item"."second_day_of_month" is not null) and ("recurring_item"."second_day_of_month" is null or "recurring_item"."second_day_of_month" between 1 and 31)),
 	CONSTRAINT "recurring_item_tolerance_chk" CHECK ("recurring_item"."tolerance_percent" between 0 and 50 and "recurring_item"."tolerance_cents" between 0 and 10000000 and "recurring_item"."window_days" between 0 and 10),
-	CONSTRAINT "recurring_item_dates_chk" CHECK ("recurring_item"."end_date" is null or "recurring_item"."end_date" >= "recurring_item"."start_date")
+	CONSTRAINT "recurring_item_dates_chk" CHECK ("recurring_item"."end_date" is null or "recurring_item"."start_date" is null or "recurring_item"."end_date" >= "recurring_item"."start_date")
 );
 --> statement-breakpoint
 ALTER TABLE "recurring_item" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint

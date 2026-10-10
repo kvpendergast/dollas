@@ -106,7 +106,6 @@ export default async function RecurringPage() {
                     suggestion={{
                       ...suggestion,
                       dayOfMonth: null,
-                      tolerancePercent: 5,
                       toleranceCents: 0,
                       windowDays: 3,
                       startDate: null,

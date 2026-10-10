@@ -36,6 +36,7 @@ describe("recurring suggestions", () => {
     ]);
     expect(suggestions[0].secondDayOfMonth).toBe(15);
     expect(suggestions[1].categoryId).toBe("cat-streaming");
+    expect(suggestions.map((s) => s.tolerancePercent)).toEqual([5, 5]);
   });
 
   it("skips payees an item covers, stopped series, deleted rows, and uneven amounts", () => {

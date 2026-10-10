@@ -4,7 +4,7 @@ import { defineRecurringItem } from "./define";
 const base = { name: "Rent", amountCents: -150000, cadence: "monthly", anchorDate: "2026-10-01" };
 
 describe("defineRecurringItem", () => {
-  it("fills defaults: payee match from the name, 5% and ±3 days, start at the anchor", () => {
+  it("fills defaults: payee match from the name, 5% and ±3 days, no start bound", () => {
     const defined = defineRecurringItem(base)._unsafeUnwrap();
     expect(defined).toMatchObject({
       name: "Rent",
@@ -12,7 +12,7 @@ describe("defineRecurringItem", () => {
       tolerancePercent: 5,
       toleranceCents: 0,
       windowDays: 3,
-      startDate: "2026-10-01",
+      startDate: null,
       endDate: null,
       dayOfMonth: null,
     });
@@ -30,7 +30,8 @@ describe("defineRecurringItem", () => {
     );
     expect(defineRecurringItem({ ...base, windowDays: 11 }).isErr()).toBe(true);
     expect(defineRecurringItem({ ...base, tolerancePercent: 51 }).isErr()).toBe(true);
-    expect(defineRecurringItem({ ...base, endDate: "2026-09-30" })._unsafeUnwrapErr().message).toBe(
+    expect(defineRecurringItem({ ...base, endDate: "2026-09-30" }).isOk()).toBe(true);
+    expect(defineRecurringItem({ ...base, startDate: "2026-10-01", endDate: "2026-09-30" })._unsafeUnwrapErr().message).toBe(
       "The end date must be on or after the start date.",
     );
   });

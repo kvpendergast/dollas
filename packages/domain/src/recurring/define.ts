@@ -74,10 +74,10 @@ export function defineRecurringItem(input: RecurringItemInput): Result<Recurring
   if (!Number.isInteger(windowDays) || windowDays < 0 || windowDays > RECURRING_LIMITS.windowDays) {
     return err(new RecurringError(`The date window must be 0 to ${RECURRING_LIMITS.windowDays} days.`));
   }
-  const startDate = input.startDate || input.anchorDate;
-  if (!isCivilDate(startDate)) return err(new RecurringError("Choose a start date."));
+  const startDate = input.startDate || null;
+  if (startDate != null && !isCivilDate(startDate)) return err(new RecurringError("Choose a start date."));
   const endDate = input.endDate || null;
-  if (endDate != null && (!isCivilDate(endDate) || endDate < startDate)) {
+  if (endDate != null && (!isCivilDate(endDate) || (startDate != null && endDate < startDate))) {
     return err(new RecurringError("The end date must be on or after the start date."));
   }
   return ok({

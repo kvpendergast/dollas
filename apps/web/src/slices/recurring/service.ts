@@ -57,7 +57,7 @@ export type RecurringItemSummary = {
   tolerancePercent: number;
   toleranceCents: number;
   windowDays: number;
-  startDate: string;
+  startDate: string | null;
   endDate: string | null;
   paused: boolean;
   nextDate: string | null;

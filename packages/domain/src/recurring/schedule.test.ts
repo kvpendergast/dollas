@@ -77,6 +77,11 @@ describe("recurring cadence math", () => {
     ]);
   });
 
+  it("has no lower bound without a start date", () => {
+    const s = schedule({ anchorDate: "2026-11-01", startDate: null });
+    expect(occurrencesBetween(s, "2026-08-01", "2026-10-31")).toEqual(["2026-08-01", "2026-09-01", "2026-10-01"]);
+  });
+
   it("respects start and end dates", () => {
     const s = schedule({ anchorDate: "2026-01-05", startDate: "2026-03-01", endDate: "2026-05-05" });
     expect(occurrencesBetween(s, "2026-01-01", "2026-12-31")).toEqual(["2026-03-05", "2026-04-05", "2026-05-05"]);
