@@ -27,6 +27,7 @@ export {
   SplitImbalanceError,
   TokenEncryptionError,
   TransactionError,
+  RecurringError,
   UnverifiedEmailError,
   UsedSetupTokenError,
 } from "./errors";
@@ -457,3 +458,54 @@ export {
   type AgentScopeChoice,
   type AgentTokenClaims,
 } from "./agents/access";
+
+export {
+  CADENCES,
+  CADENCE_LABELS,
+  addDays,
+  cadencePeriodDays,
+  isCadence,
+  isCivilDate,
+  nextOccurrences,
+  occurrencesBetween,
+  previousOccurrence,
+  type Cadence,
+  type RecurringSchedule,
+} from "./recurring/schedule";
+
+export {
+  RECURRING_DEFAULTS,
+  RECURRING_LIMITS,
+  defineRecurringItem,
+  type RecurringItemDefinition,
+  type RecurringItemInput,
+} from "./recurring/define";
+
+export {
+  amountMatchesItem,
+  amountTolerance,
+  occurrenceForManualLink,
+  payeeMatchesItem,
+  planRecurringLinks,
+  type PlannedRecurringLink,
+  type RecurringDismissal,
+  type RecurringLinkPlan,
+  type RecurringLinkRow,
+  type RecurringMatchItem,
+  type RecurringMatchTransaction,
+} from "./recurring/match";
+
+export {
+  expectedRecurringAmounts,
+  itemOccurrences,
+  nextExpectedDate,
+  occurrenceStatus,
+  type ExpectedRecurring,
+  type OccurrenceStatus,
+  type RecurringOccurrence,
+  type RecurringTotals,
+  type StatusItem,
+  type StatusLink,
+} from "./recurring/status";
+
+export { normalizedPayee, suggestRecurringItems, type RecurringSuggestion, type SuggestionTransaction } from "./recurring/suggest";
