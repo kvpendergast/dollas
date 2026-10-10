@@ -13,7 +13,7 @@ import { ASSUME_APP_ROLE_SQL, isSubjectToRowLevelSecurity, type RoleSecurityFact
  * transaction pooling would drop it, which is why startup prefers
  * DATABASE_URL_UNPOOLED.
  */
-const MIGRATION_LOCK = [4812, 1001] as const;
+export const MIGRATION_LOCK = [4812, 1001] as const;
 
 /**
  * Non-owner role used for household queries, created here only when it is
