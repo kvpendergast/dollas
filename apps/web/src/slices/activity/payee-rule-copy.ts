@@ -6,7 +6,7 @@
  */
 
 export const PAYEE_RULES_APPLY_TO =
-  "Rules apply to new CSV imports and bank syncs. They do not change transactions already in the books.";
+  "Rules apply to new CSV imports and bank syncs. They do not change existing transactions.";
 
 export type PayeeRuleApplyCounts = {
   pattern: string;
@@ -27,7 +27,7 @@ export function describePayeeRuleRemoval(rule: { pattern: string; categoryName: 
 } {
   return {
     title: `Remove the "${rule.pattern}" rule?`,
-    body: `New CSV imports and bank syncs will no longer use ${rule.categoryName} when a payee contains "${rule.pattern}". Transactions already in the books stay as they are.`,
+    body: `New CSV imports and bank syncs will no longer use ${rule.categoryName} when a payee contains "${rule.pattern}". Existing transactions stay as they are.`,
   };
 }
 

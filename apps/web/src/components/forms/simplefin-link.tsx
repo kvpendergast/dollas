@@ -38,8 +38,8 @@ export function SimpleFinLinkForm() {
         <Label htmlFor="simplefin-since">Transactions since</Label>
         <Input id="simplefin-since" name="since" type="date" className="h-10 md:max-w-xs" />
         <p className="text-xs text-muted-foreground">
-          Leave this blank to start 90 days ago. Later syncs keep this date, and pending charges stay off the books
-          until they post.
+          Leave this blank to start 90 days ago. Later syncs keep this date, and pending charges are added once they
+          post.
         </p>
       </div>
       {state.error ? (

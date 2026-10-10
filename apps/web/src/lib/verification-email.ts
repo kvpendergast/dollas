@@ -21,9 +21,9 @@ export type VerificationMessage = {
 
 type MailKind = "verification" | "password reset" | "household invite";
 
-const verificationSubject = "Verify your email for dollas";
-const resetSubject = "Reset your dollas password";
-const emailChangeSubject = "Confirm your new email for dollas";
+const verificationSubject = "Verify your email for Dollas";
+const resetSubject = "Reset your Dollas password";
+const emailChangeSubject = "Confirm your new email for Dollas";
 
 function runningOnVercel(env: Env): boolean {
   return Boolean(env.VERCEL || env.VERCEL_ENV);
@@ -57,7 +57,7 @@ export function passwordResetEmailHelp(env: Env = process.env): string {
 
 function verificationText(url: string): string {
   return [
-    "Verify your email to finish signing up for dollas.",
+    "Verify your email to finish signing up for Dollas.",
     "",
     url,
     "",
@@ -67,7 +67,7 @@ function verificationText(url: string): string {
 
 function emailChangeText(url: string): string {
   return [
-    "Confirm this email for your dollas login.",
+    "Confirm this email for your Dollas login.",
     "",
     url,
     "",
@@ -78,7 +78,7 @@ function emailChangeText(url: string): string {
 
 function resetText(url: string): string {
   return [
-    "Someone asked to choose a new password for this dollas login.",
+    "Someone asked to choose a new password for this Dollas login.",
     "",
     url,
     "",
@@ -233,7 +233,7 @@ export function inviteMailMode(env: Env = process.env): InviteMailMode {
 
 function inviteText(input: { url: string; householdName: string; inviterName: string; expiresOn: string }): string {
   return [
-    `${input.inviterName} invited you to keep the ${input.householdName} books together in dollas.`,
+    `${input.inviterName} invited you to share the ${input.householdName} household in Dollas.`,
     "",
     "Open this link, then sign in or create a login with this email address:",
     "",
@@ -252,7 +252,7 @@ export async function deliverHouseholdInviteEmail(
   } = {},
 ): Promise<MailDeliveryResult> {
   return deliverAuthEmail("household invite", input, options, {
-    subject: `${input.inviterName} invited you to the ${input.householdName} books`,
+    subject: `${input.inviterName} invited you to the ${input.householdName} household`,
     text: inviteText(input),
     devLine: `Invite for ${input.email}: ${input.url}`,
     devLog: "Household invite link written to the dev log",

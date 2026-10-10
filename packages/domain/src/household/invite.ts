@@ -20,7 +20,7 @@ export const INVITE_TTL_MS = INVITE_TTL_DAYS * 24 * 60 * 60 * 1000;
 export const INVITE_MESSAGES = {
   not_owner: "Only an owner can invite or revoke.",
   invalid_email: "Enter the email address your person signs in with.",
-  already_member: "That person is already in these books.",
+  already_member: "That person is already in this household.",
   already_invited: "That email already has an open invite. Copy its link or revoke it first.",
   not_found: "That invite link is not valid. Ask for a new one.",
   not_pending: "That invite is no longer open.",
@@ -30,7 +30,7 @@ export const INVITE_MESSAGES = {
   wrong_email: "This invite is for a different email. Sign in with the address it was sent to.",
   unverified: "Verify your email before joining a household.",
   other_household:
-    "You already keep books in another household. Leave it in Settings first, then open this link again.",
+    "You are already in another household. Leave it in Settings first, then open this link again.",
 } as const satisfies Record<InviteFailureReason, string>;
 
 export function inviteError(reason: InviteFailureReason): InviteError {
@@ -38,9 +38,26 @@ export function inviteError(reason: InviteFailureReason): InviteError {
 }
 
 /** Matches a message raised by the SQL functions back to its typed error. */
+/**
+ * The database functions from migration 0022 still raise the wording from
+ * before PEN-204's one-name pass. Members never see it: it maps to the
+ * current message here.
+ */
+const DATABASE_WORDING: Partial<Record<InviteFailureReason, string>> = {
+  // copy-terms-ignore: matched against database errors, never shown.
+  already_member: "That person is already in these books.",
+  // copy-terms-ignore: matched against database errors, never shown.
+  other_household: "You already keep books in another household.",
+};
+
 export function inviteErrorFromText(text: string): InviteError | null {
   const reasons = Object.keys(INVITE_MESSAGES) as InviteFailureReason[];
-  const reason = reasons.find((key) => text.includes(INVITE_MESSAGES[key]));
+  const reason =
+    reasons.find((key) => text.includes(INVITE_MESSAGES[key])) ??
+    reasons.find((key) => {
+      const legacy = DATABASE_WORDING[key];
+      return legacy != null && text.includes(legacy);
+    });
   return reason ? inviteError(reason) : null;
 }
 
@@ -145,6 +162,7 @@ export function maskInviteEmail(email: string): string {
 /** 32 bytes of HMAC-SHA-256, base64url without padding. */
 const TOKEN_SHAPE = /^[A-Za-z0-9_-]{43}$/;
 const INVITE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// copy-terms-ignore: hashing label, changing it would invalidate every open invite.
 const TOKEN_LABEL = "dollas household invite v1:";
 
 export function isInviteToken(value: string): boolean {
@@ -193,6 +211,14 @@ export async function deriveInviteToken(secret: string, inviteId: string): Promi
 export async function hashInviteToken(token: string): Promise<string> {
   const digest = await subtle().digest("SHA-256", new TextEncoder().encode(token));
   return hex(new Uint8Array(digest));
+}
+
+/** The token from a pasted invite link (or a bare token), or null. */
+export function inviteTokenFromPaste(raw: string): string | null {
+  const value = raw.trim();
+  if (isInviteToken(value)) return value;
+  const match = /\/invite\/([A-Za-z0-9_-]{43})(?:[/?#]|$)/.exec(value);
+  return match ? match[1] : null;
 }
 
 export function inviteLinkPath(token: string): string {

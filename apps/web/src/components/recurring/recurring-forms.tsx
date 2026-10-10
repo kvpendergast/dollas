@@ -268,7 +268,7 @@ export function RecurringItemControls({ itemId, name, paused }: { itemId: string
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Delete {name}?</DialogTitle>
-              <DialogDescription>Linked transactions stay in your books and stand alone again.</DialogDescription>
+              <DialogDescription>Linked transactions stay and stand alone again.</DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <DialogClose asChild>

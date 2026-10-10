@@ -1,4 +1,7 @@
-import { TRANSFER_KIND_HELP } from "@dollas/domain";
+import { needsStarterCategories, TRANSFER_KIND_HELP } from "@dollas/domain";
+import Link from "next/link";
+import { NextStep } from "@/components/onboarding/next-step";
+import { StarterCategoriesButton } from "@/components/onboarding/onboarding-forms";
 import { CategoryForm, CategoryGroupForm } from "@/components/forms/category-forms";
 import { CategoryOrganizer } from "@/components/forms/category-organizer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,12 +36,22 @@ export default async function CategoriesPage() {
           expense, or a transfer. {TRANSFER_KIND_HELP}
         </p>
       </div>
-      {groups.length === 0 && ungrouped.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No categories yet. Add a group, then a category.</p>
-      ) : (
-        <CategoryOrganizer groups={groups} ungrouped={ungrouped} />
-      )}
-      <Card>
+      {needsStarterCategories([...groups.flatMap((group) => group.categories), ...ungrouped]) ? (
+        <NextStep
+          title={groups.length === 0 && ungrouped.length === 0 ? "No categories yet" : "Only the Uncategorized fallbacks so far"}
+          body="Start from a ready-made set (Income, Home, Food, Getting around, Health, Fun, Giving and gifts) and rename or remove anything later. Or build your own: add a group, then categories in it."
+          extra={
+            <>
+              <StarterCategoriesButton />
+              <Link href="#add-group" className="inline-flex h-8 items-center px-2 text-sm font-medium text-primary underline-offset-4 hover:underline">
+                Make my own
+              </Link>
+            </>
+          }
+        />
+      ) : null}
+      {groups.length === 0 && ungrouped.length === 0 ? null : <CategoryOrganizer groups={groups} ungrouped={ungrouped} />}
+      <Card id="add-group" className="scroll-mt-20">
         <CardHeader>
           <CardTitle>Add a group</CardTitle>
         </CardHeader>

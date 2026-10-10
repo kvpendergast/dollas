@@ -52,7 +52,7 @@ export async function changeMemberEmail(
 ): Promise<MembershipResult<{ notice: string }>> {
   const next = normalizeAuthEmail(rawEmail);
   if (!isAuthEmail(next)) {
-    return fail(new MembershipError("Enter the email you use for the books."), "Enter the email you use for the books.");
+    return fail(new MembershipError("Enter the email you use for Dollas."), "Enter the email you use for Dollas.");
   }
   const described = await describeMembership(actor);
   if (!described.ok) return described;

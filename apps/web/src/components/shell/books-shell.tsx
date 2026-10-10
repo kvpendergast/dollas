@@ -6,9 +6,12 @@ import { Sidebar } from "./sidebar";
 
 export function BooksShell({
   householdName,
+  showInvite,
   children,
 }: {
   householdName: string;
+  /** The invite is offered once the first account exists (PEN-204). */
+  showInvite: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -23,9 +26,11 @@ export function BooksShell({
             </div>
             <div className="flex items-center gap-3 text-sm">
               <AccountMenu />
-              <Link href="/household" className="text-primary underline-offset-4 hover:underline">
-                Invite
-              </Link>
+              {showInvite ? (
+                <Link href="/household#invite" className="text-primary underline-offset-4 hover:underline">
+                  Invite
+                </Link>
+              ) : null}
               <form action={signOutAction}>
                 <button type="submit" className="text-muted-foreground hover:text-foreground">
                   Sign out

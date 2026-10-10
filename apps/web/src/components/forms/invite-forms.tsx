@@ -164,7 +164,7 @@ export function AcceptInviteForm({ token, householdName }: { token: string; hous
         </p>
       ) : null}
       <Button type="submit" className="h-10 w-full" disabled={pending}>
-        {pending ? "Joining" : `Join the ${householdName} books`}
+        {pending ? "Joining" : `Join the ${householdName} household`}
       </Button>
     </form>
   );

@@ -218,6 +218,20 @@
       "when": 1791662041236,
       "tag": "0030_spending_filter_attribution",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791663828850,
+      "tag": "0031_onboarding",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791663830120,
+      "tag": "0032_onboarding_steps",
+      "breakpoints": true
     }
   ]
 }

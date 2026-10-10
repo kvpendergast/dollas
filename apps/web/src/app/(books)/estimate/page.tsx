@@ -1,5 +1,6 @@
 import { formatCents, type EstimateMonth } from "@dollas/domain";
 import Link from "next/link";
+import { NextStep } from "@/components/onboarding/next-step";
 import { describePace, monthName } from "@/components/estimate/explain";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -143,7 +144,17 @@ export default async function EstimatePage() {
         </CardHeader>
         <CardContent>
           {estimate.categories.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nothing to estimate yet. Add transactions or a recurring bill.</p>
+            <NextStep
+              title="Nothing to estimate yet"
+              body="The estimate comes from recurring bills and the pace of everyday spending. Add transactions or a recurring bill and it fills in."
+              href="/activity"
+              action="Add transactions"
+              extra={
+                <Link href="/recurring" className="inline-flex h-8 items-center px-2 text-sm font-medium text-primary underline-offset-4 hover:underline">
+                  Add a recurring bill
+                </Link>
+              }
+            />
           ) : (
             <div>
               <div className="hidden grid-cols-[1fr_repeat(4,6.5rem)_7rem] gap-2 border-b border-border pb-2 text-xs text-muted-foreground md:grid">

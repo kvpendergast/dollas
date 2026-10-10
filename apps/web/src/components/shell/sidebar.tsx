@@ -18,7 +18,7 @@ const icons = {
 
 export function DesktopNav({ pathname }: { pathname: string }) {
   return (
-    <nav aria-label="Books" className="mt-8">
+    <nav aria-label="Household" className="mt-8">
       <ul className="space-y-1">
         {desktopNav.map((item) => {
           const Icon = icons[item.label];
@@ -48,7 +48,7 @@ export function Sidebar() {
       <Link href="/" className="font-serif text-3xl tracking-tight text-primary">
         dollas
       </Link>
-      <p className="mt-1 text-xs text-muted-foreground">One pile of dollas.</p>
+      <p className="mt-1 text-xs text-muted-foreground">One household, two logins.</p>
       <DesktopNav pathname={pathname} />
     </aside>
   );

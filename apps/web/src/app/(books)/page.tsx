@@ -5,6 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Landing } from "@/components/landing";
 import { getActorContext, requireBooks } from "@/slices/access/guard";
 import { loadHome } from "@/slices/books/queries";
+import { OnboardingChecklist } from "@/components/onboarding/onboarding-checklist";
+import { ResumeOnboardingButton } from "@/components/onboarding/onboarding-forms";
+import { getOnboardingStatus } from "@/slices/onboarding/service";
 
 function estimateParts(
   estimate: { spentSoFarCents: number; recurringExpectedCents: number; paceCents: number },
@@ -54,7 +57,21 @@ function PlanSoFarCard({ plan, hasAccounts, money }: { plan: PlanSoFar; hasAccou
         </CardHeader>
         <CardContent>
           {plan.unbudgeted.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{hasAccounts ? "Nothing spent yet this month." : "No dollas in here yet. Add an account."}</p>
+            <p className="text-sm text-muted-foreground">{hasAccounts ? (
+                <>
+                  Nothing spent yet this month.{" "}
+                  <Link href="/activity" className="font-medium text-primary underline-offset-4 hover:underline">
+                    Add a transaction
+                  </Link>
+                </>
+              ) : (
+                <>
+                  No accounts yet.{" "}
+                  <Link href="/accounts" className="font-medium text-primary underline-offset-4 hover:underline">
+                    Add an account
+                  </Link>
+                </>
+              )}</p>
           ) : (
             <ul className="space-y-3">
               {plan.unbudgeted.map((row) => (
@@ -103,7 +120,9 @@ export default async function HomePage() {
   const ctx = await getActorContext();
   if (!ctx) return <Landing />;
   const books = await requireBooks();
-  const home = await loadHome(books);
+  const [home, onboarding] = await Promise.all([loadHome(books), getOnboardingStatus(books)]);
+  const setup = onboarding.ok ? onboarding.value : null;
+  const nothingYet = home.spentCents === 0 && home.incomeCents === 0 && home.estimate.estimateCents === 0;
   const leftTone = home.leftCents < 0 ? "text-over" : "text-income";
   const money = (cents: number) => formatCents(cents, books.currency);
   return (
@@ -112,6 +131,7 @@ export default async function HomePage() {
         <h1 className="font-serif text-4xl tracking-tight">{monthLabel(books.asOf.year, books.asOf.month)}</h1>
         <p className="text-sm text-muted-foreground">This month is still open. Numbers run through today.</p>
       </div>
+      {setup ? <OnboardingChecklist status={setup} /> : null}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader>
@@ -153,6 +173,21 @@ export default async function HomePage() {
           </div>
           <CardDescription>Where this month is probably headed. The month is not finished.</CardDescription>
         </CardHeader>
+        {nothingYet ? (
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Nothing to estimate yet.{" "}
+              <Link href={home.hasAccounts ? "/activity" : "/accounts"} className="font-medium text-primary underline-offset-4 hover:underline">
+                {home.hasAccounts ? "Add transactions on Activity" : "Add an account first"}
+              </Link>
+              , or a{" "}
+              <Link href="/recurring" className="font-medium text-primary underline-offset-4 hover:underline">
+                recurring bill
+              </Link>
+              , and the estimate fills in.
+            </p>
+          </CardContent>
+        ) : (
         <CardContent className="space-y-3">
           <p className="font-serif text-5xl tabular-nums">{money(home.estimate.estimateCents)}</p>
           <p className="text-sm text-muted-foreground tabular-nums">{estimateParts(home.estimate, money)}</p>
@@ -165,8 +200,17 @@ export default async function HomePage() {
             See the breakdown and next month
           </Link>
         </CardContent>
+        )}
       </Card>
       <PlanSoFarCard plan={home.plan} hasAccounts={home.hasAccounts} money={money} />
+      {setup?.state === "dismissed" ? (
+        <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+          <span>
+            Setup checklist hidden ({setup.requiredDone} of {setup.requiredTotal} done).
+          </span>
+          <ResumeOnboardingButton />
+        </div>
+      ) : null}
     </div>
   );
 }

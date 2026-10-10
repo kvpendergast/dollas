@@ -3,7 +3,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const points = [
-  "Same books, separate logins. Nobody shares a password.",
+  "One household, separate logins. Nobody shares a password.",
   "A look ahead at the month, labeled as an estimate.",
 ];
 
@@ -11,10 +11,10 @@ export function Landing() {
   return (
     <main className="mx-auto flex min-h-full w-full max-w-2xl flex-col justify-center px-6 py-16">
       <p className="font-serif text-5xl tracking-tight text-primary">dollas</p>
-      <p className="mt-3 text-sm text-muted-foreground">household books</p>
-      <h1 className="mt-6 font-serif text-4xl tracking-tight md:text-5xl">Two logins. One pile of dollas.</h1>
+      <p className="mt-3 text-sm text-muted-foreground">money for one household</p>
+      <h1 className="mt-6 font-serif text-4xl tracking-tight md:text-5xl">Two logins. One household.</h1>
       <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground">
-        You and your person each sign in. The books stay shared, and they run on your own computer.
+        You and your person each sign in. The household stays shared, and they run on your own computer.
       </p>
       <div className="mt-8 flex flex-wrap gap-3">
         <Link href="/sign-in" className={cn(buttonVariants(), "h-10 px-4")}>

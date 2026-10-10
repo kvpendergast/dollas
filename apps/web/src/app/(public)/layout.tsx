@@ -6,7 +6,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <Link href="/" className="font-serif text-5xl tracking-tight text-primary">
         dollas
       </Link>
-      <p className="mt-2 text-sm text-muted-foreground">household books</p>
+      <p className="mt-2 text-sm text-muted-foreground">money for one household</p>
       <div className="mt-8">{children}</div>
       <p className="mt-8 text-xs text-muted-foreground">Open source. Your deploy. Your keys.</p>
     </main>

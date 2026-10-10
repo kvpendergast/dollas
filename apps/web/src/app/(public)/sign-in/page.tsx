@@ -13,9 +13,9 @@ function resetDone(value: string | string[] | undefined): boolean {
 }
 
 function description(invite: string | undefined, agent: string | undefined): string {
-  if (agent) return "Sign in to connect an agent to your household books. You will confirm what it can do next.";
+  if (agent) return "Sign in to connect an agent to your household. You will confirm what it can do next.";
   if (invite) return "Sign in with the email your invite was sent to. You will go straight back to the invite.";
-  return "Welcome back. The books are where you left them.";
+  return "Welcome back. Your household is where you left it.";
 }
 
 export default async function SignInPage({

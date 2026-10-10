@@ -61,7 +61,7 @@ export const payeeRuleTools = [
   tool({
     name: "delete_payee_rule",
     title: "Delete payee rule",
-    description: "Remove a payee rule. New imports and syncs stop using it; transactions already in the books stay as they are.",
+    description: "Remove a payee rule. New imports and syncs stop using it; existing transactions stay as they are.",
     access: "write",
     destructive: true,
     input: { rule_id: uuidInput("Payee rule"), confirm: confirmInput("remove this payee rule") },

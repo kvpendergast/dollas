@@ -203,7 +203,7 @@ describe("idempotent bank sync and cross-source matching (PEN-203)", () => {
       const first = await syncBankConnection(ada, mapleConnection);
       assert.ok(first.ok, JSON.stringify(first));
       assert.deepEqual(first.value, { accounts: 1, transactions: 1, matched: 2, updated: 0, removed: 0 });
-      assert.match(syncMessage(first.value), /matched 2 already in your books/);
+      assert.match(syncMessage(first.value), /matched 2 you already had/);
 
       let rows = await rowsOn(mapleChecking.id);
       assert.equal(rows.length, 4, "streaming, coffee (deleted), rent, hardware: no bank copies of CSV rows");

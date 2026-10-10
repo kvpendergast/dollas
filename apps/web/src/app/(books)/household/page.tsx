@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requireBooks } from "@/slices/access/guard";
 import { listHouseholdPeople } from "@/slices/household/invites";
 
-export const metadata = { title: "Household · dollas" };
+export const metadata = { title: "Household · Dollas" };
 
 function day(date: Date, timeZone: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone });
@@ -54,9 +54,9 @@ export default async function HouseholdPage() {
               </ul>
             </CardContent>
           </Card>
-          <Card>
+          <Card id="invite" className="scroll-mt-20">
             <CardHeader>
-              <CardTitle>Invites</CardTitle>
+              <CardTitle>{owner && people.value.members.length === 1 ? "Invite your partner" : "Invites"}</CardTitle>
               <CardDescription>
                 {owner
                   ? `Invite by email. The link works once, for ${INVITE_TTL_DAYS} days, and only for a login with that email. Nobody shares a password.`
@@ -68,7 +68,11 @@ export default async function HouseholdPage() {
               <div className="space-y-2">
                 <h2 className="text-sm font-medium">Waiting to join</h2>
                 {people.value.invites.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No open invites.</p>
+                  <p className="text-sm text-muted-foreground">
+                    {owner && people.value.members.length === 1
+                      ? "No one invited yet. Add their email above; they get their own login and see the same household."
+                      : "No open invites."}
+                  </p>
                 ) : (
                   <ul className="divide-y divide-border" aria-label="Open invites">
                     {people.value.invites.map((invite) => (

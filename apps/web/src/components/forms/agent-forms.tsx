@@ -27,7 +27,7 @@ export function ConnectAgentForm({ oauthQuery, canWrite }: { oauthQuery: string;
           <span>
             <span className="font-medium">Read and write</span>
             <span className="block text-muted-foreground">
-              {canWrite ? "Also add and change things in the books, as you." : "This agent only asked to read."}
+              {canWrite ? "Also add and change things in your household, as you." : "This agent only asked to read."}
             </span>
           </span>
         </label>

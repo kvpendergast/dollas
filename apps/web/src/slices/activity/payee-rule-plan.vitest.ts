@@ -30,9 +30,9 @@ function row(overrides: Partial<PayeeRuleApplyCandidate> & Pick<PayeeRuleApplyCa
 const rule = { householdId: HOUSE, pattern: "Market", categoryId: GROCERIES };
 
 describe("payee rule scope", () => {
-  it("says rules apply to new imports and syncs, not to transactions already in the books", () => {
+  it("says rules apply to new imports and syncs, not to existing transactions", () => {
     expect(PAYEE_RULES_APPLY_TO).toBe(
-      "Rules apply to new CSV imports and bank syncs. They do not change transactions already in the books.",
+      "Rules apply to new CSV imports and bank syncs. They do not change existing transactions.",
     );
     expect(PAYEE_RULES_APPLY_TO).not.toMatch(/DATABASE_|BANK_|SIMPLEFIN|Resend/i);
   });

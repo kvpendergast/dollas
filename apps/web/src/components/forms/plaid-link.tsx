@@ -66,7 +66,7 @@ function PlaidLinkFields() {
         <Input ref={sinceRef} id="plaid-since" name="since" type="date" className="h-10 md:max-w-xs" />
         <p className="text-xs text-muted-foreground">
           Leave this blank to start 90 days ago. Plaid opens in a window from Plaid. Your bank password stays there
-          and is not stored in Dollas. Pending charges stay off the books until they post.
+          and is not stored in Dollas. Pending charges are added once they post.
         </p>
       </div>
       {error ? (

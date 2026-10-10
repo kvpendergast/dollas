@@ -231,7 +231,7 @@ export function createFakeBankProvider(options?: {
       });
       for (const row of rows) {
         if (!isCents(row.amountCents) || !ISO_DATE.test(row.occurredOn) || !isStableId(row.providerTransactionId)) {
-          return err(new ProviderError("That provider returned a transaction the books cannot store."));
+          return err(new ProviderError("That provider returned a transaction Dollas cannot store."));
         }
       }
       return ok(rows);

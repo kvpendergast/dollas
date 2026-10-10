@@ -546,7 +546,7 @@ export function syncMessage(written: BankSyncCounts): string {
   if (written.transactions > 0) {
     parts.push(`added ${written.transactions} ${written.transactions === 1 ? "transaction" : "transactions"}`);
   }
-  if (written.matched > 0) parts.push(`matched ${written.matched} already in your books`);
+  if (written.matched > 0) parts.push(`matched ${written.matched} you already had`);
   if (written.updated > 0) parts.push(`updated ${written.updated}`);
   if (written.removed > 0) parts.push(`hid ${written.removed} removed by the bank`);
   if (parts.length === 1) return `${parts[0]}.`;

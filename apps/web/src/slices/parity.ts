@@ -18,7 +18,7 @@ const SECRETS = "Handles a password, email, or sign-in method; agents never hand
 const BANK_LOGIN = "Finishes a bank login with a SimpleFIN setup token or Plaid Link; agents never see bank secrets or provider tokens.";
 const BEFORE_HOUSEHOLD =
   "Runs before the login has a household; an agent token is always scoped to one household, so there is nothing for it to act on.";
-const SESSION = "Browser sign-in and session plumbing for the web app itself, not something a member does in their books.";
+const SESSION = "Browser sign-in and session plumbing for the web app itself, not something a member does in their household.";
 const AGENT_CONSENT = "Connecting or disconnecting an agent is the OAuth consent itself; an agent must not grant or revoke agent access.";
 
 /** Exported server actions, by function name. */
@@ -98,6 +98,10 @@ export const ACTION_PARITY: Record<string, Parity> = {
   saveFilterAction: { tools: ["create_saved_filter"] },
   renameSavedFilterAction: { tools: ["rename_saved_filter"] },
   deleteSavedFilterAction: { tools: ["delete_saved_filter"] },
+  // onboarding checklist (PEN-204)
+  dismissOnboardingAction: { tools: ["dismiss_onboarding"] },
+  resumeOnboardingAction: { tools: ["resume_onboarding"] },
+  addStarterCategoriesAction: { tools: ["add_starter_categories"] },
   // agents
   connectAgentAction: { uiOnly: AGENT_CONSENT },
   revokeAgentAction: { uiOnly: AGENT_CONSENT },
@@ -105,12 +109,12 @@ export const ACTION_PARITY: Record<string, Parity> = {
 
 /** Every page, by route (route groups removed). What a member can read there is a read tool. */
 export const PAGE_PARITY: Record<string, Parity> = {
-  "/": { tools: ["get_month_summary"] },
+  "/": { tools: ["get_month_summary", "get_onboarding_status"] },
   "/accounts": { tools: ["list_accounts", "list_bank_connections"] },
   "/activity": {
     tools: ["list_transactions", "list_saved_filters", "list_recurring_items", "list_payee_rules", "list_csv_imports", "list_accounts", "list_categories"],
   },
-  "/categories": { tools: ["list_categories"] },
+  "/categories": { tools: ["list_categories", "get_onboarding_status"] },
   "/history": { tools: ["get_spending_breakdown", "get_spending_history", "list_saved_filters"] },
   "/household": { tools: ["list_household"] },
   "/plan": { tools: ["get_plan", "preview_copy_last_month"] },
@@ -118,7 +122,7 @@ export const PAGE_PARITY: Record<string, Parity> = {
   "/recurring": { tools: ["list_recurring_items", "suggest_recurring_items", "list_categories", "list_accounts"] },
   "/recurring/[id]": { tools: ["get_recurring_item"] },
   // The Connected agents card on this page is UI-only (AGENT_CONSENT).
-  "/settings": { tools: ["get_my_profile"] },
+  "/settings": { tools: ["get_my_profile", "get_onboarding_status"] },
   "/welcome": { uiOnly: BEFORE_HOUSEHOLD },
   "/invite/[token]": { uiOnly: BEFORE_HOUSEHOLD },
   "/connect-agent": { uiOnly: AGENT_CONSENT },

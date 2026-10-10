@@ -56,7 +56,7 @@ export function leaveHouseholdCopy(lastOwner: boolean, householdName: string): {
   if (lastOwner) return { title: "You are the last owner", body: LAST_OWNER_MESSAGE };
   return {
     title: `Leave ${householdName}?`,
-    body: "You will lose access to these books. Your login stays yours.",
+    body: "You will lose access to this household. Your login stays yours.",
   };
 }
 
@@ -221,7 +221,7 @@ export function DeleteHouseholdDialog({ householdName }: { householdName: string
         <DialogHeader>
           <DialogTitle>Delete {householdName}?</DialogTitle>
           <DialogDescription>
-            This removes the household and its books. Type {householdName} to confirm. This cannot be undone.
+            This removes the household and everything in it. Type {householdName} to confirm. This cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <form action={action} className="space-y-3">

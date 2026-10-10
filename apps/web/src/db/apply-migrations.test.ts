@@ -183,6 +183,8 @@ describe("pendingMigrationTags", () => {
       "0028_recurring_item_grants",
       "0029_spending_filters",
       "0030_spending_filter_attribution",
+    "0031_onboarding",
+    "0032_onboarding_steps",
     ]);
   });
 

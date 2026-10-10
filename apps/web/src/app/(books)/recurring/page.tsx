@@ -1,5 +1,6 @@
 import { CADENCE_LABELS, formatCents } from "@dollas/domain";
 import Link from "next/link";
+import { NextStep } from "@/components/onboarding/next-step";
 import { MakeRecurringButton, RecurringItemForm } from "@/components/recurring/recurring-forms";
 import { RecurringStatusBadge } from "@/components/recurring/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,7 +57,12 @@ export default async function RecurringPage() {
         </CardHeader>
         <CardContent>
           {page.items.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nothing recurring yet. Add rent, a paycheck, or a subscription below.</p>
+            <NextStep
+              title="Nothing recurring yet"
+              body="Add rent, a paycheck, or a subscription. Matching transactions link to it, and the Spend estimate counts what is still due."
+              href="#add-recurring"
+              action="Add a recurring item"
+            />
           ) : (
             <ul className="divide-y divide-border">
               {page.items.map((item) => (
@@ -119,7 +125,7 @@ export default async function RecurringPage() {
         </Card>
       ) : null}
 
-      <Card>
+      <Card id="add-recurring" className="scroll-mt-20">
         <CardHeader>
           <CardTitle>Add a recurring item</CardTitle>
           <CardDescription>Matching transactions from the last six months link right away.</CardDescription>

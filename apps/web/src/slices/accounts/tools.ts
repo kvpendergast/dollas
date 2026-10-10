@@ -21,7 +21,7 @@ export const accountTools = [
     name: "list_accounts",
     title: "List accounts",
     description:
-      "Accounts in the household books with balance_cents (integer cents; negative means owed). Archived accounts are left out unless include_archived is true.",
+      "Accounts in the household with balance_cents (integer cents; negative means owed). Archived accounts are left out unless include_archived is true.",
     access: "read",
     input: { include_archived: z.boolean().optional().describe("Include archived accounts."), ...pageInput(100) },
     async run(args, { books }) {
