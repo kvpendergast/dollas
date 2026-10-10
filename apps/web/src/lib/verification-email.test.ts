@@ -135,8 +135,8 @@ describe("verification email", () => {
       assert.equal(call?.authorization, `Bearer ${apiKey}`);
       assert.equal(call?.body.from, from);
       assert.deepEqual(recipient(call?.body.to), [email]);
-      assert.match(String(call?.body.subject), /dollas/);
-      assert.match(String(call?.body.text), /dollas/);
+      assert.match(String(call?.body.subject), /Dollas/);
+      assert.match(String(call?.body.text), /Dollas/);
       assert.equal(String(call?.body.text).includes(url), true);
       const logged = [...info.lines, ...errorLog.lines].join("\n");
       assert.equal(logged.includes(url), false);
@@ -336,7 +336,7 @@ describe("verification email", () => {
       VERCEL_ENV: "production",
     });
     assert.match(help, /inbox/);
-    assert.match(help, /dollas/);
+    assert.match(help, /Dollas/);
     assert.equal(help.includes("server log"), false);
   });
 

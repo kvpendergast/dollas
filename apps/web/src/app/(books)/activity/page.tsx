@@ -10,6 +10,8 @@ import { loadCsvImportPanel } from "@/slices/activity/import-csv";
 import { PAYEE_RULES_APPLY_TO } from "@/slices/activity/payee-rule-copy";
 import { ACTIVITY_PAGE_SIZE, loadActivity } from "@/slices/books/queries";
 import { FilterBar } from "@/components/spending/filter-bar";
+import { NextStep } from "@/components/onboarding/next-step";
+import { StarterCategoriesButton } from "@/components/onboarding/onboarding-forms";
 import { loadFilterContext } from "@/slices/spending/load";
 
 function editAccounts<T extends { id: string; name: string; archivedAt: string | null }>(
@@ -93,11 +95,33 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
           <CardDescription>One stop, two categories? Split it.</CardDescription>
         </CardHeader>
         <CardContent>
-          <TransactionForm
-            accounts={newEntryAccounts}
-            categories={activity.categories}
-            today={toIsoDate(books.asOf)}
-          />
+          {newEntryAccounts.length === 0 ? (
+            <NextStep
+              title="Add an account first"
+              body="Every transaction belongs to an account: checking, a card, or cash. Add one by hand, or link a bank and transactions arrive on their own."
+              href="/accounts"
+              action="Add an account"
+            />
+          ) : activity.categories.length === 0 ? (
+            <NextStep
+              title="Set up categories next"
+              body="Each transaction gets a category, and there are none yet. Add a starter set in one click, or make your own."
+              extra={
+                <>
+                  <StarterCategoriesButton />
+                  <Link href="/categories" className="inline-flex h-8 items-center px-2 text-sm font-medium text-primary underline-offset-4 hover:underline">
+                    Make my own
+                  </Link>
+                </>
+              }
+            />
+          ) : (
+            <TransactionForm
+              accounts={newEntryAccounts}
+              categories={activity.categories}
+              today={toIsoDate(books.asOf)}
+            />
+          )}
           {activity.accounts.some((account) => account.archivedAt !== null) ? (
             <p className="mt-3 text-sm text-muted-foreground">
               Archived accounts are not listed for new entries. Their past transactions stay below.
@@ -112,13 +136,18 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
         <FilterBar path="/activity" anchor="#transactions" ctx={filters} />
         <Pager page={activity.page} pageCount={activity.pageCount} total={activity.total} hrefFor={hrefFor} />
         {activity.transactions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {filtered
-              ? "Nothing matches these filters."
-              : newEntryAccounts.length === 0
-                ? "No transactions yet. Add an account first."
-                : "No transactions yet. Add one above or import a CSV."}
-          </p>
+          filtered ? (
+            <NextStep title="Nothing matches these filters" body="Try a wider date range, or clear the filters." href="/activity#transactions" action="Clear filters" />
+          ) : newEntryAccounts.length === 0 ? (
+            <NextStep title="No transactions yet" body="Add an account, then add transactions here, import a CSV, or link a bank." href="/accounts" action="Add an account" />
+          ) : (
+            <NextStep
+              title="No transactions yet"
+              body="Add one above, import a CSV from your bank, or link a bank on Accounts."
+              href="#import"
+              action="Import a CSV"
+            />
+          )
         ) : null}
       <ActivityLedger
         categories={activity.categories}
@@ -149,11 +178,15 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ImportForm
-            accounts={newEntryAccounts.map((account) => ({ id: account.id, name: account.name }))}
-            batches={csvImports.open}
-            undoneNotice={csvImports.undoneNotice}
-          />
+          {newEntryAccounts.length === 0 && csvImports.open.length === 0 ? (
+            <NextStep title="Add an account to import into" body="A CSV lands in one account. Add it first." href="/accounts" action="Add an account" />
+          ) : (
+            <ImportForm
+              accounts={newEntryAccounts.map((account) => ({ id: account.id, name: account.name }))}
+              batches={csvImports.open}
+              undoneNotice={csvImports.undoneNotice}
+            />
+          )}
         </CardContent>
       </Card>
     </div>

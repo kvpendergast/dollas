@@ -5,6 +5,9 @@ import { describeMembership } from "@/slices/settings/membership";
 import { DisconnectAgentForm } from "@/components/forms/agent-forms";
 import { mcpResourceUrl } from "@/lib/agent-oauth";
 import { listAgentConnections } from "@/slices/agents/connections";
+import Link from "next/link";
+import { ResumeOnboardingButton, SkipOnboardingButton } from "@/components/onboarding/onboarding-forms";
+import { getOnboardingStatus } from "@/slices/onboarding/service";
 
 function day(date: Date | null, timezone: string): string {
   if (!date) return "Not yet";
@@ -18,6 +21,8 @@ export default async function SettingsPage() {
   const described = await describeMembership({ userId: books.userId, householdId: books.householdId });
   const profile = described.ok ? described.value : null;
   const agents = await listAgentConnections({ userId: books.userId, householdId: books.householdId });
+  const onboarding = await getOnboardingStatus(books);
+  const setup = onboarding.ok ? onboarding.value : null;
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
@@ -71,7 +76,7 @@ export default async function SettingsPage() {
               {agents.memberMessage}
             </p>
           ) : agents.value.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No agents are connected.</p>
+            <p className="text-sm text-muted-foreground">No agents are connected yet. The address to add is below.</p>
           ) : (
             <ul className="divide-y divide-border">
               {agents.value.map((agent) => (
@@ -94,6 +99,33 @@ export default async function SettingsPage() {
           </p>
         </CardContent>
       </Card>
+      {setup ? (
+        <Card id="setup">
+          <CardHeader>
+            <CardTitle>Setup checklist</CardTitle>
+            <CardDescription>
+              {setup.requiredDone} of {setup.requiredTotal} steps done
+              {setup.state === "dismissed"
+                ? ". It is hidden on Home for everyone in the household."
+                : setup.state === "complete"
+                  ? ". Your household is set up."
+                  : ". It is on Home for everyone in the household."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center gap-3">
+            {setup.state === "dismissed" ? (
+              <ResumeOnboardingButton variant="outline" />
+            ) : (
+              <>
+                <Link href="/" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+                  Open it on Home
+                </Link>
+                <SkipOnboardingButton label={setup.state === "complete" ? "Hide it" : "Skip for now"} />
+              </>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
       <Card>
         <CardHeader>
           <CardTitle>{books.householdName}</CardTitle>

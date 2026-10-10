@@ -38,9 +38,26 @@ export function inviteError(reason: InviteFailureReason): InviteError {
 }
 
 /** Matches a message raised by the SQL functions back to its typed error. */
+/**
+ * The database functions from migration 0022 still raise the wording from
+ * before PEN-204's one-name pass. Members never see it: it maps to the
+ * current message here.
+ */
+const DATABASE_WORDING: Partial<Record<InviteFailureReason, string>> = {
+  // copy-terms-ignore: matched against database errors, never shown.
+  already_member: "That person is already in these books.",
+  // copy-terms-ignore: matched against database errors, never shown.
+  other_household: "You already keep books in another household.",
+};
+
 export function inviteErrorFromText(text: string): InviteError | null {
   const reasons = Object.keys(INVITE_MESSAGES) as InviteFailureReason[];
-  const reason = reasons.find((key) => text.includes(INVITE_MESSAGES[key]));
+  const reason =
+    reasons.find((key) => text.includes(INVITE_MESSAGES[key])) ??
+    reasons.find((key) => {
+      const legacy = DATABASE_WORDING[key];
+      return legacy != null && text.includes(legacy);
+    });
   return reason ? inviteError(reason) : null;
 }
 

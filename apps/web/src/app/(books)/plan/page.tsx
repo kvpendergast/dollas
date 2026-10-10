@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { NextStep } from "@/components/onboarding/next-step";
 import { requireBooks } from "@/slices/access/guard";
 import { loadCopyPreview, loadMonthPlan } from "@/slices/plan/load";
 
@@ -104,7 +105,12 @@ export default async function PlanPage({
         </Card>
       ) : null}
       {plan.sections.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No expense categories yet.</p>
+        <NextStep
+          title="No expense categories to budget yet"
+          body="A budget gives expense categories an amount for the month. Set up categories first, then come back here."
+          href="/categories"
+          action="Set up categories"
+        />
       ) : (
         <div className="space-y-8">
           {plan.sections.map((section) => (

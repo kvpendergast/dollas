@@ -21,7 +21,7 @@ describe("email change mail", () => {
         send: async (message) => {
           text = message.text;
           to = message.to;
-          assert.equal(message.subject, "Confirm your new email for dollas");
+          assert.equal(message.subject, "Confirm your new email for Dollas");
         },
       },
     );

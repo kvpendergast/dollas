@@ -5,10 +5,10 @@ import {
   type OnboardingChecklist,
   type OnboardingStepId,
 } from "@dollas/domain";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { withActor } from "@/db/actor";
 import type { AppTx } from "@/db/client";
-import { category, categoryGroup, householdOnboarding } from "@/db/schema";
+import { category, categoryGroup, householdOnboarding, ledgerAccount, transaction } from "@/db/schema";
 import { logInfo } from "@/lib/telemetry";
 import { failure, succeed, type ServiceActor, type ServiceResult, type Via } from "@/lib/service-result";
 
@@ -141,10 +141,29 @@ export async function addStarterCategories(actor: ServiceActor, via: Via = "web"
       action: "add-starter-categories",
       via,
       householdId: actor.householdId,
-      added: result.categoriesAdded.length,
+      added: String(result.categoriesAdded.length),
     });
     return succeed(result);
   } catch (error) {
     return failure(error, "Could not add the starter categories.", { action: "add-starter-categories", via, householdId: actor.householdId });
   }
+}
+
+export type FirstUseFacts = { hasAccounts: boolean; hasTransactions: boolean };
+
+/** What empty states need to pick their next action: any active account, any live transaction. */
+export async function loadFirstUseFacts(actor: ServiceActor): Promise<FirstUseFacts> {
+  return withActor(actor.userId, async (tx) => {
+    const [accounts] = await tx
+      .select({ id: ledgerAccount.id })
+      .from(ledgerAccount)
+      .where(and(eq(ledgerAccount.householdId, actor.householdId), isNull(ledgerAccount.archivedAt)))
+      .limit(1);
+    const [live] = await tx
+      .select({ id: transaction.id })
+      .from(transaction)
+      .where(and(eq(transaction.householdId, actor.householdId), isNull(transaction.deletedAt)))
+      .limit(1);
+    return { hasAccounts: accounts != null, hasTransactions: live != null };
+  });
 }

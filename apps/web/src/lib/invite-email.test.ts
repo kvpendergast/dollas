@@ -27,7 +27,7 @@ describe("household invite email", () => {
     assert.equal(sent.length, 1);
     assert.equal(sent[0].message.from, "noreply@dollas.kylependergast.com");
     assert.equal(sent[0].message.to, input.email);
-    assert.match(sent[0].message.subject, /Ada invited you to the Maple House books/);
+    assert.match(sent[0].message.subject, /Ada invited you to the Maple House household/);
     assert.ok(sent[0].message.text.includes(input.url));
     assert.match(sent[0].message.text, /expires on 2026-10-17/);
   });

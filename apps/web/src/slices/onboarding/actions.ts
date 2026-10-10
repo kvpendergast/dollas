@@ -11,7 +11,7 @@ function refresh() {
   revalidatePath("/settings");
 }
 
-export async function dismissOnboardingAction(_state: OnboardingFormState, _formData: FormData): Promise<OnboardingFormState> {
+export async function dismissOnboardingAction(): Promise<OnboardingFormState> {
   const books = await requireBooks();
   const result = await dismissOnboarding({ userId: books.userId, householdId: books.householdId });
   if (!result.ok) return { error: result.memberMessage };
@@ -19,7 +19,7 @@ export async function dismissOnboardingAction(_state: OnboardingFormState, _form
   return { error: "", notice: "Checklist hidden. Bring it back any time from Home or Settings." };
 }
 
-export async function resumeOnboardingAction(_state: OnboardingFormState, _formData: FormData): Promise<OnboardingFormState> {
+export async function resumeOnboardingAction(): Promise<OnboardingFormState> {
   const books = await requireBooks();
   const result = await resumeOnboarding({ userId: books.userId, householdId: books.householdId });
   if (!result.ok) return { error: result.memberMessage };
@@ -27,7 +27,7 @@ export async function resumeOnboardingAction(_state: OnboardingFormState, _formD
   return { error: "", notice: "The setup checklist is back on Home." };
 }
 
-export async function addStarterCategoriesAction(_state: OnboardingFormState, _formData: FormData): Promise<OnboardingFormState> {
+export async function addStarterCategoriesAction(): Promise<OnboardingFormState> {
   const books = await requireBooks();
   const result = await addStarterCategories({ userId: books.userId, householdId: books.householdId });
   if (!result.ok) return { error: result.memberMessage };

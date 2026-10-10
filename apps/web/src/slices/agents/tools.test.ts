@@ -429,9 +429,25 @@ describe("Dollas MCP tools", () => {
       await ada.ok("delete_saved_filter", { saved_filter_id: savedId, confirm: true });
       assert.equal(((await ada.ok("list_saved_filters")).items as unknown[]).length, 0);
 
+      // Onboarding (PEN-204): status, skip and resume, starter categories (idempotent), per household.
+      const mapleSetup = await ada.ok("get_onboarding_status");
+      assert.equal(mapleSetup.state, "complete", "Maple has an account, categories, transactions, a budget, and two members");
+      assert.ok((mapleSetup.steps as Array<{ id: string; done: boolean }>).find((step) => step.id === "account")?.done, "Maple has an account");
+      const birchBefore = await birchAgent.ok("get_onboarding_status");
+      const starter = await birchAgent.ok("add_starter_categories");
+      assert.ok((starter.categories_added as unknown[]).length > 0);
+      assert.equal(((await birchAgent.ok("add_starter_categories")).categories_added as unknown[]).length, 0, "running it again adds nothing");
+      const birchAfter = await birchAgent.ok("get_onboarding_status");
+      assert.equal((birchAfter.steps as Array<{ id: string; done: boolean }>).find((step) => step.id === "categories")?.done, true);
+      assert.equal(birchAfter.offer_starter_categories, false);
+      assert.ok((birchAfter.required_done as number) >= (birchBefore.required_done as number));
+      assert.equal((await birchAgent.ok("dismiss_onboarding")).state, "dismissed");
+      assert.equal((await ada.ok("get_onboarding_status")).state, mapleSetup.state, "skipping is per household");
+      assert.notEqual((await birchAgent.ok("resume_onboarding")).state, "dismissed");
+
       // Scope: a read grant runs every read tool and no write tool.
       const reader = await clientFor(ids.ada, maple, "read");
-      for (const name of ["whoami", "list_accounts", "list_transactions", "list_categories", "get_plan", "get_month_summary", "list_household", "get_spending_breakdown", "list_saved_filters"]) {
+      for (const name of ["whoami", "list_accounts", "list_transactions", "list_categories", "get_plan", "get_month_summary", "list_household", "get_spending_breakdown", "list_saved_filters", "get_onboarding_status"]) {
         await reader.ok(name);
       }
       const sneaky = await reader.call("create_transaction", {
@@ -457,7 +473,7 @@ describe("Dollas MCP tools", () => {
       const cyAccounts = await cy.ok("list_accounts");
       assert.deepEqual((cyAccounts.items as Array<{ id: string }>).map((row) => row.id), [birchAccount?.id]);
       assert.equal((await cy.ok("list_transactions")).total, 0);
-      assert.equal(JSON.stringify(await cy.ok("list_categories")).includes("Groceries"), false);
+      assert.equal(JSON.stringify(await cy.ok("list_categories")).includes(groceries), false, "Maple's categories do not leak (Birch has its own starter Groceries)");
       assert.equal((await cy.call("update_transaction", { transaction_id: t1, payee: "Hijacked" })).isError, true);
       assert.equal((await cy.call("delete_transaction", { transaction_id: t1, confirm: true })).isError, true);
       assert.equal((await cy.call("categorize_transaction", { transaction_id: t1, category_id: groceries })).isError, true);

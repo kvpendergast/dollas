@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { accountsForActiveLists, accountsForHistory, formatCents, isAccountType, PLAID_PROVIDER_ID, SIMPLEFIN_PROVIDER_ID } from "@dollas/domain";
 import { AccountForm } from "@/components/forms/account-form";
 import { AccountControls } from "@/components/forms/account-controls";
@@ -6,6 +7,7 @@ import { PlaidLinkForm } from "@/components/forms/plaid-link";
 import { SimpleFinLinkForm } from "@/components/forms/simplefin-link";
 import { SyncConnectionForm } from "@/components/forms/sync-connection";
 import { Badge } from "@/components/ui/badge";
+import { NextStep } from "@/components/onboarding/next-step";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireBooks } from "@/slices/access/guard";
 import { loadAccounts, type AccountListItem } from "@/slices/books/queries";
@@ -53,6 +55,18 @@ export default async function AccountsPage() {
   const listed = accounts.filter((account) => isAccountType(account.type));
   const active = accountsForActiveLists(listed, books.householdId);
   const archived = accountsForHistory(listed, books.householdId).filter((account) => account.archivedAt !== null);
+  // With no accounts yet, the add form comes first; it is the next step.
+  const addCard = (
+    <Card id="add-account" className="scroll-mt-20">
+      <CardHeader>
+        <CardTitle>Add an account</CardTitle>
+        <CardDescription>Checking, savings, a credit card, or cash. You can link a bank for it later.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <AccountForm />
+      </CardContent>
+    </Card>
+  );
   return (
     <div className="space-y-6">
       <div>
@@ -60,7 +74,18 @@ export default async function AccountsPage() {
         <p className="text-sm text-muted-foreground">Opening money, plus every transaction since. That&apos;s the balance.</p>
       </div>
       {active.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No accounts yet. Add your first one below.</p>
+        <>
+          <NextStep
+            title="No accounts yet"
+            body="Start with the account most spending comes out of. Enter it by hand here, or link a bank below and its accounts come with it."
+            extra={
+              <Link href="#bank" className="inline-flex h-8 items-center text-sm font-medium text-primary underline-offset-4 hover:underline">
+                Link a bank instead
+              </Link>
+            }
+          />
+          {addCard}
+        </>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {active.map((account) => (
@@ -84,7 +109,7 @@ export default async function AccountsPage() {
           </div>
         </section>
       ) : null}
-      <Card>
+      <Card id="bank" className="scroll-mt-20">
         <CardHeader>
           <CardTitle>Bank connections</CardTitle>
           <CardDescription>
@@ -95,7 +120,9 @@ export default async function AccountsPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {connections.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No bank is connected.</p>
+            <p className="text-sm text-muted-foreground">
+              No bank is connected. Linking is optional: you can add accounts by hand and import CSVs on Activity.
+            </p>
           ) : (
             <div className="space-y-4">
               {connections.map((connection) => (
@@ -143,14 +170,7 @@ export default async function AccountsPage() {
           ) : null}
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Add an account</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <AccountForm />
-        </CardContent>
-      </Card>
+      {active.length > 0 ? addCard : null}
     </div>
   );
 }
