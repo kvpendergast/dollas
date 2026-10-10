@@ -108,7 +108,7 @@ function PlanSoFarCard({ plan, hasAccounts, money }: { plan: PlanSoFar; hasAccou
             </ul>
           </div>
         ) : null}
-        <Link href="/plan" className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
+        <Link href="/plan" className="tap inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
           Open the plan
         </Link>
       </CardContent>
@@ -196,7 +196,7 @@ export default async function HomePage() {
               ? "Not enough history yet for an everyday pace, so this counts recurring bills only."
               : `About ${money(home.estimate.dailyPaceCents)} a day of everyday spending.`}
           </p>
-          <Link href="/estimate" className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
+          <Link href="/estimate" className="tap inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
             See the breakdown and next month
           </Link>
         </CardContent>

@@ -40,7 +40,7 @@ function Pager({ page, pageCount, total, hrefFor }: { page: number; pageCount: n
       {pageCount > 1 ? (
         <div className="flex items-center gap-3">
           {page > 1 ? (
-            <Link href={hrefFor(page - 1)} className="font-medium text-primary underline-offset-4 hover:underline" rel="prev">
+            <Link href={hrefFor(page - 1)} className="tap font-medium text-primary underline-offset-4 hover:underline" rel="prev">
               ← Newer
             </Link>
           ) : null}
@@ -48,7 +48,7 @@ function Pager({ page, pageCount, total, hrefFor }: { page: number; pageCount: n
             Page {page} of {pageCount}
           </span>
           {page < pageCount ? (
-            <Link href={hrefFor(page + 1)} className="font-medium text-primary underline-offset-4 hover:underline" rel="next">
+            <Link href={hrefFor(page + 1)} className="tap font-medium text-primary underline-offset-4 hover:underline" rel="next">
               Older →
             </Link>
           ) : null}

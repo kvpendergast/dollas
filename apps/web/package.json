@@ -12,7 +12,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
-    "mcp:local": "tsx scripts/mcp-local.ts"
+    "mcp:local": "tsx scripts/mcp-local.ts",
+    "smoke:viewport": "tsx scripts/viewport-smoke.ts"
   },
   "dependencies": {
     "@better-auth/oauth-provider": "1.7.6",
@@ -46,6 +47,7 @@
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.3.7",
+    "playwright-core": "^1.63.0",
     "tailwindcss": "^4",
     "tsx": "^4.20.5",
     "typescript": "^5",

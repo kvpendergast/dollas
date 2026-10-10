@@ -225,15 +225,23 @@ details[open][data-sheet] > :not(summary) {
 }
 
 /*
- * Touch: tap targets at least 44px tall for buttons, menus, and fields
- * (WCAG 2.5.5). Inline text links keep their line height.
+ * Phones and touch screens: tap targets at least 44px tall for buttons,
+ * button-styled links, menus, fields, and standalone links marked .tap
+ * (WCAG 2.5.5). Inline links inside a sentence keep their line height.
  */
-@media (pointer: coarse) {
+@media (max-width: 767px), (pointer: coarse) {
+  button,
   [data-slot="button"],
+  [class~="group/button"],
   summary,
   select,
   input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
     min-height: 44px;
+  }
+  .tap {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
   }
 }
 

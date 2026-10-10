@@ -85,9 +85,9 @@ function SliceList({
               const label = slice.groupName ? `${slice.groupName} · ${slice.name}` : slice.name;
               return (
                 <li key={slice.key ?? "none"} className="space-y-1">
-                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                  <div className="flex items-center justify-between gap-3 text-sm md:items-baseline">
                     {href ? (
-                      <Link href={href} className="min-w-0 truncate text-primary underline-offset-4 hover:underline" title={`See these in Activity`}>
+                      <Link href={href} className="block min-w-0 truncate leading-[44px] text-primary underline-offset-4 hover:underline md:leading-normal" title={`See these in Activity`}>
                         {label}
                       </Link>
                     ) : (

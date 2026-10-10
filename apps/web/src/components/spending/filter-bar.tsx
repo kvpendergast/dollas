@@ -216,7 +216,7 @@ export function FilterBar({
               <Button type="submit" size="sm">
                 Apply filters
               </Button>
-              <Link href={clearHref} className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+              <Link href={clearHref} className="tap text-sm font-medium text-primary underline-offset-4 hover:underline">
                 Clear all
               </Link>
             </div>
@@ -229,7 +229,7 @@ export function FilterBar({
             <li key={`${chip.label}-${chip.href}`}>
               <Link
                 href={chip.href}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-3 py-1 text-xs text-secondary-foreground hover:bg-muted"
+                className="tap inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-3 py-1 text-xs text-secondary-foreground hover:bg-muted"
                 aria-label={`Remove filter ${chip.label}`}
               >
                 {chip.label} <span aria-hidden="true">×</span>
@@ -237,7 +237,7 @@ export function FilterBar({
             </li>
           ))}
           <li>
-            <Link href={clearHref} className="inline-flex px-2 py-1 text-xs font-medium text-primary underline-offset-4 hover:underline">
+            <Link href={clearHref} className="tap inline-flex px-2 py-1 text-xs font-medium text-primary underline-offset-4 hover:underline">
               Clear all
             </Link>
           </li>
