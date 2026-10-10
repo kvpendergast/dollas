@@ -1,5 +1,5 @@
 name: dollas
-description: Dollas deploy infrastructure (PEN-214 dollas_app login; PEN-211 extends this with the full Vercel recipe)
+description: Deploys Dollas to Vercel (project, env vars, dollas_app login, optional domain). See infra/README.md.
 runtime:
   name: nodejs
   options:
