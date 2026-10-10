@@ -43,6 +43,7 @@ export const PLAIN_KEYS = [
   "adoptDomain",
   "installCommand",
   "buildCommand",
+  "generateSecrets",
 ] as const;
 export type PlainKey = (typeof PLAIN_KEYS)[number];
 
@@ -53,7 +54,8 @@ export type SettingsSource<S> = {
   adoptEnv(): unknown;
 };
 
-export type AdoptedEnv = { id: string; targets: VercelTarget[] };
+/** `sensitive` is only needed when the existing variable differs from the recipe default. */
+export type AdoptedEnv = { id: string; targets: VercelTarget[]; sensitive?: boolean };
 
 /** Where an environment variable's value comes from. */
 export type EnvSource<S> =
@@ -69,7 +71,7 @@ export type EnvPlan<S> = {
   sensitive: boolean;
   source: EnvSource<S>;
   /** One Vercel variable per entry. Adopted keys follow the existing layout. */
-  instances: Array<{ targets: VercelTarget[]; importId?: string }>;
+  instances: Array<{ targets: VercelTarget[]; importId?: string; sensitive?: boolean }>;
 };
 
 export type Settings<S> = {
@@ -123,6 +125,27 @@ export const ENV_KEYS = [
   "PLAID_REDIRECT_URI",
 ] as const;
 export type EnvKey = (typeof ENV_KEYS)[number];
+
+/**
+ * Sensitive variables are write-only in Vercel. Changing this on an existing
+ * variable replaces it, so adopted variables can override it per entry.
+ */
+export const SENSITIVE: Record<EnvKey, boolean> = {
+  DATABASE_URL: true,
+  DATABASE_URL_UNPOOLED: true,
+  DATABASE_URL_APP: true,
+  BETTER_AUTH_URL: false,
+  BETTER_AUTH_SECRET: true,
+  BANK_CONNECTION_KEYS: true,
+  RESEND_API_KEY: true,
+  RESEND_FROM: false,
+  GOOGLE_CLIENT_ID: true,
+  GOOGLE_CLIENT_SECRET: true,
+  PLAID_CLIENT_ID: true,
+  PLAID_SECRET: true,
+  PLAID_ENV: false,
+  PLAID_REDIRECT_URI: false,
+};
 
 export class SettingsError extends Error {
   constructor(public readonly problems: string[]) {
@@ -180,6 +203,10 @@ export function parseAdoptEnv(raw: unknown, problems: string[]): Partial<Record<
     for (const entry of entries) {
       const id = (entry as { id?: unknown })?.id;
       const targets = (entry as { targets?: unknown })?.targets;
+      const sensitive = (entry as { sensitive?: unknown })?.sensitive;
+      if (sensitive !== undefined && typeof sensitive !== "boolean" && sensitive !== "true" && sensitive !== "false") {
+        problems.push(`dollas:adoptEnv.${key} entry ${String(id)} has sensitive "${String(sensitive)}"; use true or false.`);
+      }
       if (typeof id !== "string" || !id.trim()) {
         problems.push(`dollas:adoptEnv.${key} needs an id for each entry (the Vercel environment variable id).`);
         continue;
@@ -199,7 +226,11 @@ export function parseAdoptEnv(raw: unknown, problems: string[]): Partial<Record<
           clean.push(target as VercelTarget);
         }
       }
-      parsed.push({ id: id.trim(), targets: clean });
+      parsed.push({
+        id: id.trim(),
+        targets: clean,
+        ...(sensitive === undefined ? {} : { sensitive: sensitive === true || sensitive === "true" }),
+      });
     }
     result[key as EnvKey] = parsed;
   }
@@ -263,6 +294,9 @@ export function parseSettings<S>(source: SettingsSource<S>): Settings<S> {
     }
   }
   const adoptDomain = parseBool(plain("adoptDomain"), "adoptDomain", false, problems);
+  // A generated BETTER_AUTH_SECRET signs everyone out and a new bank key cannot
+  // read stored tokens, so an adopted project never generates them by default.
+  const generateSecrets = parseBool(plain("generateSecrets"), "generateSecrets", !existingId, problems);
   if (adoptDomain && (!existingId || !domain)) problems.push("dollas:adoptDomain needs dollas:vercelProjectId and dollas:domain.");
   const configuredFor: Partial<Record<EnvKey, boolean>> = {
     BETTER_AUTH_URL: Boolean(plain("betterAuthUrl")),
@@ -342,15 +376,33 @@ export function parseSettings<S>(source: SettingsSource<S>): Settings<S> {
     problems.push("dollas:plaidRedirectUri needs the Plaid settings too.");
   }
 
+  if (!generateSecrets) {
+    for (const [key, configKey] of [
+      ["BETTER_AUTH_SECRET", "betterAuthSecret"],
+      ["BANK_CONNECTION_KEYS", "bankConnectionKeys"],
+    ] as const) {
+      if (!has(configKey) && !adopted[key]) {
+        problems.push(
+          `${key} would be generated, which on an existing deployment ${key === "BETTER_AUTH_SECRET" ? "signs everyone out" : "makes stored bank tokens unreadable"}. Set dollas:${configKey} (secret), list it in dollas:adoptEnv, or set dollas:generateSecrets true for a deployment that never had one.`,
+        );
+      }
+    }
+  }
+
   if (problems.length > 0) throw new SettingsError(problems);
 
   const env: EnvPlan<S>[] = [];
-  const add = (key: EnvKey, sensitive: boolean, source: EnvSource<S> | undefined) => {
+  const add = (key: EnvKey, source: EnvSource<S> | undefined) => {
+    const sensitive = SENSITIVE[key];
     const adoptedEntries = adopted[key];
     const resolved: EnvSource<S> | undefined = source ?? (adoptedEntries ? { kind: "keep" } : undefined);
     if (!resolved) return;
     const instances = adoptedEntries
-      ? adoptedEntries.map((entry) => ({ targets: entry.targets, importId: entry.id }))
+      ? adoptedEntries.map((entry) => ({
+          targets: entry.targets,
+          importId: entry.id,
+          ...(entry.sensitive === undefined || entry.sensitive === sensitive ? {} : { sensitive: entry.sensitive }),
+        }))
       : [{ targets }];
     env.push({ key, sensitive, source: resolved, instances });
   };
@@ -361,21 +413,21 @@ export function parseSettings<S>(source: SettingsSource<S>): Settings<S> {
   const text = (value: string | undefined): EnvSource<S> | undefined => (value ? { kind: "plain", value } : undefined);
 
   if (databaseEnv === "pulumi") {
-    add("DATABASE_URL", true, { kind: "database", which: "pooled" });
-    add("DATABASE_URL_UNPOOLED", true, { kind: "database", which: "direct" });
+    add("DATABASE_URL", { kind: "database", which: "pooled" });
+    add("DATABASE_URL_UNPOOLED", { kind: "database", which: "direct" });
   }
-  add("DATABASE_URL_APP", true, { kind: "database", which: "app" });
-  add("BETTER_AUTH_URL", false, adopted.BETTER_AUTH_URL ? undefined : text(betterAuthUrl));
-  add("BETTER_AUTH_SECRET", true, secret("betterAuthSecret") ?? (adopted.BETTER_AUTH_SECRET ? undefined : { kind: "generated", generator: "betterAuthSecret" }));
-  add("BANK_CONNECTION_KEYS", true, secret("bankConnectionKeys") ?? (adopted.BANK_CONNECTION_KEYS ? undefined : { kind: "generated", generator: "bankConnectionKeys" }));
-  add("RESEND_API_KEY", true, secret("resendApiKey"));
-  add("RESEND_FROM", false, text(resendFrom));
-  add("GOOGLE_CLIENT_ID", true, secret("googleClientId"));
-  add("GOOGLE_CLIENT_SECRET", true, secret("googleClientSecret"));
-  add("PLAID_CLIENT_ID", true, secret("plaidClientId"));
-  add("PLAID_SECRET", true, secret("plaidSecret"));
-  add("PLAID_ENV", false, text(plaidEnv));
-  add("PLAID_REDIRECT_URI", false, text(plaidRedirectUri));
+  add("DATABASE_URL_APP", { kind: "database", which: "app" });
+  add("BETTER_AUTH_URL", adopted.BETTER_AUTH_URL ? undefined : text(betterAuthUrl));
+  add("BETTER_AUTH_SECRET", secret("betterAuthSecret") ?? (adopted.BETTER_AUTH_SECRET ? undefined : { kind: "generated", generator: "betterAuthSecret" }));
+  add("BANK_CONNECTION_KEYS", secret("bankConnectionKeys") ?? (adopted.BANK_CONNECTION_KEYS ? undefined : { kind: "generated", generator: "bankConnectionKeys" }));
+  add("RESEND_API_KEY", secret("resendApiKey"));
+  add("RESEND_FROM", text(resendFrom));
+  add("GOOGLE_CLIENT_ID", secret("googleClientId"));
+  add("GOOGLE_CLIENT_SECRET", secret("googleClientSecret"));
+  add("PLAID_CLIENT_ID", secret("plaidClientId"));
+  add("PLAID_SECRET", secret("plaidSecret"));
+  add("PLAID_ENV", text(plaidEnv));
+  add("PLAID_REDIRECT_URI", text(plaidRedirectUri));
 
   return {
     project: {

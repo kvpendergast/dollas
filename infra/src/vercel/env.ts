@@ -13,8 +13,19 @@ const COMMENTS: Partial<Record<EnvKey, string>> = {
 };
 
 /**
+ * Kept (adopted) variables must never be updated: an update sends the value in
+ * state, which is empty for a sensitive variable, and would wipe the secret.
+ * So every mutable field is ignored. The provider requires exactly one of value
+ * or value_wo: a kept plain variable imports its value, and a kept sensitive one
+ * (whose value Vercel never returns) gets this write-only placeholder instead.
+ * With nothing to update, the placeholder is never sent.
+ */
+export const KEPT_IGNORE = ["value", "comment", "targets", "sensitive", "gitBranch", "customEnvironmentIds"];
+const KEPT_PLACEHOLDER = "unused: Vercel keeps the existing value";
+
+/**
  * One Vercel variable per plan instance. Adopted instances are imported by id,
- * keep Vercel's value and comment, and are protected when dollas:protect is on.
+ * keep Vercel's value and settings, and are protected when dollas:protect is on.
  */
 export function dollasEnv(
   settings: Settings<unknown>,
@@ -25,10 +36,13 @@ export function dollasEnv(
   const created: vercel.ProjectEnvironmentVariable[] = [];
   for (const plan of settings.env) {
     const value = valueOf(plan);
+    const kept = plan.source.kind === "keep";
+    if (kept !== (value === undefined)) throw new Error(`${plan.key}: only adopted variables may have no value.`);
     const opts = optsFor(plan);
     const split = plan.instances.length > 1;
     for (const instance of plan.instances) {
       const adopted = instance.importId !== undefined;
+      const sensitive = instance.sensitive ?? plan.sensitive;
       created.push(
         new vercel.ProjectEnvironmentVariable(
           envResourceName(plan.key, instance.targets, split),
@@ -36,15 +50,16 @@ export function dollasEnv(
             projectId,
             teamId: settings.project.teamId,
             key: plan.key,
-            value: value === undefined ? undefined : plan.sensitive ? pulumi.secret(value) : value,
+            value: kept ? undefined : pulumi.secret(value as pulumi.Input<string>),
+            valueWo: kept && sensitive ? pulumi.secret(KEPT_PLACEHOLDER) : undefined,
             targets: instance.targets,
-            sensitive: plan.sensitive,
+            sensitive,
             comment: adopted ? undefined : (COMMENTS[plan.key] ?? "Managed by Pulumi in infra/."),
           },
           {
             ...opts,
             import: adopted ? importId(settings.project.teamId, settings.project.existingId ?? "", instance.importId ?? "") : undefined,
-            ignoreChanges: adopted ? ["value", "comment"] : undefined,
+            ignoreChanges: kept ? KEPT_IGNORE : undefined,
             protect: settings.protect && adopted ? true : opts.protect,
           },
         ),

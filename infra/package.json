@@ -2,11 +2,12 @@
   "name": "@dollas/infra",
   "version": "0.0.1",
   "private": true,
-  "description": "Pulumi program for Dollas deploy infrastructure. PEN-214: the dollas_app LOGIN role and DATABASE_URL_APP.",
+  "description": "Pulumi recipe that deploys Dollas to Vercel: project, env vars, dollas_app login, optional domain.",
   "main": "index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "adopt-env": "ts-node --transpile-only scripts/adopt-env.ts"
   },
   "dependencies": {
     "@pulumi/pulumi": "3.267.0",

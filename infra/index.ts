@@ -95,7 +95,7 @@ dollasEnv(settings, projectId, valueOf, (plan) => (plan.key === APP_DATABASE_ENV
 
 export const vercelProjectId = projectId;
 export const vercelProjectName = project.name;
-export const customDomain = domain?.domain;
+export const customDomain = domain?.domain ?? null;
 export const appRole = appLogin.role;
 export const appPasswordVersion = settings.database.appPasswordVersion;
 export const managedEnv = settings.env.map((plan) => ({
@@ -106,4 +106,4 @@ export const managedEnv = settings.env.map((plan) => ({
 /** Secret. For the verify step: `pulumi stack output appDatabaseUrl --show-secrets`. */
 export const appDatabaseUrl = pulumi.secret(appUrl);
 /** Secret, only when generated. Keep it when rotating: old tokens decrypt with it. */
-export const bankConnectionKeys = generated.bankKey ? pulumi.secret(generatedValue("bankConnectionKeys")) : undefined;
+export const bankConnectionKeys = generated.bankKey ? pulumi.secret(generatedValue("bankConnectionKeys")) : null;

@@ -266,11 +266,14 @@ describe("adopting an existing project", () => {
 
   it("requires adoptEnv and databaseEnv to be explicit", () => {
     const { adoptEnv: _ignored, databaseEnv: _db, ...bare } = KYLE;
-    expect(problems(bare)).toEqual([
-      expect.stringMatching(/needs dollas:adoptEnv/),
-      expect.stringMatching(/needs dollas:databaseEnv set explicitly/),
-    ]);
-    expect(parse({ ...bare, adoptEnv: {}, databaseEnv: "pulumi" }).env.every((entry) => !entry.instances[0]?.importId)).toBe(true);
+    expect(problems(bare)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/needs dollas:adoptEnv/),
+        expect.stringMatching(/needs dollas:databaseEnv set explicitly/),
+      ]),
+    );
+    const empty = parse({ ...bare, adoptEnv: {}, databaseEnv: "pulumi", generateSecrets: "true" });
+    expect(empty.env.every((entry) => !entry.instances[0]?.importId)).toBe(true);
   });
 
   it("rejects a variable that is both adopted and configured", () => {
@@ -290,11 +293,13 @@ describe("adopting an existing project", () => {
           DATABASE_URL: [{ id: "z", targets: ["production"] }],
         },
       }),
-    ).toEqual([
-      expect.stringMatching(/cannot list DATABASE_URL_APP/),
-      expect.stringMatching(/NEXT_PUBLIC_FOO, which this recipe does not manage/),
-      expect.stringMatching(/Neon integration owns it/),
-    ]);
+    ).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/cannot list DATABASE_URL_APP/),
+        expect.stringMatching(/NEXT_PUBLIC_FOO, which this recipe does not manage/),
+        expect.stringMatching(/Neon integration owns it/),
+      ]),
+    );
   });
 
   it("checks adoptEnv entries", () => {
@@ -323,6 +328,40 @@ describe("adopting an existing project", () => {
   it("adopts an existing custom domain", () => {
     const settings = parse({ ...KYLE, domain: "dollas.example.com", adoptDomain: "true" });
     expect(settings.adoptDomain).toBe(true);
+  });
+
+  it("never generates auth or bank secrets for an adopted project unless told to", () => {
+    const adoptEnv = { ...(KYLE.adoptEnv as Record<string, unknown>) };
+    delete adoptEnv.BETTER_AUTH_SECRET;
+    delete adoptEnv.BANK_CONNECTION_KEYS;
+    expect(problems({ ...KYLE, adoptEnv })).toEqual([
+      expect.stringMatching(/BETTER_AUTH_SECRET would be generated.*signs everyone out/),
+      expect.stringMatching(/BANK_CONNECTION_KEYS would be generated.*bank tokens unreadable/),
+    ]);
+    const allowed = parse({ ...KYLE, adoptEnv, generateSecrets: "true" });
+    expect(plan(allowed, "BETTER_AUTH_SECRET")?.source).toEqual({ kind: "generated", generator: "betterAuthSecret" });
+    const configured = parse({ ...KYLE, adoptEnv, betterAuthSecret: "s".repeat(40), bankConnectionKeys: "1:x" });
+    expect(plan(configured, "BANK_CONNECTION_KEYS")?.source).toEqual({ kind: "secret", value: "1:x" });
+  });
+
+  it("records a per-entry sensitivity only when it differs from the recipe", () => {
+    const settings = parse({
+      ...KYLE,
+      adoptEnv: {
+        ...(KYLE.adoptEnv as Record<string, unknown>),
+        GOOGLE_CLIENT_ID: [
+          { id: "a", targets: ["production"], sensitive: false },
+          { id: "b", targets: ["preview"], sensitive: "true" },
+        ],
+      },
+    });
+    expect(plan(settings, "GOOGLE_CLIENT_ID")?.instances).toEqual([
+      { targets: ["production"], importId: "a", sensitive: false },
+      { targets: ["preview"], importId: "b" },
+    ]);
+    expect(problems({ ...KYLE, adoptEnv: { ...(KYLE.adoptEnv as Record<string, unknown>), RESEND_FROM: [{ id: "x", targets: ["production"], sensitive: "maybe" }] } })).toEqual([
+      expect.stringMatching(/sensitive "maybe"/),
+    ]);
   });
 
   it("lets protection be turned off explicitly", () => {
