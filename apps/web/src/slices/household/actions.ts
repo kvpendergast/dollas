@@ -1,11 +1,9 @@
 "use server";
 
-import { INVITE_MESSAGES, isInviteToken, memberFacingMessage } from "@dollas/domain";
+import { INVITE_MESSAGES, isInviteToken } from "@dollas/domain";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { sql } from "drizzle-orm";
-import { withActor } from "@/db/actor";
 import { getAuth } from "@/lib/auth";
 import { logError } from "@/lib/telemetry";
 import { clearHouseholdIntent, type AuthFormState } from "@/slices/auth/actions";
@@ -17,25 +15,12 @@ import {
   revokeHouseholdInvite,
   type InviteMailOutcome,
 } from "./invites";
-
-function idFrom(rows: unknown): string | null {
-  if (!Array.isArray(rows) || rows.length === 0) return null;
-  const row = rows[0] as { id?: unknown };
-  if (typeof row.id === "string") return row.id;
-  return null;
-}
+import { startHousehold } from "./start";
 
 export async function startHouseholdAction(_state: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const ctx = await requireVerifiedUser();
-  const name = String(formData.get("householdName") ?? "").trim();
-  if (name.length < 2) return { error: "Name the household you are starting." };
-  try {
-    const rows = await withActor(ctx.actor.userId, (tx) => tx.execute(sql`select create_household(${name}) as id`));
-    if (!idFrom(rows)) return { error: "The household was not created." };
-  } catch (error) {
-    logError(error, { action: "create-household", userId: ctx.actor.userId });
-    return { error: memberFacingMessage(error, "Could not start that household.") };
-  }
+  const started = await startHousehold(ctx.actor.userId, String(formData.get("householdName") ?? ""));
+  if (!started.ok) return { error: started.memberMessage };
   await clearHouseholdIntent();
   revalidatePath("/");
   redirect("/");

@@ -12,9 +12,9 @@ function docBefore(name: string): string {
   return comment?.[0] ?? "";
 }
 
-describe("bank services for a later MCP tool", () => {
+describe("bank services and MCP", () => {
   it("marks bank-login services as UI-only so MCP cannot finish a bank login", () => {
-    assert.equal(UI_ONLY_SERVICES.length, 2);
+    assert.equal(UI_ONLY_SERVICES.length, 3);
     for (const fn of UI_ONLY_SERVICES) {
       const doc = docBefore(fn.name);
       assert.match(doc, /UI-only/);
@@ -22,7 +22,7 @@ describe("bank services for a later MCP tool", () => {
     }
   });
 
-  it("leaves list, sync, and disconnect available to a future MCP tool", () => {
+  it("leaves list, sync, and disconnect available to MCP tools", () => {
     const reserved = new Set<unknown>(UI_ONLY_SERVICES);
     for (const fn of [listBankConnections, syncBankConnection, disconnectBankConnection]) {
       assert.equal(reserved.has(fn), false);
