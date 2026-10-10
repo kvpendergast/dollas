@@ -143,6 +143,8 @@ CI runs a gitleaks secret scan and a code-quality scan (lint, types, and tests).
 
 ## Production
 
+**Deploy with Pulumi:** [`infra/README.md`](infra/README.md) is the recipe for deploying Dollas to Vercel, from a fresh fork or by adopting an existing project. It creates the project, sets every variable below from Pulumi config (secrets encrypted), creates the `dollas_app` login, and adds an optional custom domain. The rest of this section describes the same setup by hand.
+
 The Next.js app is the pnpm workspace package `@dollas/web` in `apps/web`. On the Vercel project, set the root directory to `apps/web`. The install command is `pnpm install --frozen-lockfile --filter @dollas/web...` (also in `apps/web/vercel.json`). The workspace root and `packages/domain` have to be included in the build, which is the “Include source files outside of the Root Directory” setting. Node on that project is 24.x.
 
 Set these environment variables in Vercel. Do not commit secret values. `RESEND_API_KEY` lives only on Vercel.
