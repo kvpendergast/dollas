@@ -176,6 +176,20 @@
       "when": 1791648744272,
       "tag": "0024_agent_oauth_access",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791657622305,
+      "tag": "0025_bank_transaction_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791657643885,
+      "tag": "0026_bank_identity_backfill",
+      "breakpoints": true
     }
   ]
 }

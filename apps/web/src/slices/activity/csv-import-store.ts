@@ -9,7 +9,7 @@ import {
   type ImportWrite,
   type SavedCsvMapping,
 } from "@dollas/domain";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import type { AppTx } from "@/db/client";
 import { category, csvColumnMapping, csvImport, ledgerAccount, payeeCategoryRule, transaction, transactionSplit } from "@/db/schema";
 
@@ -52,6 +52,19 @@ export function csvImportStore(tx: AppTx): CsvImportStore {
         })
         .from(transaction)
         .where(eq(transaction.householdId, householdId));
+      const bankRows = await tx
+        .select({
+          id: transaction.id,
+          accountId: transaction.accountId,
+          occurredOn: transaction.occurredOn,
+          bankOccurredOn: transaction.bankOccurredOn,
+          amountCents: transaction.amountCents,
+          payee: transaction.payee,
+          deletedAt: transaction.deletedAt,
+          createdAt: transaction.createdAt,
+        })
+        .from(transaction)
+        .where(and(eq(transaction.householdId, householdId), isNotNull(transaction.bankTransactionId)));
       const savedRows = await tx
         .select()
         .from(csvColumnMapping)
@@ -68,6 +81,16 @@ export function csvImportStore(tx: AppTx): CsvImportStore {
           })),
           householdId,
         ),
+        bankCharges: bankRows.map((row) => ({
+          id: row.id,
+          accountId: row.accountId,
+          occurredOn: row.occurredOn,
+          bankOccurredOn: row.bankOccurredOn,
+          amountCents: row.amountCents,
+          payee: row.payee,
+          deleted: row.deletedAt != null,
+          createdAt: row.createdAt.toISOString(),
+        })),
         savedMappings: savedRows.map((row) => toSavedMapping(row)),
       };
     },

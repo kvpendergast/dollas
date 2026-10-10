@@ -5,6 +5,7 @@ import {
   csvTooLargeMessage,
   previewMappedImport,
   proposeCsvMapping,
+  transactionsKeptByUndo,
   transactionsRemovedByUndo,
   type ColumnMapping,
   type CsvInspection,
@@ -25,7 +26,10 @@ import { csvImportStore } from "./csv-import-store";
 
 const FALLBACK = "Could not import that CSV.";
 
-export type CsvPreviewRow = Pick<MappedPreviewRow, "line" | "status" | "amountCents" | "cells">;
+export type CsvPreviewRow = Pick<MappedPreviewRow, "line" | "status" | "amountCents" | "cells"> & {
+  /** Set on duplicates: "bank" means the bank already synced this charge (PEN-203). */
+  duplicateOf: "import" | "bank" | null;
+};
 
 export type CsvPreview = {
   readyCount: number;
@@ -63,7 +67,13 @@ function presentable(outcome: { readyCount: number; errorCount: number; duplicat
     readyCount: outcome.readyCount,
     errorCount: outcome.errorCount,
     duplicateCount: outcome.duplicateCount,
-    rows: outcome.rows.map((row) => ({ line: row.line, status: row.status, amountCents: row.amountCents, cells: row.cells })),
+    rows: outcome.rows.map((row) => ({
+      line: row.line,
+      status: row.status,
+      duplicateOf: row.duplicateOf ?? null,
+      amountCents: row.amountCents,
+      cells: row.cells,
+    })),
   };
 }
 
@@ -164,15 +174,25 @@ export function removedImportMessage(count: number): string {
   return `Removed ${count} ${label} from that import. You can import that file again.`;
 }
 
-/** Removes the transactions an import added (except ones edited since) and marks it undone. */
+export function undoMessage(removed: number, kept: number): string {
+  const keptNote =
+    kept === 0 ? "" : ` Kept ${kept} ${kept === 1 ? "transaction" : "transactions"} your bank also reported.`;
+  if (removed === 0) return kept === 0 ? "That import had no transactions left to remove." : `Nothing removed.${keptNote}`;
+  return `${removedImportMessage(removed)}${keptNote}`;
+}
+
+/**
+ * Removes the transactions an import added and marks it undone. Rows a bank
+ * sync has since linked to stay (the bank backs them) and are detached from the batch.
+ */
 export async function undoCsvImport(
   actor: ServiceActor,
   batchId: string,
   via: Via = "web",
-): Promise<ServiceResult<{ removed: number; message: string }>> {
+): Promise<ServiceResult<{ removed: number; kept: number; message: string }>> {
   if (!UUID.test(batchId)) return refuse("That import is not in this household.");
   try {
-    const removed = await withActor(actor.userId, async (tx) => {
+    const outcome = await withActor(actor.userId, async (tx) => {
       const [batch] = await tx
         .select({ id: csvImport.id, undoneAt: csvImport.undoneAt })
         .from(csvImport)
@@ -186,14 +206,32 @@ export async function undoCsvImport(
           importBatchId: transaction.importBatchId,
           importFingerprint: transaction.importFingerprint,
           deletedAt: transaction.deletedAt,
+          bankTransactionId: transaction.bankTransactionId,
         })
         .from(transaction)
         .where(and(eq(transaction.householdId, actor.householdId), eq(transaction.importBatchId, batchId)));
-      const victims = transactionsRemovedByUndo(
-        candidates.map((row) => ({ ...row, deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null })),
-        actor.householdId,
-        batchId,
-      );
+      const rows = candidates.map(({ bankTransactionId, ...row }) => ({
+        ...row,
+        deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
+        bankBacked: bankTransactionId != null,
+      }));
+      const victims = transactionsRemovedByUndo(rows, actor.householdId, batchId);
+      const kept = transactionsKeptByUndo(rows, actor.householdId, batchId);
+      if (kept.length > 0) {
+        // The bank backs these charges; keep them (and their fingerprints) and detach them from the batch.
+        await tx
+          .update(transaction)
+          .set({ importBatchId: null })
+          .where(
+            and(
+              eq(transaction.householdId, actor.householdId),
+              inArray(
+                transaction.id,
+                kept.map((row) => row.id),
+              ),
+            ),
+          );
+      }
       if (victims.length > 0) {
         await tx.delete(transaction).where(
           and(
@@ -211,11 +249,16 @@ export async function undoCsvImport(
         .where(and(eq(csvImport.id, batchId), eq(csvImport.householdId, actor.householdId), isNull(csvImport.undoneAt)))
         .returning({ id: csvImport.id });
       if (undone.length === 0) throw new CsvImportError("That import was already undone.");
-      return victims.length;
+      return { removed: victims.length, kept: kept.length };
     });
-    logInfo("CSV import undone", { action: "undo-csv-import", via, householdId: actor.householdId, removed: String(removed) });
-    const message = removed === 0 ? "That import had no transactions left to remove." : removedImportMessage(removed);
-    return succeed({ removed, message });
+    logInfo("CSV import undone", {
+      action: "undo-csv-import",
+      via,
+      householdId: actor.householdId,
+      removed: String(outcome.removed),
+      kept: String(outcome.kept),
+    });
+    return succeed({ removed: outcome.removed, kept: outcome.kept, message: undoMessage(outcome.removed, outcome.kept) });
   } catch (error) {
     return failure(error, "Could not undo that import.", { action: "undo-csv-import", via, householdId: actor.householdId });
   }

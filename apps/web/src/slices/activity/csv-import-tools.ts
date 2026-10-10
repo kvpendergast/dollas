@@ -99,6 +99,7 @@ function previewOut(preview: CsvPreview, args: { rows?: "problems" | "all"; limi
       wanted.map((row) => ({
         line: row.line,
         status: row.status,
+        duplicate_of: row.duplicateOf,
         amount_cents: row.amountCents,
         cells: row.cells.map((cell) => ({ field: cell.field, text: cell.text, error: cell.message })),
       })),
@@ -144,7 +145,7 @@ export const csvImportTools = [
     name: "preview_csv_import",
     title: "Preview CSV import",
     description:
-      "Step 2. Validates every row against the mapping and returns cell-level errors (field, text, error) and the ready, error, and duplicate counts. Nothing is written.",
+      "Step 2. Validates every row against the mapping and returns cell-level errors (field, text, error) and the ready, error, and duplicate counts. A duplicate is a row already imported (duplicate_of: import) or a charge bank sync already added on the same account, same amount, within 3 days (duplicate_of: bank). Nothing is written.",
     access: "read",
     input: { csv: csvInput, mapping: mappingInput, ...rowsInput },
     async run(args, { books }) {
@@ -197,7 +198,7 @@ export const csvImportTools = [
   tool({
     name: "undo_csv_import",
     title: "Undo CSV import",
-    description: "Remove the transactions an import added and mark it undone. Transactions edited since the import are kept. The file can be imported again.",
+    description: "Remove the transactions an import added and mark it undone. Transactions a bank sync has since matched are kept (the bank backs them) and detached from the import. The file can be imported again.",
     access: "write",
     destructive: true,
     input: { import_id: uuidInput("Import"), confirm: confirmInput("remove the transactions this import added") },

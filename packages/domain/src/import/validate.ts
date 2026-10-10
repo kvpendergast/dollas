@@ -2,6 +2,7 @@ import { err, ok, type Result } from "neverthrow";
 import { CsvImportError } from "../errors";
 import type { Cents } from "../money/cents";
 import { matchingPayeeRule, type PayeeCategoryRule } from "../rules/payee-category";
+import { pairCharges } from "../connections/match";
 import { fingerprintNormalizedRows } from "./fingerprint";
 import {
   detectDateOrder,
@@ -43,6 +44,24 @@ export type MappedImportContext = {
   categories: readonly ImportCategory[];
   rules: readonly PayeeCategoryRule[];
   fingerprints: readonly { fingerprint: string }[];
+  /**
+   * Rows the bank already backs (PEN-203), deleted ones included. A ready CSV
+   * row that pairs with one (same account and cents, dates within the match
+   * window, one to one) is a duplicate and is not added.
+   */
+  bankCharges?: readonly BankBackedCharge[];
+};
+
+export type BankBackedCharge = {
+  id: string;
+  accountId: string;
+  occurredOn: string;
+  /** The bank's own date when it differs from the book date (a linked row). */
+  bankOccurredOn: string | null;
+  amountCents: Cents;
+  payee: string;
+  deleted: boolean;
+  createdAt: string;
 };
 
 export type CategoryChoice =
@@ -71,6 +90,8 @@ export type MappedCell = {
 export type MappedPreviewRow = {
   line: number;
   status: "ready" | "error" | "duplicate";
+  /** Why a duplicate row is skipped: this file (or its rows) was imported before, or the bank already synced the charge. */
+  duplicateOf?: "import" | "bank";
   cells: MappedCell[];
   amountCents: Cents | null;
   fingerprint: string | null;
@@ -133,7 +154,7 @@ export async function validateMappedImport(
   let fingerprintCursor = 0;
   const known = new Set(context.fingerprints.map((row) => row.fingerprint));
   const rows: MappedPreviewRow[] = [];
-  const ready: CommitCsvRow[] = [];
+  let ready: CommitCsvRow[] = [];
 
   for (const row of draft) {
     if (row.errors.length > 0 || !row.commit || !row.normalized) {
@@ -153,6 +174,7 @@ export async function validateMappedImport(
       rows.push({
         line: row.line,
         status: "duplicate",
+        duplicateOf: "import",
         cells: presentCells(row.texts, []),
         amountCents: row.amountCents,
         fingerprint,
@@ -171,6 +193,17 @@ export async function validateMappedImport(
       fingerprint,
       commit,
     });
+  }
+
+  const synced = alreadySynced(ready, context.bankCharges ?? []);
+  if (synced.size > 0) {
+    for (const row of rows) {
+      if (row.status !== "ready" || !row.fingerprint || !synced.has(row.fingerprint)) continue;
+      row.status = "duplicate";
+      row.duplicateOf = "bank";
+      row.commit = null;
+    }
+    ready = ready.filter((row) => !synced.has(row.fingerprint));
   }
 
   return ok({
@@ -496,4 +529,28 @@ function pad(cells: string[], width: number): string[] {
   const next = cells.slice(0, width);
   while (next.length < width) next.push("");
   return next;
+}
+
+/** Fingerprints of ready rows that pair with a bank-backed row, using the same rules as bank sync. */
+function alreadySynced(ready: readonly CommitCsvRow[], charges: readonly BankBackedCharge[]): Set<string> {
+  if (ready.length === 0 || charges.length === 0) return new Set();
+  const pairs = pairCharges(
+    ready.map((row) => ({
+      key: row.fingerprint,
+      accountId: row.accountId,
+      amountCents: row.amountCents,
+      dates: [row.occurredOn],
+      payee: row.payee,
+    })),
+    charges.map((charge) => ({
+      id: charge.id,
+      accountId: charge.accountId,
+      amountCents: charge.amountCents,
+      dates: charge.bankOccurredOn ? [charge.occurredOn, charge.bankOccurredOn] : [charge.occurredOn],
+      payee: charge.payee,
+      deleted: charge.deleted,
+      order: charge.createdAt,
+    })),
+  );
+  return new Set(pairs.map((pair) => pair.incomingKey));
 }

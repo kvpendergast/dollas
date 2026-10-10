@@ -4,8 +4,8 @@ import { importCsv } from "./csv";
 import { inspectCsvImport, parseCsvAmount, readCsvDate } from "./mapping";
 import { commitMappedImport, previewMappedImport, proposeCsvMapping } from "./service";
 import type { CsvImportStore } from "./store";
-import { transactionsRemovedByUndo, type ImportBatchTransaction } from "./undo";
-import { validateMappedImport, type CommitCsvRow, type MappedImportContext } from "./validate";
+import { transactionsKeptByUndo, transactionsRemovedByUndo, type ImportBatchTransaction } from "./undo";
+import { validateMappedImport, type BankBackedCharge, type CommitCsvRow, type MappedImportContext } from "./validate";
 
 const maple = "maple-house";
 const accounts = [
@@ -414,5 +414,89 @@ describe("cell errors and commit", () => {
       "added-2",
     ]);
     expect(transactionsRemovedByUndo(rows, maple, "batch-other").map((row) => row.id)).toEqual(["other-import"]);
+  });
+});
+
+describe("CSV rows the bank already synced (PEN-203)", () => {
+  const bankCharge = (id: string, extra: Partial<BankBackedCharge> = {}): BankBackedCharge => ({
+    id,
+    accountId: "acct-checking",
+    occurredOn: "2026-03-04",
+    bankOccurredOn: null,
+    amountCents: -8_640,
+    payee: "MARKET DOWNTOWN 042",
+    deleted: false,
+    createdAt: "2026-03-05T00:00:00.000Z",
+    ...extra,
+  });
+
+  it("marks a ready row as a bank duplicate and leaves it out of the commit, one bank charge per CSV row", async () => {
+    const inspected = await inspectCsvImport(classic);
+    if (inspected.isErr()) throw inspected.error;
+    const validated = await validateMappedImport(classic, inspected.value.mapping, context({ bankCharges: [bankCharge("bank-market")] }));
+    if (validated.isErr()) throw validated.error;
+    // Two identical Market rows, one bank charge: one is the bank's copy, the other is a second real charge.
+    expect(validated.value.duplicateCount).toBe(1);
+    expect(validated.value.readyCount).toBe(2);
+    const duplicate = validated.value.rows.find((row) => row.status === "duplicate");
+    expect(duplicate?.duplicateOf).toBe("bank");
+    expect(duplicate?.commit).toBeNull();
+    expect(validated.value.ready.map((row) => row.payee)).toEqual(["Northwind Payroll", "Market, Downtown"]);
+  });
+
+  it("counts a soft-deleted bank row too, so the CSV does not bring a deleted charge back", async () => {
+    const inspected = await inspectCsvImport(classic);
+    if (inspected.isErr()) throw inspected.error;
+    const validated = await validateMappedImport(
+      classic,
+      inspected.value.mapping,
+      context({ bankCharges: [bankCharge("one", { deleted: true }), bankCharge("two")] }),
+    );
+    if (validated.isErr()) throw validated.error;
+    expect(validated.value.duplicateCount).toBe(2);
+    expect(validated.value.readyCount).toBe(1);
+  });
+
+  it("ignores bank rows on another account, another amount, or more than three days away", async () => {
+    const inspected = await inspectCsvImport(classic);
+    if (inspected.isErr()) throw inspected.error;
+    const validated = await validateMappedImport(
+      classic,
+      inspected.value.mapping,
+      context({
+        bankCharges: [
+          bankCharge("visa", { accountId: "acct-visa" }),
+          bankCharge("cents", { amountCents: -8_641 }),
+          bankCharge("late", { occurredOn: "2026-03-06" }),
+        ],
+      }),
+    );
+    if (validated.isErr()) throw validated.error;
+    expect(validated.value.duplicateCount).toBe(0);
+  });
+
+  it("uses the bank's own date on a linked row as well as the book date", async () => {
+    const inspected = await inspectCsvImport(classic);
+    if (inspected.isErr()) throw inspected.error;
+    const validated = await validateMappedImport(
+      classic,
+      inspected.value.mapping,
+      context({ bankCharges: [bankCharge("linked", { occurredOn: "2026-02-20", bankOccurredOn: "2026-03-03" })] }),
+    );
+    if (validated.isErr()) throw validated.error;
+    expect(validated.value.duplicateCount).toBe(1);
+  });
+});
+
+describe("undo of an import a bank sync later linked to", () => {
+  it("keeps bank-backed rows (detached from the batch) and removes the rest", () => {
+    const rows: ImportBatchTransaction[] = [
+      { id: "plain", householdId: maple, importBatchId: "b1", importFingerprint: "abc:0", deletedAt: null },
+      { id: "linked", householdId: maple, importBatchId: "b1", importFingerprint: "abc:1", deletedAt: null, bankBacked: true },
+      { id: "other", householdId: maple, importBatchId: "b2", importFingerprint: "def:0", deletedAt: null, bankBacked: true },
+    ];
+    expect(transactionsRemovedByUndo(rows, maple, "b1").map((row) => row.id)).toEqual(["plain"]);
+    expect(transactionsKeptByUndo(rows, maple, "b1").map((row) => row.id)).toEqual(["linked"]);
+    expect(transactionsKeptByUndo(rows, "elsewhere", "b1")).toEqual([]);
   });
 });

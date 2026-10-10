@@ -345,18 +345,51 @@ export const transaction = pgTable(
     payee: text("payee").notNull(),
     amountCents: integer("amount_cents").notNull(),
     importFingerprint: text("import_fingerprint"),
-    /** Set only on rows this CSV import created. Manual entries and bank sync leave it empty. */
+    /**
+     * Set only on rows this CSV import created. Manual entries and bank sync leave it empty.
+     * Undo clears it (instead of deleting) on rows a bank sync has since linked to.
+     */
     importBatchId: uuid("import_batch_id").references(() => csvImport.id, { onDelete: "set null" }),
     /** Optional note from a mapped CSV column. Blank notes are stored as null. */
     note: text("note"),
     /** Set when a member deletes the transaction. The row and its import fingerprint stay so CSV import does not recreate it. */
     deletedAt: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    /**
+     * Bank identity (PEN-203): the provider, the provider's account id, and the
+     * provider's transaction id. Set on rows bank sync created and on CSV or
+     * manual rows a sync linked to. Unique per household, so a re-sync is a
+     * no-op. Kept after a soft delete, so a deleted charge stays deleted.
+     */
+    bankProviderId: text("bank_provider_id"),
+    bankAccountRef: text("bank_account_ref"),
+    bankTransactionId: text("bank_transaction_id"),
+    /** Set when sync linked the bank charge to a row that already existed (CSV or manual) instead of inserting. */
+    bankMatchedAt: timestamp("bank_matched_at", { withTimezone: true, mode: "date" }),
+    /** The bank's own date and payee for a linked row, so "Not the same charge" can rebuild the bank copy. */
+    bankOccurredOn: date("bank_occurred_on"),
+    bankPayee: text("bank_payee"),
   },
   (table) => [
     index("transaction_household_date_idx").on(table.householdId, table.occurredOn),
     index("transaction_import_batch_idx").on(table.importBatchId),
     unique("transaction_import_fingerprint_key").on(table.householdId, table.importFingerprint),
+    unique("transaction_bank_identity_key").on(
+      table.householdId,
+      table.bankProviderId,
+      table.bankAccountRef,
+      table.bankTransactionId,
+    ),
+    index("transaction_household_account_amount_idx").on(table.householdId, table.accountId, table.amountCents),
+    check(
+      "transaction_bank_identity_chk",
+      sql`(${table.bankProviderId} is null and ${table.bankAccountRef} is null and ${table.bankTransactionId} is null) or (${table.bankProviderId} ~ '^[a-z][a-z0-9_-]{0,31}$' and char_length(${table.bankAccountRef}) between 1 and 200 and char_length(${table.bankTransactionId}) between 1 and 200)`,
+    ),
+    check(
+      "transaction_bank_match_chk",
+      sql`(${table.bankMatchedAt} is null and ${table.bankOccurredOn} is null and ${table.bankPayee} is null) or ${table.bankTransactionId} is not null`,
+    ),
+    check("transaction_bank_payee_chk", sql`${table.bankPayee} is null or char_length(${table.bankPayee}) <= 200`),
     check("transaction_note_chk", sql`${table.note} is null or char_length(${table.note}) <= 500`),
     pgPolicy("transaction_all", {
       for: "all",
