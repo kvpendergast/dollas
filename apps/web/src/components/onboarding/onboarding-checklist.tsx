@@ -35,12 +35,12 @@ export function OnboardingChecklist({ status }: { status: OnboardingStatus }) {
     return (
       <Card className="border-primary/20">
         <CardHeader>
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1 space-y-1">
               <CardTitle>Your household is set up</CardTitle>
               <CardDescription>Accounts, categories, transactions, a budget, and your partner are in.</CardDescription>
             </div>
-            <SkipOnboardingButton label="Hide" />
+            <SkipOnboardingButton label="Hide checklist" variant="outline" />
           </div>
         </CardHeader>
         {recurring ? (
