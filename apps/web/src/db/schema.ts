@@ -978,3 +978,15 @@ export const householdOnboarding = pgTable(
     }),
   ],
 ).enableRLS();
+
+/**
+ * Fixed-window rate limit counters shared by every serverless instance
+ * (security review). Keys are hashed (sha-256 of an address or email plus the
+ * action), never raw. Not household data, so no household RLS; the app role
+ * only needs DML. Better Auth's HTTP limiter and the server actions both use it.
+ */
+export const rateLimit = pgTable("rate_limit", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull(),
+  windowStart: timestamp("window_start", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});

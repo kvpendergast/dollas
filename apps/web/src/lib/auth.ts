@@ -8,6 +8,7 @@ import { after } from "next/server";
 import { getDb } from "@/db/client";
 import { schema, user } from "@/db/schema";
 import { agentOAuthOptions, agentTokenVerifier } from "@/lib/agent-oauth";
+import { AUTH_LIMITS, consumeRate, rateKey } from "@/lib/rate-limit";
 import { redactSecrets } from "@/lib/redact";
 import { logError, logInfo } from "@/lib/telemetry";
 import { recordMailFailure } from "@/lib/mail-attempt";
@@ -76,6 +77,20 @@ function createAuth() {
       // skips this hook, so the auth slice also limits resend and reset per email and IP.
       rateLimit: {
         enabled: true,
+        // Counters live in Postgres (see lib/rate-limit.ts). The default memory store is per serverless instance.
+        customStorage: {
+          consume: async (key, rule) => {
+            const decision = await consumeRate(rateKey("better-auth", key), { max: rule.max, windowSeconds: rule.window });
+            return { allowed: decision.allowed, retryAfter: decision.allowed ? null : decision.retryAfterSeconds };
+          },
+        },
+        customRules: {
+          "/sign-in/email": { window: AUTH_LIMITS.signInIp.windowSeconds, max: AUTH_LIMITS.signInIp.max },
+          "/sign-up/email": { window: AUTH_LIMITS.signUpIp.windowSeconds, max: AUTH_LIMITS.signUpIp.max },
+          "/reset-password": { window: AUTH_LIMITS.resetPasswordIp.windowSeconds, max: AUTH_LIMITS.resetPasswordIp.max },
+          // Open dynamic client registration (MCP clients need it): cap what one address can create.
+          "/oauth2/register": { window: 60 * 60, max: 20 },
+        },
       },
       // A verified address stays in place until the new one is confirmed.
       // updateEmailWithoutVerification stays off.
