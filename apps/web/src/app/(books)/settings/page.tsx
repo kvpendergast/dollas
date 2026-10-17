@@ -1,3 +1,4 @@
+import { FieldError } from "@/components/ui/field";
 import { PageHeader } from "@/components/app/page-header";
 import { NameForm, EmailForm, PasswordSection, TransferForm, LeaveHouseholdDialog, DeleteHouseholdDialog } from "@/components/forms/settings-forms";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,9 +29,9 @@ export default async function SettingsPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader title="Settings" description={<>Your login, and your place in {books.householdName}.</>} />
       {described.ok ? null : (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {described.memberMessage}
-        </p>
+        </FieldError>
       )}
       <Card>
         <CardHeader>
@@ -70,9 +71,9 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {!agents.ok ? (
-            <p role="alert" className="text-sm text-over">
+            <FieldError>
               {agents.memberMessage}
-            </p>
+            </FieldError>
           ) : agents.value.length === 0 ? (
             <p className="text-sm text-muted-foreground">No agents are connected yet. The address to add is below.</p>
           ) : (

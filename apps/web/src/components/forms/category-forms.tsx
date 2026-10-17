@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { TRANSFER_KIND_HELP, categoryKindLabel, categoryKinds } from "@dollas/domain";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
@@ -23,9 +24,9 @@ export function CategoryGroupForm() {
         Add group
       </Button>
       {state.error ? (
-        <p role="alert" className="text-sm text-over md:col-span-2">
+        <FieldError className="md:col-span-2">
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
     </form>
   );
@@ -96,9 +97,9 @@ export function CategoryForm({ groups }: { groups: Array<{ id: string; name: str
         Add category
       </Button>
       {state.error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
     </form>
   );

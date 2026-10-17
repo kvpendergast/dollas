@@ -1,19 +1,13 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
+import { ConfirmDialog } from "@/components/app/confirm-dialog";
+import { FormField } from "@/components/app/form-field";
+
 import { Select } from "@/components/ui/select";
 import { LAST_OWNER_MESSAGE, type HouseholdRole, type SignInMethod } from "@dollas/domain";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EMAIL_CHANGE_HINT, GOOGLE_PASSWORD_MESSAGE, NO_PASSWORD_MESSAGE } from "@/slices/settings/copy";
@@ -29,15 +23,6 @@ import {
 import { useActionToast } from "@/lib/use-action-toast";
 
 const initial: SettingsFormState = { error: "" };
-
-function FieldError({ message }: { message: string }) {
-  if (!message) return null;
-  return (
-    <p role="alert" className="text-sm text-over">
-      {message}
-    </p>
-  );
-}
 
 function FieldNotice({ message }: { message?: string }) {
   if (!message) return null;
@@ -71,7 +56,7 @@ export function NameForm({ name }: { name: string }) {
         <Label htmlFor="settings-name">Name</Label>
         <Input id="settings-name" name="name" autoComplete="name" defaultValue={name} required />
       </div>
-      <FieldError message={state.error} />
+      <FieldError>{state.error}</FieldError>
       <FieldNotice message={state.notice} />
       <Button type="submit" disabled={pending}>
         {pending ? "Saving" : "Save name"}
@@ -93,7 +78,7 @@ export function EmailForm({ email }: { email: string }) {
         <Input id="settings-email" name="email" type="email" autoComplete="email" required />
       </div>
       <p className="text-sm text-muted-foreground">{EMAIL_CHANGE_HINT}</p>
-      <FieldError message={state.error} />
+      <FieldError>{state.error}</FieldError>
       <FieldNotice message={state.notice} />
       <Button type="submit" disabled={pending}>
         {pending ? "Sending link" : "Send confirmation link"}
@@ -125,7 +110,7 @@ function PasswordForm() {
         <Label htmlFor="settings-confirm-password">Confirm new password</Label>
         <Input id="settings-confirm-password" name="confirm" type="password" autoComplete="new-password" minLength={8} required />
       </div>
-      <FieldError message={state.error} />
+      <FieldError>{state.error}</FieldError>
       <FieldNotice message={state.notice} />
       <Button type="submit" disabled={pending}>
         {pending ? "Changing" : "Change password"}
@@ -157,7 +142,7 @@ export function TransferForm({ members }: { members: { userId: string; name: str
           ))}
         </Select>
       </div>
-      <FieldError message={state.error} />
+      <FieldError>{state.error}</FieldError>
       <FieldNotice message={state.notice} />
       <Button type="submit" variant="outline" disabled={pending}>
         {pending ? "Handing off" : "Hand off ownership"}
@@ -169,90 +154,48 @@ export function TransferForm({ members }: { members: { userId: string; name: str
 export function LeaveHouseholdDialog({ lastOwner, householdName }: { lastOwner: boolean; householdName: string }) {
   const copy = leaveHouseholdCopy(lastOwner, householdName);
   const [state, action, pending] = useActionState(leaveHouseholdAction, initial);
-  const [open, setOpen] = useState(false);
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+    <ConfirmDialog
+      trigger={
         <Button type="button" variant="outline">
           Leave household
         </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{copy.title}</DialogTitle>
-          <DialogDescription>{copy.body}</DialogDescription>
-        </DialogHeader>
-        {lastOwner ? (
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Close
-              </Button>
-            </DialogClose>
-          </DialogFooter>
-        ) : (
-          <form action={action} className="space-y-3">
-            <FieldError message={state.error} />
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="outline">
-                  Stay
-                </Button>
-              </DialogClose>
-              <Button type="submit" variant="destructive" disabled={pending}>
-                {pending ? "Leaving" : "Leave household"}
-              </Button>
-            </DialogFooter>
-          </form>
-        )}
-      </DialogContent>
-    </Dialog>
+      }
+      title={copy.title}
+      description={copy.body}
+      action={lastOwner ? undefined : action}
+      pending={pending}
+      error={state.error}
+      cancelLabel={lastOwner ? "Close" : "Stay"}
+      confirmLabel="Leave household"
+      pendingLabel="Leaving"
+    />
   );
 }
 
 export function DeleteHouseholdDialog({ householdName }: { householdName: string }) {
   const [state, action, pending] = useActionState(deleteHouseholdAction, initial);
   const [typed, setTyped] = useState("");
-  const [open, setOpen] = useState(false);
   const matches = typed.trim() === householdName.trim();
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+    <ConfirmDialog
+      trigger={
         <Button type="button" variant="destructive">
           Delete household
         </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete {householdName}?</DialogTitle>
-          <DialogDescription>
-            This removes the household and everything in it. Type {householdName} to confirm. This cannot be undone.
-          </DialogDescription>
-        </DialogHeader>
-        <form action={action} className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="settings-delete-name">Household name</Label>
-            <Input
-              id="settings-delete-name"
-              name="confirmation"
-              value={typed}
-              onChange={(event) => setTyped(event.target.value)}
-              autoComplete="off"
-            />
-          </div>
-          <FieldError message={state.error} />
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button type="submit" variant="destructive" disabled={pending || !matches}>
-              {pending ? "Deleting" : "Delete household"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      }
+      title={`Delete ${householdName}?`}
+      description={`This removes the household and everything in it. Type ${householdName} to confirm. This cannot be undone.`}
+      action={action}
+      pending={pending}
+      error={state.error}
+      confirmLabel="Delete household"
+      pendingLabel="Deleting"
+      confirmDisabled={!matches}
+    >
+      <FormField label="Household name" id="settings-delete-name">
+        {(props) => <Input name="confirmation" value={typed} onChange={(event) => setTyped(event.target.value)} autoComplete="off" {...props} />}
+      </FormField>
+    </ConfirmDialog>
   );
 }

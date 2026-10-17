@@ -1,3 +1,4 @@
+import { PlanMeter } from "@/components/app/plan-meter";
 import type { OnboardingStatus } from "@/slices/onboarding/service";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
@@ -13,16 +14,7 @@ function Progress({ done, total }: { done: number; total: number }) {
       <p className="text-xs text-muted-foreground tabular-nums">
         {done} of {total} done
       </p>
-      <div
-        className="h-3.5 overflow-hidden rounded-full border-2 border-foreground bg-white"
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={total}
-        aria-valuenow={done}
-        aria-label="Setup progress"
-      >
-        <div className="dl-transition h-full origin-left rounded-full bg-primary" style={{ transform: `scaleX(${share / 100})` }} />
-      </div>
+      <PlanMeter percent={share} tone="primary" animate label="Setup progress" valueNow={done} valueMax={total} />
     </div>
   );
 }

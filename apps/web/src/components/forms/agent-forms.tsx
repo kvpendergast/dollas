@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -44,9 +45,9 @@ export function ConnectAgentForm({ oauthQuery, canWrite }: { oauthQuery: string;
         It never sees bank passwords or bank connection keys. You can disconnect it any time in Settings.
       </p>
       {state.error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
       <div className="flex gap-3">
         <Button type="submit" name="decision" value="accept" className="flex-1" disabled={pending}>
@@ -70,9 +71,9 @@ export function DisconnectAgentForm({ connectionId, clientName }: { connectionId
         {pending ? "Disconnecting" : "Disconnect"}
       </Button>
       {state.error ? (
-        <p role="alert" className="text-xs text-over">
+        <FieldError className="text-xs ">
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
     </form>
   );

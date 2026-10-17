@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { useActionState, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,9 +66,9 @@ export function InviteForm() {
           </div>
         </div>
         {state.error ? (
-          <p role="alert" className="text-sm text-over">
+          <FieldError>
             {state.error}
-          </p>
+          </FieldError>
         ) : null}
       </form>
       {state.link ? (
@@ -147,9 +148,9 @@ export function PendingInviteActions({ inviteId, email }: { inviteId: string; em
       </div>
       {link ? <CopyableLink link={link} /> : null}
       {error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {error}
-        </p>
+        </FieldError>
       ) : null}
     </div>
   );
@@ -163,9 +164,9 @@ export function AcceptInviteForm({ token, householdName }: { token: string; hous
     <form action={action} className="space-y-3">
       <input type="hidden" name="token" value={token} />
       {state.error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Joining" : `Join the ${householdName} household`}

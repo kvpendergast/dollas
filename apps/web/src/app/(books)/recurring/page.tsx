@@ -3,7 +3,7 @@ import { CADENCE_LABELS, formatCents } from "@dollas/domain";
 import Link from "next/link";
 import { EmptyState } from "@/components/app/empty-state";
 import { MakeRecurringButton, RecurringItemForm } from "@/components/recurring/recurring-forms";
-import { RecurringStatusBadge } from "@/components/recurring/status-badge";
+import { StatusPill } from "@/components/app/status-pill";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireBooks } from "@/slices/access/guard";
 import { loadRecurringPage } from "@/slices/recurring/load";
@@ -78,7 +78,7 @@ export default async function RecurringPage() {
                       <span className={`font-heading text-lg tabular-nums ${item.amountCents > 0 ? "text-income" : ""}`}>
                         {money(item.amountCents)}
                       </span>
-                      <RecurringStatusBadge status={item.monthStatus} />
+                      <StatusPill status={item.monthStatus} />
                     </div>
                   </Link>
                 </li>

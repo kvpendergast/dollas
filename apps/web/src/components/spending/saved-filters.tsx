@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
+
 import { filterHref, filterToSearchParams, type SpendingFilter } from "@dollas/domain";
 import Link from "next/link";
 import { useActionState, useState } from "react";
@@ -13,7 +15,7 @@ import { useActionToast } from "@/lib/use-action-toast";
 const EMPTY: SavedFilterFormState = { error: "", message: "" };
 
 function Status({ state }: { state: SavedFilterFormState }) {
-  if (state.error) return <p className="text-xs text-over" role="alert">{state.error}</p>;
+  if (state.error) return <FieldError className="text-xs">{state.error}</FieldError>;
   if (state.message) return <p className="text-xs text-income" role="status">{state.message}</p>;
   return null;
 }

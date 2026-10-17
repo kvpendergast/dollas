@@ -1,5 +1,8 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
+import { CategoryPill, GroupCard } from "@/components/app/group-card";
+
 import {
   TRANSFER_KIND_HELP,
   categoryKindChangeWarning,
@@ -10,7 +13,6 @@ import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Pencil } from "lucide-reac
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +26,6 @@ import {
 } from "@/slices/categories/actions";
 import { useActionToast } from "@/lib/use-action-toast";
 import { Select } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 type ActionState = { error: string };
 
@@ -38,11 +39,7 @@ type Destination = { value: string; label: string };
 
 function FormError({ message }: { message: string }) {
   if (!message) return null;
-  return (
-    <p role="alert" className="basis-full text-sm text-over">
-      {message}
-    </p>
-  );
+  return <FieldError className="basis-full">{message}</FieldError>;
 }
 
 function ShiftButton({
@@ -344,7 +341,7 @@ function CategoryRow({
   return (
     <li className="flex min-h-14 items-center justify-between gap-3 py-2">
       <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="rounded-full border-2 border-foreground bg-white px-3 py-1 font-bold break-words">{category.name}</span>
+        <CategoryPill>{category.name}</CategoryPill>
         <KindTag kind={category.kind} />
       </span>
       <EditCategoryDialog category={category} groupId={groupId} groups={groups} index={index} count={count} />
@@ -395,40 +392,33 @@ function EditGroupDialog({
   );
 }
 
-function GroupCard({ group, groups, index }: { group: ListedGroup; groups: ListedGroup[]; index: number }) {
+function GroupSection({ group, groups, index }: { group: ListedGroup; groups: ListedGroup[]; index: number }) {
   return (
     <li>
-      <Card className="gap-0 py-0">
-        <CardHeader className="border-b-2 border-foreground bg-secondary py-3 has-data-[slot=card-action]:grid-cols-[1fr_auto]">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="min-w-0">
-              <h2 className="font-heading text-2xl leading-none">{group.name}</h2>
-              <CardDescription className="mt-1">
-                {group.categories.length === 0
-                  ? "No categories in this group yet."
-                  : `${group.categories.length} ${group.categories.length === 1 ? "category" : "categories"}`}
-              </CardDescription>
-            </div>
-            <EditGroupDialog group={group} groups={groups} index={index} />
-          </div>
-        </CardHeader>
+      <GroupCard
+        title={group.name}
+        description={
+          group.categories.length === 0
+            ? "No categories in this group yet."
+            : `${group.categories.length} ${group.categories.length === 1 ? "category" : "categories"}`
+        }
+        actions={<EditGroupDialog group={group} groups={groups} index={index} />}
+      >
         {group.categories.length > 0 ? (
-          <CardContent className="py-2">
-            <ol className="m-0 list-none divide-y-2 divide-dashed divide-border-soft p-0">
-              {group.categories.map((category, categoryIndex) => (
-                <CategoryRow
-                  key={category.id}
-                  category={category}
-                  groupId={group.id}
-                  groups={groups}
-                  index={categoryIndex}
-                  count={group.categories.length}
-                />
-              ))}
-            </ol>
-          </CardContent>
+          <ol className="m-0 list-none divide-y-2 divide-dashed divide-border-soft p-0">
+            {group.categories.map((category, categoryIndex) => (
+              <CategoryRow
+                key={category.id}
+                category={category}
+                groupId={group.id}
+                groups={groups}
+                index={categoryIndex}
+                count={group.categories.length}
+              />
+            ))}
+          </ol>
         ) : null}
-      </Card>
+      </GroupCard>
     </li>
   );
 }
@@ -439,35 +429,29 @@ export function CategoryOrganizer({ groups, ungrouped }: { groups: ListedGroup[]
       {groups.length > 0 ? (
         <ol className="m-0 list-none space-y-3 p-0">
           {groups.map((group, index) => (
-            <GroupCard key={group.id} group={group} groups={groups} index={index} />
+            <GroupSection key={group.id} group={group} groups={groups} index={index} />
           ))}
         </ol>
       ) : null}
       {ungrouped.length > 0 ? (
-        <Card className="gap-0 py-0">
-          <CardHeader className="border-b-2 border-foreground bg-muted py-3">
-            <h2 className="font-heading text-2xl leading-none">Ungrouped</h2>
-            <CardDescription>
-              {groups.length === 0
-                ? "Add a group, then move a category into it."
-                : "These categories are not in a group."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="py-2">
-            <ol className="m-0 list-none divide-y-2 divide-dashed divide-border-soft p-0">
-              {ungrouped.map((category, index) => (
-                <CategoryRow
-                  key={category.id}
-                  category={category}
-                  groupId={null}
-                  groups={groups}
-                  index={index}
-                  count={ungrouped.length}
-                />
-              ))}
-            </ol>
-          </CardContent>
-        </Card>
+        <GroupCard
+          title="Ungrouped"
+          tone="muted"
+          description={groups.length === 0 ? "Add a group, then move a category into it." : "These categories are not in a group."}
+        >
+          <ol className="m-0 list-none divide-y-2 divide-dashed divide-border-soft p-0">
+            {ungrouped.map((category, index) => (
+              <CategoryRow
+                key={category.id}
+                category={category}
+                groupId={null}
+                groups={groups}
+                index={index}
+                count={ungrouped.length}
+              />
+            ))}
+          </ol>
+        </GroupCard>
       ) : null}
     </div>
   );

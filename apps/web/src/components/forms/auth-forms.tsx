@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { cooldownCopy } from "@dollas/domain";
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
@@ -66,9 +67,9 @@ export function SignInForm({
             </Link>
           </div>
         ) : state.error ? (
-          <p role="alert" className="text-sm text-over">
+          <FieldError>
             {state.error}
-          </p>
+          </FieldError>
         ) : null}
         <Button type="submit" className="w-full" disabled={pending}>
           {pending ? "Signing in" : "Sign in"}
@@ -137,9 +138,9 @@ export function SignUpForm({
           </div>
         )}
         {state.error ? (
-          <p role="alert" className="text-sm text-over">
+          <FieldError>
             {state.error}
-          </p>
+          </FieldError>
         ) : null}
         <Button type="submit" className="w-full" disabled={pending}>
           {pending ? "Creating login" : path === "start" ? "Create login and household" : "Create login and join"}
@@ -164,9 +165,9 @@ export function StartHouseholdForm({ defaultName = "" }: { defaultName?: string 
         <Input id="householdName" name="householdName" defaultValue={defaultName} required />
       </div>
       {state.error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
       <Button type="submit" className="w-full" disabled={pending}>
         Start the household
@@ -184,9 +185,9 @@ export function JoinHouseholdForm() {
         <Input id="inviteLink" name="inviteLink" placeholder="https://…/invite/…" autoComplete="off" required />
       </div>
       {state.error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
       <Button type="submit" className="w-full" disabled={pending}>
         Open the invite
@@ -229,9 +230,9 @@ export function ForgotPasswordForm() {
         </p>
       ) : null}
       {state.error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Sending" : "Email me a link"}
@@ -254,9 +255,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
         <Input id="confirm" name="confirm" type="password" autoComplete="new-password" minLength={8} required />
       </div>
       {state.error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Saving" : "Save password"}
@@ -298,9 +299,9 @@ export function ResendVerificationForm({ defaultEmail }: { defaultEmail: string 
           {cooldownCopy(remaining)}
         </p>
       ) : state.error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
       <Button type="submit" className="w-full" disabled={pending || remaining > 0}>
         {pending ? "Sending" : "Send another link"}

@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { CADENCES, CADENCE_LABELS, categoryMenuSections, type CategoryMenuEntry } from "@dollas/domain";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -226,9 +227,9 @@ export function RecurringItemForm({
         </div>
       </details>
       {state.error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {state.error}
-        </p>
+        </FieldError>
       ) : state.message ? (
         <p role="status" className="text-sm text-primary">
           {state.message}
@@ -295,9 +296,9 @@ export function RecurringItemControls({ itemId, name, paused }: { itemId: string
         </Dialog>
       </div>
       {error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {error}
-        </p>
+        </FieldError>
       ) : null}
     </div>
   );
@@ -325,9 +326,9 @@ export function UnlinkRecurringButton({ transactionId, payee }: { transactionId:
         {busy ? "Unlinking" : "Unlink"}
       </Button>
       {error ? (
-        <span role="alert" className="text-xs text-over">
+        <FieldError className="text-xs ">
           {error}
-        </span>
+        </FieldError>
       ) : null}
     </span>
   );
@@ -405,9 +406,9 @@ export function RecurringLinkControl({
         </div>
       )}
       {error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {error}
-        </p>
+        </FieldError>
       ) : null}
     </div>
   );
@@ -433,9 +434,9 @@ export function MakeRecurringButton({ suggestion }: { suggestion: RecurringFormV
         {pending ? "Adding" : "Make recurring"}
       </Button>
       {state.error ? (
-        <p role="alert" className="text-xs text-over">
+        <FieldError className="text-xs ">
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
     </form>
   );

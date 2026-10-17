@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { type CategoryMenuEntry, type TransactionDirection } from "@dollas/domain";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -126,9 +127,9 @@ export function TransactionEditor({
         </div>
       </div>
       {removeError ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {removeError}
-        </p>
+        </FieldError>
       ) : null}
       {open ? (
         <form id={`${field}-panel`} action={action} className="space-y-3">
@@ -183,9 +184,9 @@ export function TransactionEditor({
             initialSplit={transaction.splits.length > 1}
           />
           {state.error ? (
-            <p role="alert" className="text-sm text-over">
+            <FieldError>
               {state.error}
-            </p>
+            </FieldError>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" disabled={pending}>

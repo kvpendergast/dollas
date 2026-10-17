@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { formatCents, type CopyBudgetLine } from "@dollas/domain";
 import Link from "next/link";
 import { useActionState } from "react";
@@ -75,9 +76,9 @@ export function CopyBudgetsForm({
         </p>
       ) : null}
       {state.error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
       <div className="flex flex-wrap gap-2">
         {nothingToApply ? null : (

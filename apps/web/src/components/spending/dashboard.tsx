@@ -1,3 +1,4 @@
+import { PlanMeter } from "@/components/app/plan-meter";
 import { filterHref, formatCents, type SpendingFilter, type TrendBucket } from "@dollas/domain";
 import Link from "next/link";
 import { ChartLegend, ChartRows } from "@/components/charts/chart-rows";
@@ -97,9 +98,7 @@ function SliceList({
                       {formatCents(slice.spentCents)} <span className="text-xs text-muted-foreground">{share}%</span>
                     </span>
                   </div>
-                  <div className="h-3.5 overflow-hidden rounded-full border-2 border-foreground bg-white" aria-hidden="true">
-                    <div className="h-full rounded-full bg-bar" style={{ width: `${Math.max(share, 1)}%` }} />
-                  </div>
+                  <PlanMeter percent={Math.max(share, 1)} />
                 </li>
               );
             })}

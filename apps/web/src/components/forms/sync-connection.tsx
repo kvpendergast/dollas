@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { syncBankConnectionAction } from "@/slices/connections/actions";
@@ -15,9 +16,9 @@ export function SyncConnectionForm({ connectionId }: { connectionId: string }) {
         {pending ? "Syncing" : "Sync"}
       </Button>
       {state.error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
       {state.message ? <p className="text-sm text-income">{state.message}</p> : null}
     </form>

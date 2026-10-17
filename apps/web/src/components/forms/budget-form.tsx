@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,9 +39,9 @@ export function BudgetForm({
         Clear
       </Button>
       {state.error ? (
-        <span role="alert" className="text-xs text-over">
+        <FieldError className="text-xs ">
           {state.error}
-        </span>
+        </FieldError>
       ) : null}
     </form>
   );
