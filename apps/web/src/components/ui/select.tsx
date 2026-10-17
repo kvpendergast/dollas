@@ -72,20 +72,59 @@ function SelectItem({ className, children, ...props }: React.ComponentProps<type
   )
 }
 
+function SelectLabel({ className, ...props }: React.ComponentProps<typeof SelectPrimitive.Label>) {
+  return <SelectPrimitive.Label data-slot="select-label" className={cn("px-3 py-1.5 font-heading text-xs font-extrabold tracking-wider text-muted-foreground uppercase", className)} {...props} />
+}
+
 /* ---- Form-friendly wrapper: <Select name defaultValue>…<option>…</option></Select> ---- */
 
 const NONE = "__none__"
 
-type Choice = { value: string; label: React.ReactNode; disabled?: boolean }
+type Choice = { value: string; label: React.ReactNode; disabled?: boolean; group?: string }
 
-function collect(children: React.ReactNode, out: Choice[] = []): Choice[] {
+/** Flattens <option>, <optgroup label> and fragments/arrays into one list (a group tag rides on each choice). */
+export function collectChoices(children: React.ReactNode, out: Choice[] = [], group?: string): Choice[] {
   React.Children.forEach(children, (child) => {
     if (!React.isValidElement(child)) return
-    const props = child.props as { value?: string | number; children?: React.ReactNode; disabled?: boolean }
-    if (child.type === React.Fragment) collect(props.children, out)
-    else if (child.type === "option") out.push({ value: String(props.value ?? ""), label: props.children, disabled: props.disabled })
+    const props = child.props as { value?: string | number; children?: React.ReactNode; disabled?: boolean; label?: string }
+    if (child.type === React.Fragment) collectChoices(props.children, out, group)
+    else if (child.type === "optgroup") collectChoices(props.children, out, props.label ?? "")
+    else if (child.type === "option")
+      out.push({ value: String(props.value ?? props.children ?? ""), label: props.children, disabled: props.disabled, group })
   })
   return out
+}
+
+/** What the trigger shows: the matching option's label, else the placeholder text. */
+export function displayLabel(choices: Choice[], current: string, placeholder: React.ReactNode = "Choose one"): React.ReactNode {
+  const match = choices.find((choice) => choice.value === current && !(choice.value === "" && choice.disabled))
+  return match ? match.label : placeholder
+}
+
+function renderChoices(items: Choice[]) {
+  const nodes: React.ReactNode[] = []
+  let i = 0
+  while (i < items.length) {
+    const group = items[i].group
+    const run: Choice[] = []
+    while (i < items.length && items[i].group === group) run.push(items[i++])
+    const rendered = run.map((choice) => (
+      <SelectItem key={`${group ?? ""}:${choice.value || NONE}`} value={choice.value === "" ? NONE : choice.value} disabled={choice.disabled}>
+        {choice.label}
+      </SelectItem>
+    ))
+    nodes.push(
+      group === undefined ? (
+        rendered
+      ) : (
+        <SelectGroup key={`group-${nodes.length}`}>
+          <SelectLabel>{group}</SelectLabel>
+          {rendered}
+        </SelectGroup>
+      ),
+    )
+  }
+  return nodes
 }
 
 type SelectProps = Omit<React.ComponentProps<"select">, "onChange" | "value" | "defaultValue" | "children"> & {
@@ -102,10 +141,9 @@ type SelectProps = Omit<React.ComponentProps<"select">, "onChange" | "value" | "
  * post a placeholder token). A disabled empty option becomes the placeholder.
  */
 function Select({ className, children, id, name, value, defaultValue, onChange, onValueChange, required, disabled, ...rest }: SelectProps) {
-  const choices = collect(children)
+  const choices = collectChoices(children)
   const placeholder = choices.find((choice) => choice.value === "" && choice.disabled)?.label
   const items = choices.filter((choice) => !(choice.value === "" && choice.disabled))
-  const hasEmptyItem = items.some((choice) => choice.value === "")
   const controlled = value !== undefined
   // Like a native select: with no default, the first enabled option is selected (and posted).
   const initial = defaultValue === undefined ? (choices.find((choice) => !choice.disabled)?.value ?? "") : String(defaultValue)
@@ -121,7 +159,9 @@ function Select({ className, children, id, name, value, defaultValue, onChange, 
     return () => form.removeEventListener("reset", onReset)
   }, [controlled, initial])
 
-  const radixValue = current === "" ? (hasEmptyItem ? NONE : "") : current
+  const known = items.some((choice) => choice.value === current)
+  // A value that matches no option shows the placeholder instead of an empty trigger.
+  const radixValue = !known ? "" : current === "" ? NONE : current
   function change(next: string) {
     const real = next === NONE ? "" : next
     if (!controlled) setInner(real)
@@ -132,14 +172,10 @@ function Select({ className, children, id, name, value, defaultValue, onChange, 
     <>
       <SelectRoot value={radixValue} onValueChange={change} disabled={disabled}>
         <SelectTrigger id={id} className={className} aria-required={required || undefined} {...(rest as React.ComponentProps<typeof SelectPrimitive.Trigger>)}>
-          <SelectValue placeholder={placeholder} />
+          <SelectValue placeholder={placeholder ?? "Choose one"} />
         </SelectTrigger>
         <SelectContent>
-          {items.map((choice) => (
-            <SelectItem key={choice.value || NONE} value={choice.value === "" ? NONE : choice.value} disabled={choice.disabled}>
-              {choice.label}
-            </SelectItem>
-          ))}
+          {renderChoices(items)}
         </SelectContent>
       </SelectRoot>
       {name ? <input ref={inputRef} type="hidden" name={name} value={current} /> : null}
@@ -147,4 +183,4 @@ function Select({ className, children, id, name, value, defaultValue, onChange, 
   )
 }
 
-export { Select, SelectRoot, SelectGroup, SelectValue, SelectTrigger, SelectContent, SelectItem }
+export { Select, SelectRoot, SelectGroup, SelectLabel, SelectValue, SelectTrigger, SelectContent, SelectItem }
