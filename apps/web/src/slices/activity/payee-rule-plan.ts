@@ -1,4 +1,4 @@
-import { DomainError, hidesSetupDetail, matchingPayeeRule, memberFacingMessage } from "@dollas/domain";
+import { DomainError, hidesSetupDetail, matchingPayeeRule, memberFacingMessage, payeeRuleKey } from "@dollas/domain";
 
 export const PAYEE_RULE_NOT_IN_HOUSEHOLD = "That payee rule is not in this household.";
 export const PAYEE_RULE_CATEGORY = "Choose a category in this household.";
@@ -97,4 +97,66 @@ export function payeeRuleMemberMessage(error: unknown, fallback: string): string
   }
   if (isUniqueViolation(error)) return PAYEE_RULE_DUPLICATE;
   return fallback;
+}
+
+export type PayeeRuleSample = { payee: string; count: number };
+
+export type PayeeRuleConflict = {
+  ruleId: string;
+  pattern: string;
+  categoryId: string;
+  sameCategory: boolean;
+  /** On a new import or sync this other rule wins for the shared payees (longer text wins, as in matchingPayeeRule). */
+  winsOnImport: boolean;
+  sharedPayees: string[];
+};
+
+export type PayeeRulePreviewDetails = {
+  samplePayees: PayeeRuleSample[];
+  conflicts: PayeeRuleConflict[];
+};
+
+const SAMPLE_LIMIT = 10;
+
+/**
+ * What a rule matches among existing transactions, for previews (PEN-282): the
+ * distinct payees it matches (most frequent first, up to ten) and the other
+ * rules that also match some of those payees. Applying a rule ignores other
+ * rules, but a new import or sync lets the longer text win, so an overlap with a
+ * different category is worth a look before applying.
+ */
+export function payeeRulePreviewDetails(
+  rule: { id: string; householdId: string; pattern: string; categoryId: string },
+  others: readonly { id: string; pattern: string; categoryId: string }[],
+  transactions: readonly { householdId: string; payee: string; deletedAt: Date | string | null }[],
+): PayeeRulePreviewDetails {
+  const needle = payeeRuleKey(rule.pattern);
+  const counts = new Map<string, { payee: string; count: number }>();
+  for (const row of transactions) {
+    if (row.householdId !== rule.householdId || row.deletedAt != null) continue;
+    if (needle.length === 0 || !row.payee.toLowerCase().includes(needle)) continue;
+    const key = row.payee.trim().toLowerCase();
+    const seen = counts.get(key);
+    if (seen) seen.count += 1;
+    else counts.set(key, { payee: row.payee.trim(), count: 1 });
+  }
+  const matched = [...counts.values()].sort((a, b) => b.count - a.count || a.payee.localeCompare(b.payee));
+  const conflicts: PayeeRuleConflict[] = [];
+  for (const other of others) {
+    if (other.id === rule.id) continue;
+    const otherKey = payeeRuleKey(other.pattern);
+    if (otherKey.length === 0) continue;
+    const shared = matched.filter((item) => item.payee.toLowerCase().includes(otherKey));
+    if (shared.length === 0) continue;
+    conflicts.push({
+      ruleId: other.id,
+      pattern: other.pattern,
+      categoryId: other.categoryId,
+      sameCategory: other.categoryId === rule.categoryId,
+      winsOnImport: otherKey.length > needle.length || (otherKey.length === needle.length && otherKey.localeCompare(needle) < 0),
+      sharedPayees: shared.slice(0, 5).map((item) => item.payee),
+    });
+  }
+  conflicts.sort((a, b) => Number(a.sameCategory) - Number(b.sameCategory) || a.pattern.localeCompare(b.pattern));
+  return { samplePayees: matched.slice(0, SAMPLE_LIMIT), conflicts };
 }

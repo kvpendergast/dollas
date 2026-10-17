@@ -134,6 +134,8 @@ function countsFrom(loaded: LoadedPayeeRuleApply): PayeeRuleApplyCounts {
     changeCount: loaded.plan.changeIds.length,
     skippedSplitCount: loaded.plan.skippedSplitIds.length,
     skippedWithoutCategoryCount: loaded.plan.skippedWithoutCategoryIds.length,
+    samplePayees: loaded.preview.samplePayees,
+    conflicts: loaded.preview.conflicts,
   };
 }
 

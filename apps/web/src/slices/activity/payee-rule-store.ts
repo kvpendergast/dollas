@@ -2,8 +2,10 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { AppTx } from "@/db/client";
 import { category, categoryGroup, payeeCategoryRule, transaction, transactionSplit } from "@/db/schema";
 import {
+  payeeRulePreviewDetails,
   planPayeeRuleApply,
   PAYEE_RULE_NOT_IN_HOUSEHOLD,
+  type PayeeRulePreviewDetails,
   type PayeeRuleApplyCandidate,
   type PayeeRuleApplyPlan,
 } from "./payee-rule-plan";
@@ -14,6 +16,7 @@ export type LoadedPayeeRuleApply = {
   categoryId: string;
   categoryName: string;
   plan: PayeeRuleApplyPlan;
+  preview: PayeeRulePreviewDetails;
 };
 
 function categoryLabel(name: string, groupName: string | null): string {
@@ -54,6 +57,11 @@ export async function loadPayeeRuleApply(
     .where(eq(transaction.householdId, householdId))
     .for("update");
 
+  const otherRules = await tx
+    .select({ id: payeeCategoryRule.id, pattern: payeeCategoryRule.pattern, categoryId: payeeCategoryRule.categoryId })
+    .from(payeeCategoryRule)
+    .where(eq(payeeCategoryRule.householdId, householdId));
+
   const splitRows = await tx
     .select({
       transactionId: transactionSplit.transactionId,
@@ -85,6 +93,11 @@ export async function loadPayeeRuleApply(
     plan: planPayeeRuleApply(
       { householdId, pattern: rule.pattern, categoryId: rule.categoryId },
       candidates,
+    ),
+    preview: payeeRulePreviewDetails(
+      { id: rule.id, householdId, pattern: rule.pattern, categoryId: rule.categoryId },
+      otherRules,
+      rows,
     ),
   };
 }
