@@ -1,4 +1,5 @@
 "use client";
+import { Alert } from "@/components/ui/alert";
 
 import { FieldError } from "@/components/ui/field";
 import { CategoryPill, GroupCard } from "@/components/app/group-card";
@@ -248,7 +249,7 @@ function ChangeKindForm({ category }: { category: ListedCategory }) {
         </p>
       ) : null}
       {warning ? (
-        <div className="space-y-2 rounded-sm bg-muted p-3">
+        <Alert variant="warning" className="space-y-2">
           <p role="status" className="text-sm">
             {warning}
           </p>
@@ -256,7 +257,7 @@ function ChangeKindForm({ category }: { category: ListedCategory }) {
             <Checkbox id={confirmId} name="confirmBudgetRemoval" value="yes" required />
             <label htmlFor={confirmId}>Remove its budgets</label>
           </div>
-        </div>
+        </Alert>
       ) : null}
       <FormError message={otherError} />
     </form>

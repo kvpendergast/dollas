@@ -1,3 +1,5 @@
+import { StatCard } from "@/components/app/stat-card";
+import { ColumnChart } from "@/components/app/column-chart";
 import { PlanMeter } from "@/components/app/plan-meter";
 import { filterHref, formatCents, type SpendingFilter, type TrendBucket } from "@dollas/domain";
 import Link from "next/link";
@@ -19,8 +21,6 @@ const PHONE_BUCKETS = 8;
 const BAR_HEIGHT = 120;
 
 function TrendChart({ buckets, unit }: { buckets: TrendBucket[]; unit: "week" | "month" }) {
-  const max = Math.max(1, ...buckets.map((bucket) => bucket.spentCents));
-  const phoneFrom = Math.max(0, buckets.length - PHONE_BUCKETS);
   return (
     <figure>
       <figcaption className="sr-only">{trendSummary(buckets, unit)}</figcaption>
@@ -30,24 +30,18 @@ function TrendChart({ buckets, unit }: { buckets: TrendBucket[]; unit: "week" | 
           { label: "So far", swatch: "bar-partial" },
         ]}
       />
-      <div aria-hidden="true" data-chart="trend" className="flex items-end gap-1.5 sm:gap-2">
-        {buckets.map((bucket, index) => {
-          const height = Math.round((bucket.spentCents / max) * BAR_HEIGHT);
-          return (
-            <div key={bucket.from} className={`min-w-0 flex-1 ${index < phoneFrom ? "hidden sm:block" : ""}`}>
-              <div className="flex items-end justify-center border-b-2 border-foreground" style={{ height: BAR_HEIGHT + 4 }}>
-                <div
-                  className={`dl-bar w-[55%] max-w-6 rounded-t-[8px] border-2 border-b-0 border-foreground ${bucket.partial ? "bar-partial border-dashed" : "bg-bar"}`}
-                  style={{ height: Math.max(bucket.spentCents > 0 ? 4 : 0, height), ["--i" as string]: index }}
-                />
-              </div>
-              <p className="mt-2 text-center text-xs leading-tight font-medium">{bucket.label}</p>
-              <p className="text-center text-xs tabular-nums text-muted-foreground">{compactCents(bucket.spentCents)}</p>
-              <p className={`text-center text-xs font-medium ${bucket.partial ? "text-amber-800" : "invisible"}`}>so far</p>
-            </div>
-          );
-        })}
-      </div>
+      <ColumnChart
+        name="trend"
+        height={BAR_HEIGHT}
+        phoneCount={PHONE_BUCKETS}
+        items={buckets.map((bucket) => ({
+          key: bucket.from,
+          label: bucket.label,
+          valueLabel: compactCents(bucket.spentCents),
+          flag: bucket.partial,
+          bars: [{ cents: bucket.spentCents, tone: "current", partial: bucket.partial }],
+        }))}
+      />
       <ChartRows title={unit === "week" ? "Week by week" : "Month by month"} rows={trendRows(buckets, unit)} visible={4} />
     </figure>
   );
@@ -117,34 +111,18 @@ export function SpendingDashboardView({ board }: { board: SpendingDashboard }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Card size="sm">
-          <CardHeader>
-            <CardDescription>Spent</CardDescription>
-            <CardTitle className="font-heading text-3xl tabular-nums">{formatCents(spent)}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card size="sm">
-          <CardHeader>
-            <CardDescription>Income</CardDescription>
-            <CardTitle className="font-heading text-3xl tabular-nums text-income">{formatCents(board.totals.incomeCents)}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card size="sm">
-          <CardHeader>
-            <CardDescription>Income minus spending</CardDescription>
-            <CardTitle className={`font-heading text-3xl tabular-nums ${board.totals.netCents < 0 ? "text-over" : ""}`}>{formatCents(board.totals.netCents)}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card size="sm">
-          <CardHeader>
-            <CardDescription>Transactions</CardDescription>
-            <CardTitle className="font-heading text-3xl tabular-nums">
-              <Link href={drill({})} className="underline-offset-4 hover:underline">
-                {board.totals.transactionCount}
-              </Link>
-            </CardTitle>
-          </CardHeader>
-        </Card>
+        <StatCard size="lg" label="Spent" value={formatCents(spent)} />
+        <StatCard size="lg" label="Income" value={formatCents(board.totals.incomeCents)} tone="income" />
+        <StatCard size="lg" label="Income minus spending" value={formatCents(board.totals.netCents)} tone={board.totals.netCents < 0 ? "over" : "default"} />
+        <StatCard
+          size="lg"
+          label="Transactions"
+          value={
+            <Link href={drill({})} className="underline-offset-4 hover:underline">
+              {board.totals.transactionCount}
+            </Link>
+          }
+        />
       </div>
       <p className="text-xs text-muted-foreground">
         {range}. Spending and income count as Home does: expense categories are spending, income categories are income, transfers are

@@ -1,3 +1,5 @@
+import { PageHeader } from "@/components/app/page-header";
+import { MoneyAmount } from "@/components/app/money-amount";
 import { FieldError } from "@/components/ui/field";
 import { formatCents } from "@dollas/domain";
 import Link from "next/link";
@@ -41,17 +43,16 @@ export default async function RecurringItemPage({ params }: { params: Promise<{ 
     <div className="space-y-6">
       <div className="space-y-3">
         {back}
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="font-heading text-4xl">{item.name}</h1>
-            <p className="text-sm text-muted-foreground">
-              <span className={`tabular-nums ${item.amountCents > 0 ? "text-income" : ""}`}>{money(item.amountCents)}</span> ·{" "}
-              {item.cadenceLabel}
+        <PageHeader
+          title={item.name}
+          description={
+            <>
+              <MoneyAmount cents={item.amountCents} format={money} tone={item.amountCents > 0 ? "income" : "default"} /> · {item.cadenceLabel}
               {item.paused ? " · Paused" : item.nextDate ? ` · Next ${longDate(item.nextDate)}` : ""}
-            </p>
-          </div>
-          <RecurringItemControls itemId={item.id} name={item.name} paused={item.paused} />
-        </div>
+            </>
+          }
+          actions={<RecurringItemControls itemId={item.id} name={item.name} paused={item.paused} />}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

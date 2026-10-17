@@ -1,3 +1,5 @@
+import { PageHeader } from "@/components/app/page-header";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { needsStarterCategories, TRANSFER_KIND_HELP } from "@dollas/domain";
 import Link from "next/link";
 import { EmptyState } from "@/components/app/empty-state";
@@ -29,13 +31,13 @@ export default async function CategoriesPage() {
   }));
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-4xl">Categories</h1>
-        <p className="mt-3 max-w-xl rounded-md border-2 border-foreground bg-secondary p-3 text-sm font-medium">
+      <PageHeader title="Categories" />
+      <Alert className="max-w-xl">
+        <AlertDescription>
           A group holds categories. Transactions and budgets use categories, not groups. A category is income, an
           expense, or a transfer. {TRANSFER_KIND_HELP}
-        </p>
-      </div>
+        </AlertDescription>
+      </Alert>
       {needsStarterCategories([...groups.flatMap((group) => group.categories), ...ungrouped]) ? (
         <EmptyState
           title={groups.length === 0 && ungrouped.length === 0 ? "No categories yet" : "Only the Uncategorized fallbacks so far"}

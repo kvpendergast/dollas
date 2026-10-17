@@ -1,12 +1,11 @@
 "use client";
 
-import { FieldError } from "@/components/ui/field";
 import { formatCents, type CategoryMenuEntry } from "@dollas/domain";
 import { Repeat } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { UndoBar } from "@/components/app/undo-bar";
 import { toast } from "@/lib/toast-store";
 import { restoreTransactionAction } from "@/slices/activity/actions";
 import { TransactionEditor } from "./transaction-editor";
@@ -177,29 +176,15 @@ export function ActivityLedger({
         );
       })}
       {undo ? (
-        <div
-          role="status"
-          className="dl-toast-in fixed inset-x-4 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-md flex-col gap-2 rounded-md border-2 border-foreground bg-card px-4 py-3 shadow-pop md:bottom-8"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm">Deleted {undo.payee}.</p>
-            <Button
-              ref={undoButton}
-              type="button"
-              variant="outline"
-             
-              disabled={restoring}
-              onClick={() => void undoDelete()}
-            >
-              {restoring ? "Restoring" : "Undo"}
-            </Button>
-          </div>
-          {undoError ? (
-            <FieldError>
-              {undoError}
-            </FieldError>
-          ) : null}
-        </div>
+        <UndoBar
+          message={`Deleted ${undo.payee}.`}
+          actionLabel="Undo"
+          pendingLabel="Restoring"
+          pending={restoring}
+          error={undoError}
+          buttonRef={undoButton}
+          onAction={() => void undoDelete()}
+        />
       ) : null}
     </div>
   );

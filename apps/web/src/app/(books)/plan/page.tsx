@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/app/page-header";
 import { FieldError } from "@/components/ui/field";
 import { PlanMeter } from "@/components/app/plan-meter";
 import { formatBudgetMonth, formatCents, monthLabel, parseBudgetMonth, shiftBudgetMonth } from "@dollas/domain";
@@ -46,12 +47,7 @@ export default async function PlanPage({
   return (
     <div className="space-y-6">
       <div className="space-y-4">
-        <div>
-          <h1 className="font-heading text-4xl">Plan</h1>
-          <p className="text-sm text-muted-foreground">
-            {label}, category by category. Each expense category gets a budget for the month.
-          </p>
-        </div>
+        <PageHeader title="Plan" description={`${label}, category by category. Each expense category gets a budget for the month.`} />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <PlanMonthNav
             monthKey={monthKey}

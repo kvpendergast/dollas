@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { createCategoryAction, createCategoryGroupAction } from "@/slices/categories/actions";
 import { useActionToast } from "@/lib/use-action-toast";
 import { Select } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 export function CategoryGroupForm() {
   const [state, action, pending] = useActionState(createCategoryGroupAction, { error: "" });

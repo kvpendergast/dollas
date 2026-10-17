@@ -1,4 +1,5 @@
 "use client";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 import { FieldError } from "@/components/ui/field";
 import { CREDIT_OWED_HINT, DELETE_BLOCKED_MESSAGE, openingBalanceFields, type AccountType } from "@dollas/domain";
@@ -47,10 +48,11 @@ export function AccountControls({
 
   return (
     <div className="space-y-3">
-      <details data-sheet className="rounded-sm border-2 border-foreground px-3 py-2">
-        <summary className="cursor-pointer text-sm text-primary" aria-label={`Edit ${account.name}`}>
+      <Collapsible className="rounded-sm border-2 border-foreground px-3 py-1">
+        <CollapsibleTrigger className="text-primary" aria-label={`Edit ${account.name}`}>
           Edit name and opening balance
-        </summary>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
         <form action={save} className="mt-3 space-y-3">
           <input type="hidden" name="accountId" value={account.id} />
           <div className="space-y-1.5">
@@ -94,7 +96,8 @@ export function AccountControls({
             {saving ? "Saving" : "Save"}
           </Button>
         </form>
-      </details>
+        </CollapsibleContent>
+      </Collapsible>
 
       {blocked ? <p className="text-sm text-muted-foreground">{DELETE_BLOCKED_MESSAGE}</p> : null}
 

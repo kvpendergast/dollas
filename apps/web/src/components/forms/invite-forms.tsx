@@ -1,4 +1,5 @@
 "use client";
+import { Alert } from "@/components/ui/alert";
 
 import { FieldError } from "@/components/ui/field";
 import { useActionState, useState, useTransition } from "react";
@@ -72,12 +73,12 @@ export function InviteForm() {
         ) : null}
       </form>
       {state.link ? (
-        <div className="space-y-2 rounded-md border-2 border-foreground bg-muted/40 p-3">
+        <Alert className="space-y-2">
           <p role="status" className="text-sm text-foreground">
             {state.notice}
           </p>
           <CopyableLink link={state.link} />
-        </div>
+        </Alert>
       ) : null}
     </div>
   );

@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { signOutAction } from "@/slices/auth/actions";
 import { AccountMenu } from "./account-menu";
@@ -32,9 +33,9 @@ export function BooksShell({
                 </Link>
               ) : null}
               <form action={signOutAction}>
-                <button type="submit" className="flex min-h-11 items-center px-2 text-muted-foreground hover:text-foreground">
+                <Button type="submit" variant="ghost" className="px-2 text-muted-foreground hover:text-foreground">
                   Sign out
-                </button>
+                </Button>
               </form>
             </div>
           </header>

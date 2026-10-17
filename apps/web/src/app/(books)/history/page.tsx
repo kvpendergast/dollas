@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/app/page-header";
 import { HistoryChart } from "@/components/history/history-chart";
 import { SpendingDashboardView } from "@/components/spending/dashboard";
 import { FilterBar } from "@/components/spending/filter-bar";
@@ -14,10 +15,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
   if (!facts.hasTransactions) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="font-heading text-4xl">History</h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">Where the money went, filtered any way you like, and month over month.</p>
-        </div>
+        <PageHeader title="History" description="Where the money went, filtered any way you like, and month over month." />
         <EmptyState
           title="No history yet"
           body={
@@ -36,12 +34,10 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
   if (!board.ok) throw new Error(board.memberMessage);
   return (
     <div className="space-y-10">
-      <div>
-        <h1 className="font-heading text-4xl">History</h1>
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          Where the money went, filtered any way you like, and month over month. Pick a category or account to see its transactions.
-        </p>
-      </div>
+      <PageHeader
+        title="History"
+        description="Where the money went, filtered any way you like, and month over month. Pick a category or account to see its transactions."
+      />
       <section id="spending" className="scroll-mt-20 space-y-4" aria-labelledby="spending-heading">
         <h2 id="spending-heading" className="font-heading text-2xl">
           Spending

@@ -28,7 +28,6 @@ import {
 import { useActionToast } from "@/lib/use-action-toast";
 import { toast } from "@/lib/toast-store";
 import { Select } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 type Rule = {
   id: string;
