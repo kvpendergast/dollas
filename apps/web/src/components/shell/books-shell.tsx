@@ -19,9 +19,9 @@ export function BooksShell({
       <div className="mx-auto flex min-h-full max-w-6xl">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-2 md:px-8 md:py-4">
+          <header className="flex items-center justify-between gap-3 border-b-2 border-foreground px-4 py-2 md:px-8 md:py-4">
             <div className="min-w-0">
-              <p className="font-heading text-2xl leading-none text-primary md:hidden">dollas</p>
+              <p className="font-heading text-2xl leading-none font-extrabold md:hidden">dollas</p>
               <p className="truncate text-sm text-muted-foreground">{householdName}</p>
             </div>
             <div className="flex items-center gap-1 text-sm sm:gap-3">

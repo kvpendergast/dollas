@@ -176,7 +176,7 @@ export function RecurringItemForm({
           </select>
         </div>
       </div>
-      <details data-sheet className="rounded-lg border border-border px-3 py-2">
+      <details data-sheet className="rounded-sm border-2 border-foreground px-3 py-2">
         <summary className="cursor-pointer text-sm text-muted-foreground">Matching and dates</summary>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
           <div className="space-y-1.5 md:col-span-3">
@@ -363,7 +363,7 @@ export function RecurringLinkControl({
   }
 
   return (
-    <div className="space-y-1.5 rounded-lg border border-border px-3 py-2">
+    <div className="space-y-1.5 rounded-sm border-2 border-foreground px-3 py-2">
       {recurring ? (
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span>

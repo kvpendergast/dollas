@@ -149,7 +149,7 @@ export default async function PlanPage({
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="h-3.5 overflow-hidden rounded-full border-2 border-foreground bg-white">
                         <div className={`h-full ${over ? "bg-over" : "bg-bar"}`} style={{ width: `${width}%` }} />
                       </div>
                     </CardContent>

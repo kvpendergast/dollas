@@ -19,7 +19,7 @@ export function TransferForm({ accounts, today }: { accounts: Option[]; today: s
   useActionToast(state, "Transfer added.");
   if (accounts.length < 2) return null;
   return (
-    <form action={action} className="space-y-3 border-t border-border pt-4">
+    <form action={action} className="space-y-3 border-t-2 border-dashed border-border-soft pt-4">
       <div>
         <h3 className="text-sm font-medium">Move money between accounts</h3>
         <p className="text-sm text-muted-foreground">

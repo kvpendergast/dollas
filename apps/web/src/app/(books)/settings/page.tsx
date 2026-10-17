@@ -78,7 +78,7 @@ export default async function SettingsPage() {
           ) : agents.value.length === 0 ? (
             <p className="text-sm text-muted-foreground">No agents are connected yet. The address to add is below.</p>
           ) : (
-            <ul className="divide-y divide-border">
+            <ul className="divide-y-2 divide-dashed divide-border-soft">
               {agents.value.map((agent) => (
                 <li key={agent.id} className="flex items-start justify-between gap-3 py-3 text-sm first:pt-0">
                   <div className="space-y-0.5">

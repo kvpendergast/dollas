@@ -97,7 +97,7 @@ function SliceList({
                       {formatCents(slice.spentCents)} <span className="text-xs text-muted-foreground">{share}%</span>
                     </span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                  <div className="h-3.5 overflow-hidden rounded-full border-2 border-foreground bg-white" aria-hidden="true">
                     <div className="h-full rounded-full bg-bar" style={{ width: `${Math.max(share, 1)}%` }} />
                   </div>
                 </li>

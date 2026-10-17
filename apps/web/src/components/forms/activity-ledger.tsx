@@ -99,13 +99,13 @@ export function ActivityLedger({
   const visible = transactions.filter((item) => !hidden.has(item.id));
 
   return (
-    <div className="space-y-3">
+    <div className="overflow-hidden rounded-md border-2 border-foreground bg-card shadow-soft">
       {visible.map((item) => {
         const split = item.splits.length > 1;
         return (
           <article
             key={item.id}
-            className={`rounded-xl bg-card px-4 py-3 ring-1 ring-foreground/10 ${leaving.has(item.id) ? "dl-item-leaving" : initialIds.has(item.id) ? "" : "dl-item"}`}
+            className={`border-t-2 border-dashed border-border-soft px-4 py-3 first:border-t-0 ${leaving.has(item.id) ? "dl-item-leaving" : initialIds.has(item.id) ? "" : "dl-item"}`}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -141,7 +141,7 @@ export function ActivityLedger({
               </div>
             </div>
             {split ? (
-              <ul className="mt-3 space-y-1 border-t border-border pt-2 text-sm">
+              <ul className="mt-3 space-y-1 border-t-2 border-dashed border-border-soft pt-2 text-sm">
                 {item.splits.map((part, index) => (
                   <li key={`${part.categoryId}-${index}`} className="flex justify-between gap-3">
                     <span>{part.categoryName}</span>
@@ -178,7 +178,7 @@ export function ActivityLedger({
       {undo ? (
         <div
           role="status"
-          className="dl-toast-in fixed inset-x-4 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-md flex-col gap-2 rounded-xl bg-card px-4 py-3 shadow-lg ring-1 ring-foreground/10 md:bottom-8"
+          className="dl-toast-in fixed inset-x-4 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-md flex-col gap-2 rounded-md border-2 border-foreground bg-card px-4 py-3 shadow-pop md:bottom-8"
         >
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm">Deleted {undo.payee}.</p>

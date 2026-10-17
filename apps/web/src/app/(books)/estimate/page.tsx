@@ -9,7 +9,7 @@ import { getSpendEstimate } from "@/slices/books/service";
 
 function Row({ label, value, detail, strong }: { label: string; value: string; detail?: string; strong?: boolean }) {
   return (
-    <div className={`flex items-baseline justify-between gap-3 py-2 text-sm ${strong ? "border-t border-border pt-3 font-medium" : ""}`}>
+    <div className={`flex items-baseline justify-between gap-3 py-2 text-sm ${strong ? "border-t-2 border-dashed border-border-soft pt-3 font-medium" : ""}`}>
       <div className="min-w-0">
         <p>{label}</p>
         {detail ? <p className="text-xs text-muted-foreground">{detail}</p> : null}
@@ -68,7 +68,7 @@ function MonthCard({
         />
         <Row label="Spend estimate" value={money(month.estimateCents)} strong />
         {month.moneyLeftCents != null ? (
-          <div className="mt-3 rounded-lg bg-muted px-3 py-2 text-sm">
+          <div className="mt-3 rounded-sm bg-muted px-3 py-2 text-sm">
             <div className="flex justify-between gap-3">
               <span className="text-muted-foreground">{current ? "Income so far and expected" : "Recurring income expected"}</span>
               <span className="tabular-nums text-income">{money(month.incomeCents)}</span>
@@ -157,7 +157,7 @@ export default async function EstimatePage() {
             />
           ) : (
             <div>
-              <div className="hidden grid-cols-[1fr_repeat(4,6.5rem)_7rem] gap-2 border-b border-border pb-2 text-xs text-muted-foreground md:grid">
+              <div className="hidden grid-cols-[1fr_repeat(4,6.5rem)_7rem] gap-2 border-b-2 border-border pb-2 text-xs text-muted-foreground md:grid">
                 <span>Category</span>
                 <span className="text-right">So far</span>
                 <span className="text-right">Recurring</span>
@@ -165,7 +165,7 @@ export default async function EstimatePage() {
                 <span className="text-right">{thisName}</span>
                 <span className="text-right">{nextName}</span>
               </div>
-              <ul className="divide-y divide-border">
+              <ul className="divide-y-2 divide-dashed divide-border-soft">
                 {estimate.categories.map((line) => (
                   <li key={line.categoryId ?? "none"} className="py-2 text-sm">
                     <div className="hidden grid-cols-[1fr_repeat(4,6.5rem)_7rem] items-baseline gap-2 tabular-nums md:grid">

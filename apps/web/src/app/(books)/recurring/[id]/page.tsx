@@ -63,7 +63,7 @@ export default async function RecurringItemPage({ params }: { params: Promise<{ 
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="divide-y divide-border">
+            <ul className="divide-y-2 divide-dashed divide-border-soft">
               {[...upcoming, ...past].map((row) => (
                 <li key={row.date} className="flex items-center justify-between gap-3 py-2.5">
                   <div className="min-w-0">
@@ -95,7 +95,7 @@ export default async function RecurringItemPage({ params }: { params: Promise<{ 
             {item.history.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nothing linked yet. Link a transaction from Activity.</p>
             ) : (
-              <ul className="divide-y divide-border">
+              <ul className="divide-y-2 divide-dashed divide-border-soft">
                 {item.history.map((row) => (
                   <li key={row.transactionId} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                     <div className="min-w-0">

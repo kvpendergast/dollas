@@ -71,7 +71,7 @@ export function InviteForm() {
         ) : null}
       </form>
       {state.link ? (
-        <div className="space-y-2 rounded-xl border border-border bg-muted/40 p-3">
+        <div className="space-y-2 rounded-md border-2 border-foreground bg-muted/40 p-3">
           <p role="status" className="text-sm text-foreground">
             {state.notice}
           </p>

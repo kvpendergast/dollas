@@ -147,7 +147,7 @@ export function TransferForm({ members }: { members: { userId: string; name: str
         <select
           id="settings-owner"
           name="memberId"
-          className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+          className="h-12 w-full rounded-sm border-2 border-input bg-white px-3 text-base"
           defaultValue={candidates[0]?.userId}
         >
           {candidates.map((member) => (

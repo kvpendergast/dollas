@@ -18,7 +18,7 @@ export function PhoneTabBar({ pathname }: { pathname: string }) {
   return (
     <nav
       aria-label="Phone"
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-foreground bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <ul className="grid grid-cols-6">
         {bookNav.map((item) => {
@@ -29,9 +29,9 @@ export function PhoneTabBar({ pathname }: { pathname: string }) {
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`dl-transition flex min-h-14 flex-col items-center justify-center gap-1 px-0.5 text-xs ${active ? "text-primary" : "text-muted-foreground"}`}
+                className={`flex min-h-14 flex-col items-center justify-center gap-0.5 px-0.5 text-xs font-bold ${active ? "text-foreground" : "text-muted-foreground"}`}
               >
-                <Icon aria-hidden="true" className="size-5" />
+                <span aria-hidden="true" className={`inline-grid size-8 place-items-center rounded-full border-2 transition-[background-color] duration-(--motion-fast) ${active ? "border-foreground bg-amber" : "border-transparent"}`}><Icon className="size-4" /></span>
                 {item.label}
               </Link>
             </li>

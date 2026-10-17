@@ -14,7 +14,7 @@ function Progress({ done, total }: { done: number; total: number }) {
         {done} of {total} done
       </p>
       <div
-        className="h-1.5 overflow-hidden rounded-full bg-muted"
+        className="h-3.5 overflow-hidden rounded-full border-2 border-foreground bg-white"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={total}
@@ -70,7 +70,7 @@ export function OnboardingChecklist({ status }: { status: OnboardingStatus }) {
         <Progress done={status.requiredDone} total={status.requiredTotal} />
       </CardHeader>
       <CardContent>
-        <ol className="divide-y divide-border">
+        <ol className="divide-y-2 divide-dashed divide-border-soft">
           {status.steps.map((step) => {
             const next = step.id === status.nextStep;
             return (

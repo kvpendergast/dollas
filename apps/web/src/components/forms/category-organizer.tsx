@@ -249,7 +249,7 @@ function ChangeKindForm({ category }: { category: ListedCategory }) {
         </p>
       ) : null}
       {warning ? (
-        <div className="space-y-2 rounded-lg bg-muted p-3">
+        <div className="space-y-2 rounded-sm bg-muted p-3">
           <p role="status" className="text-sm">
             {warning}
           </p>
@@ -325,7 +325,7 @@ function GroupCard({ group, groups, index }: { group: ListedGroup; groups: Liste
             {group.categories.length === 0 ? <RemoveEmptyGroup group={group} /> : null}
           </div>
           {group.categories.length > 0 ? (
-            <ol className="m-0 list-none divide-y divide-border border-t border-border p-0">
+            <ol className="m-0 list-none divide-y-2 divide-dashed divide-border-soft border-t-2 border-dashed border-border-soft p-0">
               {group.categories.map((category, categoryIndex) => (
                 <CategoryRow
                   key={category.id}
@@ -371,7 +371,7 @@ export function CategoryOrganizer({ groups, ungrouped }: { groups: ListedGroup[]
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ol className="m-0 list-none divide-y divide-border p-0">
+            <ol className="m-0 list-none divide-y-2 divide-dashed divide-border-soft p-0">
               {ungrouped.map((category, index) => (
                 <CategoryRow
                   key={category.id}
