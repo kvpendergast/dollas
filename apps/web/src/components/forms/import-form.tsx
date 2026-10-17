@@ -63,7 +63,8 @@ export function ImportForm({
   const preview = state.preview && state.preview.stamp === stamp && state.stamp === stamp ? state.preview : null;
   const mapping = draft && draft.key === inspectionKey ? draft.mapping : (inspection?.mapping ?? null);
   const previewKey = preview ? `${preview.stamp}:${preview.readyCount}:${preview.errorCount}:${preview.rows.length}` : "";
-  const errorsOnly = errorFilter === previewKey && previewKey !== "";
+  // With errors, review opens on the Errors filter; the member can switch to all rows (and back).
+  const errorsOnly = preview && previewKey !== "" ? (errorFilter === `${previewKey}:all` ? false : preview.errorCount > 0) : false;
   const editing = editingPreview === previewKey && previewKey !== "";
   const showMapper = Boolean(inspection && mapping && (editing || state.stage !== "preview" || !preview));
   const showPreview = Boolean(preview && !showMapper);
@@ -136,7 +137,7 @@ export function ImportForm({
           <ImportPreviewTable
             preview={preview}
             errorsOnly={errorsOnly}
-            onToggleErrors={() => setErrorFilter(errorsOnly ? "" : previewKey)}
+            onFilterChange={(errors) => setErrorFilter(errors ? "" : `${previewKey}:all`)}
           />
         ) : null}
         {inspection && mapping?.categoryColumn != null ? (
@@ -483,11 +484,11 @@ const PREVIEW_LABELS = ["Date", "Payee", "Amount", "Account", "Category", "Notes
 function ImportPreviewTable({
   preview,
   errorsOnly,
-  onToggleErrors,
+  onFilterChange,
 }: {
   preview: ImportPreview;
   errorsOnly: boolean;
-  onToggleErrors: () => void;
+  onFilterChange: (errorsOnly: boolean) => void;
 }) {
   const rows = errorsOnly ? preview.rows.filter((row) => row.status === "error") : preview.rows;
   const duplicates = preview.duplicateCount === 1 ? "1 duplicate" : `${preview.duplicateCount} duplicates`;
@@ -501,14 +502,19 @@ function ImportPreviewTable({
         </span>
         <span className="text-muted-foreground">, {duplicates}</span>
       </p>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant={errorsOnly ? "default" : "outline"} aria-pressed={errorsOnly} onClick={onToggleErrors}>
-          {errorsOnly ? "Showing error rows" : "Show error rows"}
-        </Button>
-        {preview.errorCount > 0 ? (
+      {preview.errorCount > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <ChoiceGroup
+            aria-label="Rows to review"
+            value={errorsOnly ? "errors" : "all"}
+            onValueChange={(value) => onFilterChange(value === "errors")}
+          >
+            <ToggleGroupItem value="errors">Errors ({preview.errorCount})</ToggleGroupItem>
+            <ToggleGroupItem value="all">All rows</ToggleGroupItem>
+          </ChoiceGroup>
           <p className="text-sm text-muted-foreground">Rows with errors are left out. Change the columns to try again.</p>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
       {errorsOnly && rows.length === 0 ? <p className="text-sm text-muted-foreground">No rows with errors.</p> : null}
       <ol aria-label="Mapped CSV rows" className="m-0 list-none space-y-3 p-0 md:hidden">
         {rows.map((row) => (
