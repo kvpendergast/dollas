@@ -55,6 +55,18 @@ function unauthorized(description: string): Response {
   return challengeResponse({ status: 401, error: "invalid_token", description, scopes: agentChallengeScopes() });
 }
 
+/** A server-side hiccup, not a verdict on the token. Clients should retry. */
+export function unavailableResponse(): Response {
+  return Response.json(
+    {
+      jsonrpc: "2.0",
+      id: null,
+      error: { code: -32603, message: "Dollas is temporarily unavailable. Retry the request." },
+    },
+    { status: 503, headers: { "Retry-After": "2", "Cache-Control": "no-store" } },
+  );
+}
+
 export function bearerToken(header: string | null): string | null {
   if (!header) return null;
   const match = /^Bearer\s+(\S+)\s*$/i.exec(header);
@@ -100,14 +112,22 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
     claims = await verifyAgentToken(token);
   } catch (error) {
     logError(error, { action: "mcp-verify-token" });
-    return unauthorized(AGENT_MESSAGES.invalid_token);
+    return unavailableResponse();
   }
   const decided = decideAgentGrant(claims);
   if (decided.isErr()) return unauthorized(decided.error.message);
   const grant = decided.value;
 
-  if (!(await agentConnectionIsLive(grant))) return unauthorized(AGENT_MESSAGES.revoked);
-  const books = await loadBooksForMember(grant.userId, grant.householdId);
+  let live: boolean;
+  let books: Awaited<ReturnType<typeof loadBooksForMember>> = null;
+  try {
+    live = await agentConnectionIsLive(grant);
+    if (live) books = await loadBooksForMember(grant.userId, grant.householdId);
+  } catch (error) {
+    logError(error, { action: "mcp-connection-check", userId: grant.userId });
+    return unavailableResponse();
+  }
+  if (!live) return unauthorized(AGENT_MESSAGES.revoked);
   if (!books) return unauthorized(agentAccessError("invalid_token").message);
 
   if (request.method !== "POST") {

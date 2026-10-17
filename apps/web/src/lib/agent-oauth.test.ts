@@ -92,3 +92,23 @@ describe("MCP request helpers", () => {
     });
   });
 });
+
+describe("MCP availability", () => {
+  it("treats provider rejections as inactive tokens and everything else as transient", async () => {
+    const { APIError } = await import("better-auth/api");
+    const { isTokenRejection } = await import("./agent-oauth");
+    assert.equal(isTokenRejection(new APIError("UNAUTHORIZED", { error_description: "access token not found" })), true);
+    assert.equal(isTokenRejection(new APIError("BAD_REQUEST", { error_description: "x" })), true);
+    assert.equal(isTokenRejection(new APIError("INTERNAL_SERVER_ERROR", { error_description: "x" })), false);
+    assert.equal(isTokenRejection(new Error("Connection terminated due to connection timeout")), false);
+    assert.equal(isTokenRejection(new Error("token not found")), true);
+  });
+
+  it("answers a retryable 503 that does not look like a revocation", async () => {
+    const { unavailableResponse } = await import("../slices/agents/mcp");
+    const response = unavailableResponse();
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get("retry-after"), "2");
+    assert.equal(response.headers.get("www-authenticate"), null);
+  });
+});

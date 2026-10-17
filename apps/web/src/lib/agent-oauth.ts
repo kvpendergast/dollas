@@ -47,6 +47,22 @@ export function protectedResourceMetadataUrl(origin = siteOrigin()): string {
   return `${origin}/.well-known/oauth-protected-resource${MCP_PATH}`;
 }
 
+/**
+ * Grace window for a rotated refresh token. Rotation stays: every refresh
+ * issues a new refresh token and revokes the old one. But an MCP client that
+ * fires two calls at once with an expired access token sends the same refresh
+ * token twice, and a lost response gets retried. Without a window the second
+ * request looks like theft, so reuse detection revokes the whole family and the
+ * user has to reconnect. Within this many seconds the provider answers a repeat
+ * of the same request (same client, scopes and resources) with the response it
+ * already issued, stored encrypted on the old row. Mints nothing new. After the
+ * window, reuse of a rotated token revokes the family as before.
+ * The tradeoff: for this many seconds, someone holding a just-rotated token
+ * could be handed the same tokens its owner received. That requires stealing the
+ * token inside the window, and the access token it yields lives 15 minutes.
+ */
+export const REFRESH_REUSE_GRACE_SECONDS = 10;
+
 const SCOPES: Scope[] = [...AGENT_SCOPES];
 
 export function agentOAuthOptions(): OAuthOptions<Scope[]> {
@@ -58,7 +74,7 @@ export function agentOAuthOptions(): OAuthOptions<Scope[]> {
     grantTypes: ["authorization_code", "refresh_token"],
     accessTokenExpiresIn: AGENT_ACCESS_TOKEN_TTL_SECONDS,
     refreshTokenExpiresIn: AGENT_REFRESH_TOKEN_TTL_SECONDS,
-    refreshTokenReuseInterval: 0,
+    refreshTokenReuseInterval: REFRESH_REUSE_GRACE_SECONDS,
     disableJwtPlugin: true,
     storeClientSecret: "encrypted",
     storeTokens: "hashed",
@@ -123,6 +139,18 @@ export function registrationWithNativeDefault(body: unknown): Record<string, unk
 }
 
 /**
+ * True when the provider rejected the token itself (unknown, malformed, expired,
+ * revoked): a client-class API error or the provider's own wording. Database and
+ * network failures are not rejections.
+ */
+export function isTokenRejection(error: unknown): boolean {
+  // Duck-typed: the provider and better-auth ship separate APIError classes.
+  const code = (error as { statusCode?: unknown } | null)?.statusCode;
+  if (typeof code === "number") return code < 500;
+  return error instanceof Error && /not found|invalid|expired|revoked/i.test(error.message);
+}
+
+/**
  * Companion plugin. Adds a server-only endpoint (not reachable over HTTP)
  * that verifies an access token with the provider's own validator: hash
  * lookup, expiry, revocation, client and session checks. Returns
@@ -153,11 +181,15 @@ export function agentTokenVerifier(options: OAuthOptions<Scope[]>) {
             const payload = await getOAuthProviderApi(ctx, options).validateAccessToken(ctx.body.token);
             return ctx.json({ claims: payload as Record<string, unknown> });
           } catch (error) {
-            // Unknown or malformed tokens throw; anything else is worth a log line.
-            if (!(error instanceof Error && /not found|invalid/i.test(error.message))) {
-              logError(error, { action: "verify-agent-token" });
+            // Unknown or malformed tokens throw; they are simply not active.
+            if (isTokenRejection(error)) {
+              return ctx.json({ claims: { active: false } as Record<string, unknown> });
             }
-            return ctx.json({ claims: { active: false } as Record<string, unknown> });
+            // Anything else (database timeout, cold start) says nothing about the
+            // token. Reporting it as inactive would make a healthy client believe
+            // its access was revoked, so let the caller answer 503.
+            logError(error, { action: "verify-agent-token" });
+            throw error;
           }
         },
       ),

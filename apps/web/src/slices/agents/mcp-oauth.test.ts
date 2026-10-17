@@ -369,9 +369,30 @@ describe("agent OAuth and MCP", () => {
       assert.notEqual(next.refresh_token, readTokens.refresh_token);
       assert.notEqual(next.access_token, readTokens.access_token);
       assert.equal((await mcp(next.access_token, "tools/list")).status, 200);
+      // Benign race: the same client repeats the rotated token inside the grace
+      // window (parallel calls, a lost response). It gets the response already
+      // issued, mints no new token, and nothing is revoked.
+      const racing = await Promise.all([
+        token({ grant_type: "refresh_token", refresh_token: readTokens.refresh_token ?? "", client_id: agent }),
+        token({ grant_type: "refresh_token", refresh_token: readTokens.refresh_token ?? "", client_id: agent }),
+      ]);
+      for (const response of racing) assert.equal(response.status, 200, await response.clone().text());
+      const raced = (await Promise.all(racing.map((r) => r.json()))) as Tokens[];
+      assert.equal(raced[0]?.refresh_token, raced[1]?.refresh_token, "both racers get the same rotated token");
+      const racedRows = await owner<{ n: string }[]>`
+        select count(*)::text as n from oauth_refresh_token where user_id = ${ids.ada} and client_id = ${agent} and revoked is null
+      `;
+      assert.equal(racedRows[0]?.n, "1", "a replay does not mint a second live refresh token");
+      const live = raced[0]?.refresh_token ?? next.refresh_token ?? "";
+      const stillWorks = await token({ grant_type: "refresh_token", refresh_token: live, client_id: agent });
+      assert.equal(stillWorks.status, 200, "the family survives the race");
+      const afterRace = (await stillWorks.json()) as Tokens;
+
+      // True replay: once the window has closed, a rotated token revokes the family.
+      await owner`update oauth_refresh_token set rotation_replay_expires_at = now() - interval '1 second' where user_id = ${ids.ada} and client_id = ${agent}`;
       const reuse = await token({ grant_type: "refresh_token", refresh_token: readTokens.refresh_token ?? "", client_id: agent });
       assert.equal(reuse.status, 400);
-      const afterReuse = await token({ grant_type: "refresh_token", refresh_token: next.refresh_token ?? "", client_id: agent });
+      const afterReuse = await token({ grant_type: "refresh_token", refresh_token: afterRace.refresh_token ?? "", client_id: agent });
       assert.equal(afterReuse.status, 400, "replay revokes the rotated refresh token too");
 
       // Expired access tokens stop working.
