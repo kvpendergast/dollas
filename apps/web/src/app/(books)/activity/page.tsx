@@ -172,7 +172,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
           <PayeeRules rules={activity.payeeRules} categories={activity.categories} />
         </CardContent>
       </Card>
-      <Card id="import" className="scroll-mt-20">
+      <Card id="import" className="scroll-mt-20 overflow-visible">
         <CardHeader>
           <CardTitle>Import a CSV</CardTitle>
           <CardDescription>

@@ -1,11 +1,14 @@
 "use client";
 
 import type { ColumnMapping } from "@dollas/domain";
+import * as React from "react";
 import { useActionState, useState, startTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Segmented, SegmentedOption } from "@/components/ui/segmented";
+import { Switch } from "@/components/ui/switch";
 import {
   importCsvAction,
   undoCsvImportAction,
@@ -147,7 +150,13 @@ export function ImportForm({
             </select>
           </div>
         ) : null}
-        <div className="flex flex-wrap gap-2">
+        <div
+          className={
+            showPreview
+              ? "sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-10 -mx-1 flex flex-col gap-2 rounded-md border-2 border-foreground bg-card p-2 shadow-pop md:static md:mx-0 md:flex-row md:flex-wrap md:border-0 md:bg-transparent md:p-0 md:shadow-none"
+              : "flex flex-wrap gap-2"
+          }
+        >
           {!inspection ? (
             <Button type="submit" name="intent" value="inspect" disabled={pending}>
               {pending && intent === "inspect" ? "Reading" : "Continue"}
@@ -159,17 +168,17 @@ export function ImportForm({
             </Button>
           ) : null}
           {showPreview && preview && preview.readyCount > 0 ? (
-            <Button type="submit" name="intent" value="commit" disabled={pending}>
+            <Button type="submit" name="intent" value="commit" className="w-full md:w-auto" disabled={pending}>
               {pending && intent === "commit"
                 ? "Importing"
                 : preview.readyCount === 1
-                  ? "Import 1 ready transaction"
-                  : `Import ${preview.readyCount} ready transactions`}
+                  ? "Import 1 ready"
+                  : `Import ${preview.readyCount} ready`}
             </Button>
           ) : null}
           {showPreview ? (
-            <Button type="button" variant="outline" onClick={() => setEditingPreview(previewKey)}>
-              Change columns
+            <Button type="button" variant="outline" className="w-full md:w-auto" onClick={() => setEditingPreview(previewKey)}>
+              Change mapping
             </Button>
           ) : null}
         </div>
@@ -255,19 +264,16 @@ function Mapper({
           columns={columns}
           onChange={(payeeColumn) => onChange({ ...mapping, payeeColumn })}
         />
-        <div className="space-y-1.5">
-          <Label htmlFor="map-amount-mode">Amount</Label>
-          <select
-            id="map-amount-mode"
-            className={selectClass}
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label id="map-amount-mode-label">Amount</Label>
+          <Segmented
+            aria-labelledby="map-amount-mode-label"
             value={mapping.amountMode}
-            onChange={(event) =>
-              onChange({ ...mapping, amountMode: event.target.value === "debit_credit" ? "debit_credit" : "signed" })
-            }
+            onValueChange={(value) => onChange({ ...mapping, amountMode: value === "debit_credit" ? "debit_credit" : "signed" })}
           >
-            <option value="signed">One amount column</option>
-            <option value="debit_credit">Debit and credit columns</option>
-          </select>
+            <SegmentedOption value="signed">One amount column</SegmentedOption>
+            <SegmentedOption value="debit_credit">Debit and credit columns</SegmentedOption>
+          </Segmented>
         </div>
         {mapping.amountMode === "signed" ? (
           <ColumnSelect
@@ -295,15 +301,22 @@ function Mapper({
             />
           </>
         )}
-        <label className="flex items-center gap-2 text-sm sm:col-span-2">
-          <input
-            type="checkbox"
-            className="size-4 accent-primary"
+        <div className="flex items-start gap-3 sm:col-span-2">
+          <Switch
+            id="map-flip-sign"
             checked={mapping.flipSign}
-            onChange={(event) => onChange({ ...mapping, flipSign: event.target.checked })}
+            onCheckedChange={(flipSign) => onChange({ ...mapping, flipSign })}
+            aria-describedby="map-flip-sign-help"
           />
-          Flip sign (expenses in this file are positive)
-        </label>
+          <div className="min-w-0">
+            <Label htmlFor="map-flip-sign" className="min-h-[30px]">
+              Flip sign
+            </Label>
+            <p id="map-flip-sign-help" className="text-sm text-muted-foreground">
+              Turn this on when expenses in this file are positive.
+            </p>
+          </div>
+        </div>
         <div className="space-y-1.5">
           <Label htmlFor="map-date-order">Date format</Label>
           <select
@@ -325,23 +338,22 @@ function Mapper({
             <p className="text-xs text-muted-foreground">These dates could be month-first or day-first.</p>
           ) : null}
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="map-account-mode">Account</Label>
-          <select
-            id="map-account-mode"
-            className={selectClass}
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label id="map-account-mode-label">Account</Label>
+          <Segmented
+            aria-labelledby="map-account-mode-label"
             value={mapping.accountMode}
-            onChange={(event) =>
+            onValueChange={(value) =>
               onChange({
                 ...mapping,
-                accountMode: event.target.value === "column" ? "column" : "fixed",
-                fixedAccountId: event.target.value === "column" ? null : mapping.fixedAccountId,
+                accountMode: value === "column" ? "column" : "fixed",
+                fixedAccountId: value === "column" ? null : mapping.fixedAccountId,
               })
             }
           >
-            <option value="fixed">One account for the whole file</option>
-            <option value="column">A column in the file</option>
-          </select>
+            <SegmentedOption value="fixed">One account for the whole file</SegmentedOption>
+            <SegmentedOption value="column">A column in the file</SegmentedOption>
+          </Segmented>
         </div>
         {mapping.accountMode === "column" ? (
           <ColumnSelect
@@ -467,6 +479,8 @@ function SampleTable({ inspection }: { inspection: ImportInspection }) {
   );
 }
 
+const PREVIEW_LABELS = ["Date", "Payee", "Amount", "Account", "Category", "Notes"];
+
 function ImportPreviewTable({
   preview,
   errorsOnly,
@@ -497,12 +511,46 @@ function ImportPreviewTable({
         ) : null}
       </div>
       {errorsOnly && rows.length === 0 ? <p className="text-sm text-muted-foreground">No rows with errors.</p> : null}
-      <div className="max-h-96 overflow-auto rounded-sm border-2 border-foreground">
+      <ol aria-label="Mapped CSV rows" className="m-0 list-none space-y-3 p-0 md:hidden">
+        {rows.map((row) => (
+          <li key={row.line} data-import-card className="rounded-md border-2 border-foreground bg-card p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-heading text-xs font-extrabold tracking-wider uppercase">Row {row.line}</span>
+              {row.status === "ready" ? (
+                <Badge variant="ready">Ready</Badge>
+              ) : row.status === "error" ? (
+                <Badge variant="destructive">Error</Badge>
+              ) : (
+                <span className="text-xs font-bold text-muted-foreground">
+                  {row.duplicateOf === "bank" ? "Already synced from bank" : "Duplicate"}
+                </span>
+              )}
+            </div>
+            <dl className="mt-2 grid grid-cols-[5.5rem_1fr] gap-x-3 gap-y-1.5 text-sm">
+              {row.cells.map((cell, index) => (
+                <React.Fragment key={cell.field}>
+                  <dt className="text-xs font-bold text-muted-foreground">{PREVIEW_LABELS[index] ?? cell.field}</dt>
+                  <dd
+                    className={cell.message ? "min-w-0 rounded-sm border-2 border-destructive bg-error-tint px-2 py-1 font-medium break-words text-destructive" : "min-w-0 break-words"}
+                  >
+                    {cell.text || (cell.message ? "" : "—")}
+                    {cell.message ? <span className="mt-0.5 block text-xs">{cell.message}</span> : null}
+                  </dd>
+                </React.Fragment>
+              ))}
+            </dl>
+            {row.status === "ready" && row.possibleTransfer ? (
+              <p className="mt-2 text-xs text-muted-foreground">Looks like a transfer or card payment. {row.possibleTransfer}</p>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+      <div className="hidden max-h-96 overflow-auto rounded-sm border-2 border-foreground md:block">
         <table className="w-full min-w-[40rem] text-left text-sm">
           <caption className="sr-only">Mapped CSV rows</caption>
           <thead className="sticky top-0 border-b-2 border-foreground bg-card font-heading text-xs tracking-wider text-foreground uppercase">
             <tr>
-              {["Date", "Payee", "Amount", "Account", "Category", "Notes", "Status"].map((label) => (
+              {[...PREVIEW_LABELS, "Status"].map((label) => (
                 <th key={label} scope="col" className="px-3 py-2 font-extrabold">
                   {label}
                 </th>
