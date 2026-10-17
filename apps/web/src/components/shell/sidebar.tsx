@@ -29,9 +29,9 @@ export function DesktopNav({ pathname }: { pathname: string }) {
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`dl-transition flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${active ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                className={`flex min-h-11 items-center gap-3 rounded-full border-2 px-3 font-heading text-base font-bold transition-[background-color,box-shadow] duration-(--motion-fast) ease-(--ease-out) ${active ? "border-foreground bg-amber text-foreground shadow-press" : "border-transparent hover:bg-secondary"}`}
               >
-                <Icon aria-hidden="true" className="size-4" />
+                <span aria-hidden="true" className="inline-grid size-8 shrink-0 place-items-center rounded-full border-2 border-foreground bg-white"><Icon className="size-4" /></span>
                 {item.label}
               </Link>
             </li>
@@ -45,8 +45,11 @@ export function DesktopNav({ pathname }: { pathname: string }) {
 export function Sidebar() {
   const pathname = usePathname();
   return (
-    <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-border bg-card px-4 py-6 md:flex">
-      <Link href="/" className="font-heading text-3xl tracking-tight text-primary">
+    <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r-2 border-foreground bg-card px-4 py-6 md:flex">
+      <Link href="/" className="inline-flex items-center gap-2.5 font-heading text-3xl font-extrabold tracking-tight text-foreground">
+        <span aria-hidden="true" className="inline-grid size-9 shrink-0 place-items-center rounded-full border-2 border-foreground bg-primary text-primary-foreground">
+          <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><circle cx="10" cy="14" r="5" /><path d="M15 4v15" /></svg>
+        </span>
         dollas
       </Link>
       <p className="mt-1 text-xs text-muted-foreground">One household, two logins.</p>

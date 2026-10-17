@@ -99,7 +99,7 @@ export function SavedFilters({ path, anchor = "", ctx }: { path: string; anchor?
               key={row.id}
               href={filterHref(path, row.filter, ctx.defaultRange) + anchor}
               aria-current={current?.id === row.id ? "true" : undefined}
-              className="rounded-full border border-border px-3 py-1 text-xs hover:bg-muted aria-[current=true]:border-primary aria-[current=true]:bg-primary aria-[current=true]:text-primary-foreground"
+              className="rounded-full border-2 border-foreground px-3 py-1 text-xs hover:bg-muted aria-[current=true]:border-primary aria-[current=true]:bg-primary aria-[current=true]:text-primary-foreground"
             >
               {row.name}
             </Link>
@@ -110,7 +110,7 @@ export function SavedFilters({ path, anchor = "", ctx }: { path: string; anchor?
         <summary className="flex min-h-11 w-fit cursor-pointer list-none items-center text-sm font-medium text-primary hover:underline">
           {current ? `Manage saved filters` : "Save this filter"}
         </summary>
-        <div className="dl-sheet mt-2 max-w-md space-y-3 rounded-lg border border-border bg-card p-3 shadow-sm">
+        <div className="dl-sheet mt-2 max-w-md space-y-3 rounded-sm border-2 border-foreground bg-card p-3 shadow-sm">
           {!current ? (
             <form action={saveAction} className="space-y-1">
               <input type="hidden" name="filter" value={JSON.stringify(ctx.filter)} />
@@ -129,7 +129,7 @@ export function SavedFilters({ path, anchor = "", ctx }: { path: string; anchor?
             <p className="text-xs text-muted-foreground">This view is saved as “{current.name}”.</p>
           )}
           {ctx.saved.length > 0 ? (
-            <ul className="divide-y divide-border">
+            <ul className="divide-y-2 divide-dashed divide-border-soft">
               {ctx.saved.map((row) => (
                 <SavedRow key={row.id} id={row.id} name={row.name} createdBy={row.createdBy} href={filterHref(path, row.filter, ctx.defaultRange) + anchor} />
               ))}

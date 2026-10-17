@@ -36,7 +36,7 @@ export default async function HouseholdPage() {
               <CardDescription>Owners can invite, revoke invites, and hand off the household in Settings.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ul className="divide-y divide-border" aria-label="Members">
+              <ul className="divide-y-2 divide-dashed divide-border-soft" aria-label="Members">
                 {people.value.members.map((member) => (
                   <li key={member.userId} className="flex items-center justify-between gap-3 py-2.5">
                     <div className="min-w-0">
@@ -74,7 +74,7 @@ export default async function HouseholdPage() {
                       : "No open invites."}
                   </p>
                 ) : (
-                  <ul className="divide-y divide-border" aria-label="Open invites">
+                  <ul className="divide-y-2 divide-dashed divide-border-soft" aria-label="Open invites">
                     {people.value.invites.map((invite) => (
                       <li key={invite.id} className="space-y-2 py-2.5">
                         <div className="flex items-baseline justify-between gap-3">

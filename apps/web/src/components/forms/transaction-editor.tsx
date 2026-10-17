@@ -89,7 +89,7 @@ export function TransactionEditor({
   }
 
   return (
-    <div className="mt-3 space-y-3 border-t border-border pt-2">
+    <div className="mt-3 space-y-3 border-t-2 border-dashed border-border-soft pt-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"

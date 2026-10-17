@@ -21,7 +21,12 @@ export default async function WelcomePage({ searchParams }: { searchParams: Prom
     <main className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center gap-6 px-6 py-16">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-heading text-5xl text-primary">dollas</p>
+          <p className="inline-flex items-center gap-3 font-heading text-5xl font-extrabold">
+        <span aria-hidden="true" className="inline-grid size-11 place-items-center rounded-full border-2 border-foreground bg-primary text-primary-foreground">
+          <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><circle cx="10" cy="14" r="5" /><path d="M15 4v15" /></svg>
+        </span>
+        dollas
+      </p>
           <p className="mt-2 text-sm text-muted-foreground">money for one household</p>
         </div>
         <form action={signOutAction}>

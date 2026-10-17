@@ -49,7 +49,7 @@ export function PayeeRules({ rules, categories }: { rules: Rule[]; categories: C
           No payee rules yet. New imports use the category column until you add one.
         </p>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="divide-y-2 divide-dashed divide-border-soft">
           {rules.map((rule) => (
             <li key={`${rule.id}:${rule.pattern}:${rule.categoryId}`} className="py-3 first:pt-0 last:pb-0">
               <PayeeRuleRow rule={rule} categories={categories} />

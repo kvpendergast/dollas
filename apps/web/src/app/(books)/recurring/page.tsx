@@ -64,12 +64,12 @@ export default async function RecurringPage() {
               action="Add a recurring item"
             />
           ) : (
-            <ul className="divide-y divide-border">
+            <ul className="divide-y-2 divide-dashed divide-border-soft">
               {page.items.map((item) => (
                 <li key={item.id}>
                   <Link
                     href={`/recurring/${item.id}`}
-                    className="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-3 hover:bg-muted"
+                    className="-mx-2 flex items-center justify-between gap-3 rounded-full px-2 py-3 hover:bg-muted"
                   >
                     <div className="min-w-0">
                       <p className="truncate font-medium">{item.name}</p>
@@ -99,7 +99,7 @@ export default async function RecurringPage() {
             <CardDescription>Payees that show up on a steady schedule. Make one recurring to track it.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="divide-y divide-border">
+            <ul className="divide-y-2 divide-dashed divide-border-soft">
               {page.suggestions.map((suggestion) => (
                 <li key={`${suggestion.payeeMatch}:${suggestion.amountCents}`} className="flex items-center justify-between gap-3 py-3">
                   <div className="min-w-0">

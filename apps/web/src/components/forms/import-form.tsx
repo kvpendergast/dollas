@@ -438,7 +438,7 @@ function ColumnSelect({
 
 function SampleTable({ inspection }: { inspection: ImportInspection }) {
   return (
-    <div className="max-h-60 overflow-auto rounded-lg ring-1 ring-foreground/10">
+    <div className="max-h-60 overflow-auto rounded-sm border-2 border-foreground">
       <table className="w-full min-w-[28rem] text-left text-sm">
         <caption className="sr-only">Header and first rows</caption>
         <thead className="sticky top-0 bg-card text-xs text-muted-foreground">
@@ -452,7 +452,7 @@ function SampleTable({ inspection }: { inspection: ImportInspection }) {
         </thead>
         <tbody>
           {inspection.sampleRows.map((row, index) => (
-            <tr key={index} className="border-t border-border">
+            <tr key={index} className="border-t-2 border-dashed border-border-soft">
               {inspection.columns.map((column) => (
                 <td key={column.index} className="px-3 py-2 whitespace-nowrap">
                   {row[column.index] || ""}
@@ -496,7 +496,7 @@ function ImportPreviewTable({
         ) : null}
       </div>
       {errorsOnly && rows.length === 0 ? <p className="text-sm text-muted-foreground">No rows with errors.</p> : null}
-      <div className="max-h-96 overflow-auto rounded-lg ring-1 ring-foreground/10">
+      <div className="max-h-96 overflow-auto rounded-sm border-2 border-foreground">
         <table className="w-full min-w-[40rem] text-left text-sm">
           <caption className="sr-only">Mapped CSV rows</caption>
           <thead className="sticky top-0 bg-card text-xs text-muted-foreground">
@@ -510,7 +510,7 @@ function ImportPreviewTable({
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.line} className="border-t border-border">
+              <tr key={row.line} className="border-t-2 border-dashed border-border-soft">
                 {row.cells.map((cell) => (
                   <td
                     key={cell.field}
@@ -573,7 +573,7 @@ function OpenImports({ batches, undoneNotice }: { batches: OpenCsvImport[]; undo
         </p>
       ) : null}
       {batches.length > 0 ? (
-        <ul className="divide-y divide-border">
+        <ul className="divide-y-2 divide-dashed divide-border-soft">
           {batches.map((batch) => (
             <li key={batch.id} className="py-3 first:pt-0 last:pb-0">
               <UndoImport batch={batch} action={action} pending={pending} />

@@ -40,9 +40,9 @@ export function ChartRows({ title, rows, visible = 6 }: { title: string; rows: C
   const shown = rows.slice(0, visible);
   const rest = rows.slice(visible);
   return (
-    <div className="mt-6 border-t border-border pt-2">
+    <div className="mt-6 border-t-2 border-dashed border-border-soft pt-2">
       <h3 className="pt-2 text-sm font-medium text-muted-foreground">{title}</h3>
-      <ol className="divide-y divide-border">
+      <ol className="divide-y-2 divide-dashed divide-border-soft">
         {shown.map((row) => (
           <Row key={row.key} row={row} />
         ))}
@@ -53,7 +53,7 @@ export function ChartRows({ title, rows, visible = 6 }: { title: string; rows: C
             <span className="group-open:hidden">Show {rest.length} earlier</span>
             <span className="hidden group-open:inline">Hide earlier</span>
           </summary>
-          <ol className="dl-sheet divide-y divide-border">
+          <ol className="dl-sheet divide-y-2 divide-dashed divide-border-soft">
             {rest.map((row) => (
               <Row key={row.key} row={row} />
             ))}

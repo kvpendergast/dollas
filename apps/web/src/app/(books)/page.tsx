@@ -33,7 +33,7 @@ function PlanRow({ row, money }: { row: CategoryMonth; money: (cents: number) =>
         </span>
       </div>
       {budget != null ? (
-        <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+        <div className="h-3.5 overflow-hidden rounded-full border-2 border-foreground bg-white" aria-hidden="true">
           <div className={`h-full rounded-full ${over ? "bg-over" : "bg-primary"}`} style={{ width: `${over ? 100 : share}%` }} />
         </div>
       ) : null}

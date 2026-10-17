@@ -126,7 +126,7 @@ export default async function AccountsPage() {
           ) : (
             <div className="space-y-4">
               {connections.map((connection) => (
-                <div key={connection.id} className="space-y-3 rounded-xl bg-background px-4 py-3 ring-1 ring-foreground/10">
+                <div key={connection.id} className="space-y-3 rounded-md border-2 border-foreground bg-background px-4 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="font-heading text-2xl">{connection.label}</p>

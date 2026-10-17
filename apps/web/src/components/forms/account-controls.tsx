@@ -46,7 +46,7 @@ export function AccountControls({
 
   return (
     <div className="space-y-3">
-      <details data-sheet className="rounded-lg border border-border px-3 py-2">
+      <details data-sheet className="rounded-sm border-2 border-foreground px-3 py-2">
         <summary className="cursor-pointer text-sm text-primary" aria-label={`Edit ${account.name}`}>
           Edit name and opening balance
         </summary>
@@ -124,7 +124,7 @@ export function AccountControls({
       )}
 
       {blocked ? null : confirmingDelete ? (
-        <div role="alertdialog" aria-labelledby={`${field}-delete-title`} className="space-y-3 rounded-lg bg-muted px-3 py-3">
+        <div role="alertdialog" aria-labelledby={`${field}-delete-title`} className="space-y-3 rounded-sm bg-muted px-3 py-3">
           <div>
             <p id={`${field}-delete-title`} className="font-medium">
               Delete {account.name}?
