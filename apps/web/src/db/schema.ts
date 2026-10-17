@@ -274,6 +274,35 @@ export const csvImport = pgTable(
   ],
 ).enableRLS();
 
+/**
+ * A CSV staged once so later import steps can name it by id instead of
+ * re-sending the text (PEN-278). Immutable (a trigger refuses edits), hashed,
+ * and expires after 24 hours. Household-scoped like everything else.
+ */
+export const csvUpload = pgTable(
+  "csv_upload",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    contentSha256: text("content_sha256").notNull(),
+    charCount: integer("char_count").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+  },
+  (table) => [
+    check("csv_upload_char_count_chk", sql`${table.charCount} between 1 and 1000000`),
+    index("csv_upload_household_created_idx").on(table.householdId, table.createdAt),
+    pgPolicy("csv_upload_all", {
+      for: "all",
+      using: sql`app_can_access_household(${table.householdId})`,
+      withCheck: sql`app_can_access_household(${table.householdId})`,
+    }),
+  ],
+).enableRLS();
+
 const columnIndex = (name: string, value: AnyColumn) =>
   check(name, sql`${value} is null or (${value} between 0 and 63)`);
 

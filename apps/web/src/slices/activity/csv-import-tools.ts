@@ -2,6 +2,8 @@ import { CSV_IMPORT_MAX_CHARS, type ColumnMapping, type CsvInspection } from "@d
 import { confirmInput, pageInput, paginate, readPage } from "@dollas/mcp";
 import { z } from "zod";
 import { answer, plural, tool, uuidInput } from "@/slices/agents/tool-kit";
+import type { AgentToolContext } from "@/slices/agents/tool-kit";
+import { loadStagedCsv, stageCsvUpload } from "./csv-upload-service";
 import {
   commitCsvImport,
   inspectCsvImport,
@@ -13,11 +15,35 @@ import {
 
 const column = z.number().int().min(0).max(63).nullable().describe("Zero-based column index, or null.");
 
-const csvInput = z
-  .string()
-  .min(1)
-  .max(CSV_IMPORT_MAX_CHARS)
-  .describe(`The CSV file's full text (up to ${CSV_IMPORT_MAX_CHARS} characters). Send the same text to every step.`);
+const csvFields = {
+  upload_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe("Id from stage_csv. Preferred: stage the file once and pass this to every step."),
+  csv: z
+    .string()
+    .min(1)
+    .max(CSV_IMPORT_MAX_CHARS)
+    .optional()
+    .describe(`The CSV text (up to ${CSV_IMPORT_MAX_CHARS} characters), when you did not stage it. Give upload_id or csv, not both.`),
+};
+
+type CsvArgs = { upload_id?: string; csv?: string };
+
+/** The file text for a step: the staged upload, or the pasted text. Exactly one is required. */
+async function csvFor(
+  args: CsvArgs,
+  books: AgentToolContext["books"],
+): Promise<{ ok: true; csv: string; sha256: string | null } | { ok: false; message: string }> {
+  if (args.upload_id && args.csv) return { ok: false, message: "Give upload_id or csv, not both." };
+  if (args.upload_id) {
+    const staged = await loadStagedCsv(books, args.upload_id);
+    return staged.ok ? { ok: true, csv: staged.value.csv, sha256: staged.value.sha256 } : { ok: false, message: staged.memberMessage };
+  }
+  if (args.csv) return { ok: true, csv: args.csv, sha256: null };
+  return { ok: false, message: "Give upload_id (from stage_csv) or csv." };
+}
 
 const mappingInput = z
   .object({
@@ -119,14 +145,36 @@ const rowsInput = {
 
 export const csvImportTools = [
   tool({
+    name: "stage_csv",
+    title: "Stage CSV",
+    description: `Step 0 of a CSV import. Upload the file's text once and get an upload_id for inspect_csv, preview_csv_import and commit_csv_import, so the file is never pasted again. The staged file is immutable, kept 24 hours, and its sha256 is returned so you can confirm the bytes. Writes nothing to the books.`,
+    access: "write",
+    input: { csv: z.string().min(1).max(CSV_IMPORT_MAX_CHARS).describe(`The CSV file's full text (up to ${CSV_IMPORT_MAX_CHARS} characters).`) },
+    async run(args, { books }) {
+      return answer(
+        await stageCsvUpload(books, args.csv),
+        (value) => `Staged ${plural(value.lineCount, "line")}. Pass upload_id to the next steps.`,
+        (value) => ({
+          upload_id: value.id,
+          sha256: value.sha256,
+          chars: value.charCount,
+          lines: value.lineCount,
+          expires_at: value.expiresAt,
+        }),
+      );
+    },
+  }),
+  tool({
     name: "inspect_csv",
     title: "Inspect CSV",
     description:
       "Step 1 of a CSV import. Reads the file and proposes a column mapping. When a mapping saved from an earlier import fits, it also validates right away. Nothing is written.",
     access: "read",
-    input: { csv: csvInput, has_header: z.boolean().optional().describe("Override whether the first row is a header.") },
+    input: { ...csvFields, has_header: z.boolean().optional().describe("Override whether the first row is a header.") },
     async run(args, { books }) {
-      const inspected = await inspectCsvImport(books, { csv: args.csv, hasHeader: args.has_header });
+      const file = await csvFor(args, books);
+      if (!file.ok) return file;
+      const inspected = await inspectCsvImport(books, { csv: file.csv, hasHeader: args.has_header });
       return answer(
         inspected,
         (value) =>
@@ -147,9 +195,11 @@ export const csvImportTools = [
     description:
       "Step 2. Validates every row against the mapping and returns cell-level errors (field, text, error) and the ready, error, and duplicate counts. A duplicate is a row already imported (duplicate_of: import) or a charge bank sync already added on the same account, same amount, within 3 days (duplicate_of: bank). Nothing is written.",
     access: "read",
-    input: { csv: csvInput, mapping: mappingInput, ...rowsInput },
+    input: { ...csvFields, mapping: mappingInput, ...rowsInput },
     async run(args, { books }) {
-      const previewed = await previewCsvImport(books, { csv: args.csv, mapping: mappingIn(args.mapping) });
+      const file = await csvFor(args, books);
+      if (!file.ok) return file;
+      const previewed = await previewCsvImport(books, { csv: file.csv, mapping: mappingIn(args.mapping) });
       if (previewed.ok && previewed.value.kind === "mapping_error") return { ok: false, message: previewed.value.message };
       return answer(
         previewed,
@@ -164,9 +214,11 @@ export const csvImportTools = [
     description:
       "Step 3. Writes the ready rows as one import and remembers the mapping for next time. Rows with errors and duplicates are skipped. undo_csv_import reverses it.",
     access: "write",
-    input: { csv: csvInput, mapping: mappingInput },
+    input: { ...csvFields, mapping: mappingInput },
     async run(args, { books }) {
-      const committed = await commitCsvImport(books, { csv: args.csv, mapping: mappingIn(args.mapping) }, "mcp");
+      const file = await csvFor(args, books);
+      if (!file.ok) return file;
+      const committed = await commitCsvImport(books, { csv: file.csv, mapping: mappingIn(args.mapping) }, "mcp");
       return answer(committed, (value) => value.message, (value) => ({
         import_id: value.batchId,
         added: value.added,

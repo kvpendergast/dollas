@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { describe, it } from "node:test";
@@ -325,6 +325,39 @@ describe("Dollas MCP tools", () => {
       assert.equal((await ada.call("undo_csv_import", { import_id: committed.import_id })).isError, true, "undo needs confirm");
       const undone = await ada.ok("undo_csv_import", { import_id: committed.import_id, confirm: true });
       assert.equal(undone.removed, 1);
+
+      // Staged upload (PEN-278): send the file once, then name it by id.
+      const staged = await ada.ok("stage_csv", { csv });
+      const uploadId = staged.upload_id as string;
+      assert.equal(staged.sha256, createHash("sha256").update(csv, "utf8").digest("hex"));
+      assert.equal(staged.lines, 3);
+      assert.equal((await ada.call("inspect_csv", { upload_id: uploadId, csv })).isError, true, "id and text together are refused");
+      assert.equal((await ada.call("inspect_csv", {})).isError, true, "one of id or text is required");
+      await ada.ok("inspect_csv", { upload_id: uploadId });
+      const stagedPreview = await ada.ok("preview_csv_import", { upload_id: uploadId, mapping });
+      assert.equal(stagedPreview.ready_count, 1, "the undone import can be imported again");
+      const reimport = await ada.ok("commit_csv_import", { upload_id: uploadId, mapping });
+      assert.equal(reimport.added, 1);
+      // Second import of the same file: duplicates are skipped, nothing is added.
+      const again = await ada.ok("commit_csv_import", { csv, mapping });
+      assert.equal(again.added, 0);
+      assert.equal(again.duplicate_count, 1);
+      const dupPreview = await ada.ok("preview_csv_import", { upload_id: uploadId, mapping, rows: "all" });
+      assert.equal(dupPreview.duplicate_count, 1);
+      assert.equal(dupPreview.ready_count, 0);
+      assert.equal((await owner`select 1 from "transaction" where household_id = ${maple} and import_batch_id = ${reimport.import_id as string}`).length, 1);
+      // Undo removes exactly what that import added and nothing else.
+      const undoneAgain = await ada.ok("undo_csv_import", { import_id: reimport.import_id, confirm: true });
+      assert.equal(undoneAgain.removed, 1);
+      assert.equal((await owner`select 1 from "transaction" where household_id = ${maple} and import_batch_id = ${reimport.import_id as string}`).length, 0);
+      assert.equal((await ada.call("undo_csv_import", { import_id: reimport.import_id, confirm: true })).isError, true, "a reimport undo is refused");
+      // Another household cannot read the staged file; it is immutable; it expires.
+      assert.equal((await birchAgent.call("preview_csv_import", { upload_id: uploadId, mapping })).isError, true);
+      await assert.rejects(() => owner`update csv_upload set content = 'Date,Description,Amount\n2026-09-01,Bakery,-99.00' where id = ${uploadId}`);
+      const expired = await owner<{ id: string }[]>`
+        insert into csv_upload (household_id, content, content_sha256, char_count, expires_at)
+        values (${maple}, 'a,b', 'x', 3, now() - interval '1 hour') returning id`;
+      assert.equal((await ada.call("inspect_csv", { upload_id: expired[0]?.id })).isError, true, "expired uploads are gone");
 
       // Plan: set, clear, switch month, copy last month.
       const books = ada.books;
