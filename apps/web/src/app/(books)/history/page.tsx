@@ -15,7 +15,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="font-serif text-4xl">History</h1>
+          <h1 className="font-heading text-4xl">History</h1>
           <p className="max-w-2xl text-sm text-muted-foreground">Where the money went, filtered any way you like, and month over month.</p>
         </div>
         <NextStep
@@ -37,13 +37,13 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
   return (
     <div className="space-y-10">
       <div>
-        <h1 className="font-serif text-4xl">History</h1>
+        <h1 className="font-heading text-4xl">History</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
           Where the money went, filtered any way you like, and month over month. Pick a category or account to see its transactions.
         </p>
       </div>
       <section id="spending" className="scroll-mt-20 space-y-4" aria-labelledby="spending-heading">
-        <h2 id="spending-heading" className="font-serif text-2xl">
+        <h2 id="spending-heading" className="font-heading text-2xl">
           Spending
         </h2>
         <FilterBar path="/history" anchor="#spending" ctx={filters} />
@@ -60,7 +60,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
       </section>
       <section className="space-y-4" aria-labelledby="months-heading">
         <div>
-          <h2 id="months-heading" className="font-serif text-2xl">
+          <h2 id="months-heading" className="font-heading text-2xl">
             Month over month
           </h2>
           <p className="max-w-2xl text-sm text-muted-foreground">

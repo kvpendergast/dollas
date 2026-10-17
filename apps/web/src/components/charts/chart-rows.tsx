@@ -11,12 +11,12 @@ function Row({ row }: { row: ChartRow }) {
     <li className="grid gap-1 py-3 sm:grid-cols-[8rem_7rem_1fr] sm:items-baseline sm:gap-4">
       <p className="flex items-baseline justify-between gap-2 text-sm font-medium sm:block">
         <span>{row.label}</span>
-        <span className="font-serif tabular-nums sm:hidden">
+        <span className="font-heading tabular-nums sm:hidden">
           {row.amount}
           {row.partial ? <span className="ml-1 text-xs font-medium text-amber-800">so far</span> : null}
         </span>
       </p>
-      <p className="hidden font-serif text-sm tabular-nums sm:block">
+      <p className="hidden font-heading text-sm tabular-nums sm:block">
         {row.amount}
         {row.partial ? <span className="ml-1 font-sans text-xs font-medium text-amber-800">so far</span> : null}
       </p>

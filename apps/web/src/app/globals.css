@@ -9,7 +9,7 @@
   --popover: #fffcf8;
   --popover-foreground: #1c2420;
   --primary: #3f6b54;
-  --primary-foreground: #f7f6f2;
+  --primary-foreground: #ffffff;
   --secondary: #e6efe8;
   --secondary-foreground: #1c3a2c;
   --muted: #ebe6dc;
@@ -17,14 +17,39 @@
   --accent: #e6efe8;
   --accent-foreground: #1c3a2c;
   --destructive: #b42318;
-  --border: #ddd6c8;
-  --input: #ddd6c8;
+  --border: #1c2420;
+  --border-soft: #ddd6c8;
+  --input: #7a847d;
   --ring: #3f6b54;
   --radius: 0.85rem;
   --income: #2f6f4e;
   --over-budget: #b42318;
   --prior-year: #b7c9be;
   --bar: #3f6b54;
+  /* Playful Geometric v2 (PEN-305). Decoration and group accents only. */
+  --confetti-pink: #f2a7c3;
+  --confetti-amber: #f4c95d;
+  --confetti-mint: #9bdcc0;
+  --sage-tint: #cfe0d5;
+  --hatch-a: #e2b15a;
+  --hatch-b: #f6e3bc;
+  --error-tint: #fdecea;
+  --radius-pill: 999px;
+  /* Hard, no-blur shadows. Phones shrink them (see the media query below). */
+  --shadow-pop: 4px 4px 0 0 var(--foreground);
+  --shadow-hover: 6px 6px 0 0 var(--foreground);
+  --shadow-press: 2px 2px 0 0 var(--foreground);
+  --shadow-soft: 6px 6px 0 0 #ddd6c8;
+  --shadow-focus: 4px 4px 0 0 var(--primary);
+}
+
+@media (max-width: 639px) {
+  :root {
+    --shadow-pop: 2px 2px 0 0 var(--foreground);
+    --shadow-hover: 2px 2px 0 0 var(--foreground);
+    --shadow-soft: 3px 3px 0 0 #ddd6c8;
+    --shadow-focus: 3px 3px 0 0 var(--primary);
+  }
 }
 
 @theme inline {
@@ -50,27 +75,48 @@
   --color-over: var(--over-budget);
   --color-prior: var(--prior-year);
   --color-bar: var(--bar);
-  --font-sans: var(--font-outfit);
-  --font-serif: var(--font-fraunces);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --color-border-soft: var(--border-soft);
+  --color-pink: var(--confetti-pink);
+  --color-amber: var(--confetti-amber);
+  --color-mint: var(--confetti-mint);
+  --color-sage-tint: var(--sage-tint);
+  --color-error-tint: var(--error-tint);
+  --font-sans: var(--font-jakarta), system-ui, sans-serif;
+  --font-heading: var(--font-outfit), system-ui, sans-serif;
+  --shadow-pop: var(--shadow-pop);
+  --shadow-hover: var(--shadow-hover);
+  --shadow-press: var(--shadow-press);
+  --shadow-soft: var(--shadow-soft);
+  --shadow-focus: var(--shadow-focus);
+  --ease-bounce: var(--ease-bounce);
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 24px;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-outfit), sans-serif;
+  font-family: var(--font-jakarta), system-ui, sans-serif;
 }
 
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  font-weight: 800;
+}
+
+/* The partial ("so far") month. Tokenized hatch; the text delta lists stay. */
 .bar-partial {
   background: repeating-linear-gradient(
     -45deg,
-    #e2b15a,
-    #e2b15a 5px,
-    #f6e3bc 5px,
-    #f6e3bc 10px
+    var(--hatch-a),
+    var(--hatch-a) 5px,
+    var(--hatch-b) 5px,
+    var(--hatch-b) 10px
   );
 }
 
@@ -86,8 +132,10 @@ body {
   --motion-slow: 320ms;
   --motion-chart: 560ms;
   --motion-stagger: 28ms;
-  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.64, 0, 0.78, 0);
+  /* Overshoots: only for buttons, sticker cards, chips, toggles and pop-ins. */
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes dl-fade-up {

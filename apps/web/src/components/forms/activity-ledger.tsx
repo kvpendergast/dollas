@@ -119,7 +119,7 @@ export function ActivityLedger({
                 {item.sources ? <p className="text-xs text-muted-foreground">{attributionLine(item)}</p> : null}
               </div>
               <div className="shrink-0 text-right">
-                <p className={`font-serif text-lg tabular-nums ${item.amountCents > 0 ? "text-income" : ""}`}>
+                <p className={`font-heading text-lg tabular-nums ${item.amountCents > 0 ? "text-income" : ""}`}>
                   {formatCents(item.amountCents)}
                 </p>
                 <div className="flex flex-wrap justify-end gap-1">

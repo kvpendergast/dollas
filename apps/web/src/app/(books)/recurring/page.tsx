@@ -21,7 +21,7 @@ export default async function RecurringPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-serif text-4xl">Recurring</h1>
+        <h1 className="font-heading text-4xl">Recurring</h1>
         <p className="text-sm text-muted-foreground">
           Known bills and paychecks. A matching transaction links to its item instead of standing alone.
         </p>
@@ -31,7 +31,7 @@ export default async function RecurringPage() {
         <Card>
           <CardHeader>
             <CardDescription>Bills this month</CardDescription>
-            <CardTitle className="font-serif text-3xl tabular-nums">{money(month.paid.expenseCents)} paid</CardTitle>
+            <CardTitle className="font-heading text-3xl tabular-nums">{money(month.paid.expenseCents)} paid</CardTitle>
             <p className="text-sm text-muted-foreground tabular-nums">
               {money(month.expected.expenseCents)} still expected
               {month.missed.expenseCents > 0 ? ` · ${money(month.missed.expenseCents)} missed` : ""}
@@ -41,7 +41,7 @@ export default async function RecurringPage() {
         <Card>
           <CardHeader>
             <CardDescription>Income this month</CardDescription>
-            <CardTitle className="font-serif text-3xl text-income tabular-nums">{money(month.paid.incomeCents)} received</CardTitle>
+            <CardTitle className="font-heading text-3xl text-income tabular-nums">{money(month.paid.incomeCents)} received</CardTitle>
             <p className="text-sm text-muted-foreground tabular-nums">
               {money(month.expected.incomeCents)} still expected
               {month.missed.incomeCents > 0 ? ` · ${money(month.missed.incomeCents)} missed` : ""}
@@ -79,7 +79,7 @@ export default async function RecurringPage() {
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
-                      <span className={`font-serif text-lg tabular-nums ${item.amountCents > 0 ? "text-income" : ""}`}>
+                      <span className={`font-heading text-lg tabular-nums ${item.amountCents > 0 ? "text-income" : ""}`}>
                         {money(item.amountCents)}
                       </span>
                       <RecurringStatusBadge status={item.monthStatus} />

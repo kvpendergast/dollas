@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Toaster } from "@/components/ui/toast";
-import { Fraunces, Outfit } from "next/font/google";
+import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -8,9 +8,10 @@ const outfit = Outfit({
   variable: "--font-outfit",
 });
 
-const fraunces = Fraunces({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-fraunces",
+  weight: ["400", "500", "700", "800"],
+  variable: "--font-jakarta",
 });
 
 export const metadata: Metadata = {
@@ -28,7 +29,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${fraunces.variable} h-full antialiased`}>
+    <html lang="en" className={`${outfit.variable} ${jakarta.variable} h-full antialiased`}>
       <body className="min-h-full bg-background text-foreground">
         {children}
         <Toaster />

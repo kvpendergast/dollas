@@ -21,7 +21,7 @@ export default async function WelcomePage({ searchParams }: { searchParams: Prom
     <main className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center gap-6 px-6 py-16">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-serif text-5xl text-primary">dollas</p>
+          <p className="font-heading text-5xl text-primary">dollas</p>
           <p className="mt-2 text-sm text-muted-foreground">money for one household</p>
         </div>
         <form action={signOutAction}>
@@ -31,7 +31,7 @@ export default async function WelcomePage({ searchParams }: { searchParams: Prom
         </form>
       </div>
       <div>
-        <h1 className="font-serif text-4xl tracking-tight">Set up your household</h1>
+        <h1 className="font-heading text-4xl tracking-tight">Set up your household</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Signed in as {ctx.kind === "verified" ? ctx.session.user.email : "you"}. Start a household, or join the one your partner started.
         </p>

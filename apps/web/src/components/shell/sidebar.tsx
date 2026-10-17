@@ -46,7 +46,7 @@ export function Sidebar() {
   const pathname = usePathname();
   return (
     <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-border bg-card px-4 py-6 md:flex">
-      <Link href="/" className="font-serif text-3xl tracking-tight text-primary">
+      <Link href="/" className="font-heading text-3xl tracking-tight text-primary">
         dollas
       </Link>
       <p className="mt-1 text-xs text-muted-foreground">One household, two logins.</p>

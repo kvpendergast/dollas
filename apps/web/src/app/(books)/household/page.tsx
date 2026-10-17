@@ -18,7 +18,7 @@ export default async function HouseholdPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="font-serif text-4xl">{books.householdName}</h1>
+        <h1 className="font-heading text-4xl">{books.householdName}</h1>
         <p className="text-sm text-muted-foreground">
           Everyone here sees and edits the same accounts, transactions, categories, and budget. Each person has their own
           login.
