@@ -31,14 +31,20 @@ function DialogOverlay({ className, ...props }: React.ComponentProps<typeof Dial
   );
 }
 
-function DialogContent({ className, children, ...props }: React.ComponentProps<typeof DialogPrimitive.Content>) {
+/**
+ * `fullscreen` makes the dialog cover the whole viewport (dvh, so phone browser bars never clip it)
+ * with no zoom animation. Radix still traps focus, closes on Escape, and returns focus to the trigger.
+ */
+function DialogContent({ className, children, fullscreen = false, ...props }: React.ComponentProps<typeof DialogPrimitive.Content> & { fullscreen?: boolean }) {
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "dl-dialog fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[min(32rem,calc(100%-2rem))] overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-4 rounded-md border-2 border-foreground bg-popover p-6 text-popover-foreground shadow-pop",
+          fullscreen
+            ? "fixed inset-0 z-50 flex h-dvh w-screen flex-col overflow-hidden bg-popover text-popover-foreground"
+            : "dl-dialog fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[min(32rem,calc(100%-2rem))] overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-4 rounded-md border-2 border-foreground bg-popover p-6 text-popover-foreground shadow-pop",
           className,
         )}
         {...props}

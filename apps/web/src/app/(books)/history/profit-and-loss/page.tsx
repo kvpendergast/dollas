@@ -55,7 +55,7 @@ export default async function ProfitAndLossPage({ searchParams }: { searchParams
   const format = (cents: number) => dollars(cents, books.currency);
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader
         title="Profit & loss"
         description={description}

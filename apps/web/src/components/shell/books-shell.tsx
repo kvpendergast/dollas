@@ -17,7 +17,7 @@ export function BooksShell({
 }) {
   return (
     <div className="min-h-full bg-background">
-      <div className="mx-auto flex min-h-full max-w-6xl">
+      <div className="flex min-h-full w-full">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex items-center justify-between gap-3 border-b-2 border-foreground px-4 py-2 md:px-8 md:py-4">
