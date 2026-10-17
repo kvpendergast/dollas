@@ -187,6 +187,7 @@ describe("pendingMigrationTags", () => {
     "0032_onboarding_steps",
     "0033_bank_account_reconnect",
     "0034_rate_limit",
+    "0035_staged_csv_upload",
     ]);
   });
 
