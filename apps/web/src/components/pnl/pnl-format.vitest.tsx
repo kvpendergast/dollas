@@ -86,6 +86,7 @@ describe("P&L screen", () => {
     expect(html).toContain("So far");
     expect(html).toContain("Transfers are not included.");
     expect(html).not.toMatch(/one-off|planned net/i);
+    expect(html).toContain('aria-label="Expand table to full screen"');
   });
   it("shows an empty state when there is nothing to compare", () => {
     const html = renderToStaticMarkup(<PnlView report={{ ...report, groups: [] }} period="months" months={6} currency="USD" today="2026-10-17" />);

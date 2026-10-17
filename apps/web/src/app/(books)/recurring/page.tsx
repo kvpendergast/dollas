@@ -21,7 +21,7 @@ export default async function RecurringPage() {
   const money = (cents: number) => formatCents(cents, books.currency);
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-5xl space-y-6">
       <PageHeader title="Recurring" description={<>Known bills and paychecks. A matching transaction links to its item instead of standing alone.</>} />
 
       <div className="grid gap-3 sm:grid-cols-2">

@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronsRight, CircleMinus, Clock, Info } from "lucide-react";
 import type { PnlCell as Cell, PnlGroup, PnlGranularity, PnlPeriod, ProfitLoss } from "@dollas/domain";
 import { EmptyState } from "@/components/app/empty-state";
+import { TableCard } from "@/components/app/table-card";
 import { MoneyAmount } from "@/components/app/money-amount";
 import { StatusPill } from "@/components/app/status-pill";
 import { buttonVariants } from "@/components/ui/button";
@@ -92,6 +93,14 @@ export function PnlView({
     setScrolled(el.scrollLeft > 2);
     setMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
   }
+  // The table can move between the page and the full screen dialog; measure again when it lands.
+  const measure = useCallback((el: HTMLDivElement | null) => {
+    scroller.current = el;
+    if (el) requestAnimationFrame(() => {
+      setScrolled(el.scrollLeft > 2);
+      setMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+    });
+  }, []);
   useEffect(() => {
     update();
     window.addEventListener("resize", update);
@@ -241,18 +250,16 @@ export function PnlView({
   const incomeOpen = !collapsed.includes("income");
   const stickyFirst = cn("sticky left-0 z-[2] border-r-2 border-foreground", scrolled && "shadow-[6px_0_8px_-4px_color-mix(in_oklab,var(--foreground)_28%,transparent)]");
 
-  return (
-    <div className="space-y-4">
-      {toggles}
-      <div className={cn("relative overflow-hidden rounded-md border-2 border-foreground bg-card shadow-soft")}>
+  const tableBody = (fullscreen: boolean) => (
+      <div className={cn("relative", fullscreen && "h-full")}>
         <Table
           containerProps={{
-            ref: scroller,
+            ref: measure,
             tabIndex: 0,
             role: "region",
             "aria-label": "Profit and loss table. Scroll sideways for more columns.",
             onScroll: update,
-            className: "overscroll-x-contain focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-ring [--pnl-first:132px] [--pnl-col:112px] sm:[--pnl-first:208px] sm:[--pnl-col:104px]",
+            className: cn(fullscreen && "h-full overflow-auto", "overscroll-x-contain focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-ring [--pnl-first:132px] [--pnl-col:112px] sm:[--pnl-first:208px] sm:[--pnl-col:104px]"),
           }}
           className="table-fixed border-separate border-spacing-0"
           style={{ minWidth }}
@@ -266,7 +273,7 @@ export function PnlView({
               <col key={p.key} />
             ))}
           </colgroup>
-          <TableHeader className="bg-card">
+          <TableHeader className={cn("bg-card", fullscreen && "[&_th]:sticky [&_th]:top-0 [&_th]:bg-card")}>
             <TableRow className="border-b-0">
               <TableHead scope="col" className={cn("border-b-2 border-foreground bg-card px-3 py-3 font-heading text-xs tracking-wider uppercase", stickyFirst, "z-[4]")}>
                 Category
@@ -394,6 +401,13 @@ export function PnlView({
           </p>
         ) : null}
       </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <TableCard title="Profit and loss" controls={toggles}>
+        {({ fullscreen }) => tableBody(fullscreen)}
+      </TableCard>
 
       <ul aria-label="How to read the table" className="m-0 flex list-none flex-wrap gap-x-4 gap-y-2 p-0 text-[0.8125rem] font-bold">
         <Legend icon={<Check aria-hidden="true" className="size-3.5 stroke-[3]" />} tone="bg-secondary" label="Under or on budget" />

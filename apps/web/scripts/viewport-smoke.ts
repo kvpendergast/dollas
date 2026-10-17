@@ -9,6 +9,7 @@
  * and Chrome. Usage:
  *   pnpm smoke:viewport                 # 360px
  *   pnpm smoke:viewport --all           # 360, 390, 768, 1024, 1440
+ *   pnpm smoke:viewport --wide          # 1920, 2560 (full-width shell)
  *   pnpm smoke:viewport --widths=390,768
  * Env: SMOKE_BASE_URL (http://localhost:3000), SMOKE_EMAIL, SMOKE_PASSWORD
  * (the seed's demo login), CHROME_PATH (/usr/bin/google-chrome).
@@ -19,8 +20,10 @@ const BASE = process.env.SMOKE_BASE_URL ?? "http://localhost:3000";
 const EMAIL = process.env.SMOKE_EMAIL ?? "ada@maple.local";
 const PASSWORD = process.env.SMOKE_PASSWORD ?? "maple-demo";
 const ALL = [360, 390, 768, 1024, 1440];
+/** Wide desktops: the shell spans the window, so these still must not scroll sideways. */
+const WIDE = [1920, 2560];
 const arg = process.argv.find((value) => value.startsWith("--widths="));
-const WIDTHS = process.argv.includes("--all") ? ALL : arg ? arg.slice(9).split(",").map(Number) : [360];
+const WIDTHS = process.argv.includes("--wide") ? WIDE : process.argv.includes("--all") ? ALL : arg ? arg.slice(9).split(",").map(Number) : [360];
 const PHONE_MAX = 767;
 
 const PUBLIC_PAGES = ["/sign-in", "/sign-up", "/sign-up?path=join", "/forgot-password"];
