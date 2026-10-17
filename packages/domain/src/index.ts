@@ -263,6 +263,7 @@ export type { CsvImportStore, ImportWrite, ImportWriteResult, MappingWrite } fro
 export {
   mappedTransactionSchema,
   validateMappedImport,
+  possibleTransferReason,
   categoryLabelCounts,
   labelKey,
   type BankBackedCharge,
@@ -583,6 +584,7 @@ export {
   needsStarterCategories,
   planStarterCategories,
   STARTER_CATEGORIES,
+  TRANSFERS_CATEGORY,
   type StarterGroup,
   type StarterPlan,
 } from "./onboarding/starter";

@@ -5,7 +5,7 @@
  * anything already there by name (case-insensitive) is skipped.
  */
 
-export type StarterKind = "expense" | "income";
+export type StarterKind = "expense" | "income" | "transfer";
 export type StarterGroup = { name: string; categories: ReadonlyArray<{ name: string; kind: StarterKind }> };
 
 const expense = (name: string) => ({ name, kind: "expense" as const });
@@ -18,7 +18,12 @@ export const STARTER_CATEGORIES: readonly StarterGroup[] = [
   { name: "Health", categories: [expense("Medical"), expense("Insurance")] },
   { name: "Fun", categories: [expense("Entertainment"), expense("Subscriptions"), expense("Travel")] },
   { name: "Giving and gifts", categories: [expense("Gifts"), expense("Donations")] },
+  // Card payments and moves between your own accounts (PEN-280). Not income or spending.
+  { name: "Transfers", categories: [{ name: "Transfers", kind: "transfer" }] },
 ];
+
+/** The category create_transfer and the transfer form use, made on first use when a household has none. */
+export const TRANSFERS_CATEGORY = { name: "Transfers", kind: "transfer" } as const;
 
 /** The fallback categories import and sync create; they do not count as a household's own. */
 export const FALLBACK_CATEGORIES: ReadonlyArray<{ name: string; kind: StarterKind }> = [

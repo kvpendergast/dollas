@@ -4,6 +4,7 @@ import { ActivityLedger } from "@/components/forms/activity-ledger";
 import { ImportForm } from "@/components/forms/import-form";
 import { PayeeRules } from "@/components/forms/payee-rule-form";
 import { TransactionForm } from "@/components/forms/transaction-form";
+import { TransferForm } from "@/components/forms/transfer-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireBooks } from "@/slices/access/guard";
 import { loadCsvImportPanel } from "@/slices/activity/import-csv";
@@ -152,6 +153,9 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
               today={toIsoDate(books.asOf)}
             />
           )}
+          <div className="mt-4">
+            <TransferForm accounts={newEntryAccounts.map((account) => ({ id: account.id, name: account.name }))} today={toIsoDate(books.asOf)} />
+          </div>
           {activity.accounts.some((account) => account.archivedAt !== null) ? (
             <p className="mt-3 text-sm text-muted-foreground">
               Archived accounts are not listed for new entries. Their past transactions stay below.

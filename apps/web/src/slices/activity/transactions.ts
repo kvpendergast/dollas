@@ -196,7 +196,7 @@ export async function listHouseholdTransactions(
   }
 }
 
-async function requireHouseholdTargets(
+export async function requireHouseholdTargets(
   tx: AppTx,
   householdId: string,
   entry: TransactionEntry,

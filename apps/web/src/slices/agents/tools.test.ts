@@ -390,6 +390,34 @@ describe("Dollas MCP tools", () => {
       assert.equal(uncategorized.ready_count, 3);
       assert.equal((await birchAgent.call("list_csv_category_labels", { upload_id: labelledStage, mapping: labelMapping })).isError, true);
 
+      // Transfers (PEN-280): payment-looking rows are flagged, create_transfer writes both sides.
+      const visa = (await ada.ok("create_account", { name: "Visa", type: "credit", opening_balance_cents: 0 })).id as string;
+      const cardCsv = "Date,Description,Amount\n2026-09-20,Online Payment Thank You,250.00\n2026-09-21,Coffee Shop,-3.50\n2026-09-22,Refund Shoe Store,20.00\n2026-09-23,Funds Transfer,-10.00\n";
+      const cardStage = (await ada.ok("stage_csv", { csv: cardCsv })).upload_id as string;
+      const cardMapping = {
+        ...((await ada.ok("inspect_csv", { upload_id: cardStage })).inspection as { proposed_mapping: Record<string, unknown> }).proposed_mapping,
+        account_mode: "fixed",
+        fixed_account_id: visa,
+        category_column: null,
+      };
+      const cardPreview = await ada.ok("preview_csv_import", { upload_id: cardStage, mapping: cardMapping, rows: "all" });
+      assert.equal(cardPreview.possible_transfer_count, 3);
+      const flagged = (cardPreview.rows as { items: Array<{ line: number; possible_transfer: string | null }> }).items;
+      assert.deepEqual(flagged.map((row) => [row.line, row.possible_transfer !== null]), [[2, true], [3, false], [4, true], [5, true]]);
+      assert.equal(JSON.stringify((await ada.ok("preview_csv_import", { upload_id: cardStage, mapping: cardMapping })).rows).includes("Coffee Shop"), false, "unflagged ready rows stay out of the default listing");
+      const transfer = await ada.ok("create_transfer", { from_account_id: checking, to_account_id: visa, amount_cents: 25000, occurred_on: "2026-09-20" });
+      assert.notEqual(transfer.from_transaction_id, transfer.to_transaction_id);
+      const sides = await owner<{ account_id: string; amount_cents: string; kind: string }[]>`
+        select t.account_id, t.amount_cents::text, c.kind from "transaction" t
+        join transaction_split s on s.transaction_id = t.id join category c on c.id = s.category_id
+        where t.id in (${transfer.from_transaction_id as string}, ${transfer.to_transaction_id as string}) order by t.amount_cents`;
+      assert.deepEqual(sides.map((row) => [row.account_id, row.amount_cents, row.kind]), [[checking, "-25000", "transfer"], [visa, "25000", "transfer"]]);
+      await ada.ok("create_transfer", { from_account_id: checking, to_account_id: visa, amount_cents: 100, occurred_on: "2026-09-21" });
+      assert.equal((await owner`select 1 from category where household_id = ${maple} and kind = 'transfer'`).length, 1, "the Transfers category is made once");
+      assert.equal((await ada.call("create_transfer", { from_account_id: checking, to_account_id: checking, amount_cents: 100, occurred_on: "2026-09-21" })).isError, true, "same account refused");
+      assert.equal((await ada.call("create_transfer", { from_account_id: checking, to_account_id: visa, amount_cents: -5, occurred_on: "2026-09-21" })).isError, true, "negative refused");
+      assert.equal((await birchAgent.call("create_transfer", { from_account_id: checking, to_account_id: visa, amount_cents: 100, occurred_on: "2026-09-21" })).isError, true, "another household's accounts refused");
+
       // Plan: set, clear, switch month, copy last month.
       const books = ada.books;
       const thisMonth = `${books.asOf.year}-${String(books.asOf.month).padStart(2, "0")}`;

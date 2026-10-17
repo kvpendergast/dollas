@@ -26,18 +26,20 @@ export function csvImportStore(tx: AppTx): CsvImportStore {
         .select({
           id: ledgerAccount.id,
           name: ledgerAccount.name,
+          type: ledgerAccount.type,
           householdId: ledgerAccount.householdId,
           archivedAt: ledgerAccount.archivedAt,
         })
         .from(ledgerAccount)
         .where(eq(ledgerAccount.householdId, householdId));
+      const accountTypes = new Map(accountRows.map((row) => [row.id, row.type]));
       const accounts = accountsForActiveLists(
         accountRows.map((row) => ({
           ...row,
           archivedAt: row.archivedAt ? row.archivedAt.toISOString() : null,
         })),
         householdId,
-      ).map((row) => ({ id: row.id, name: row.name }));
+      ).map((row) => ({ id: row.id, name: row.name, type: accountTypes.get(row.id) }));
       const categories = await tx
         .select({ id: category.id, name: category.name, kind: category.kind })
         .from(category)

@@ -520,7 +520,14 @@ function ImportPreviewTable({
                 ))}
                 <td className="px-3 py-2 whitespace-nowrap">
                   {row.status === "ready" ? (
-                    <span className="text-primary">Ready</span>
+                    <>
+                      <span className="text-primary">Ready</span>
+                      {row.possibleTransfer ? (
+                        <p className="mt-1 max-w-[14rem] text-xs whitespace-normal text-muted-foreground">
+                          Looks like a transfer or card payment. {row.possibleTransfer}
+                        </p>
+                      ) : null}
+                    </>
                   ) : row.status === "error" ? (
                     <span className="text-destructive">Error</span>
                   ) : (

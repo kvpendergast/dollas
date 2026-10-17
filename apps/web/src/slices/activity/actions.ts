@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { requireBooks } from "@/slices/access/guard";
+import { parseDollarInput } from "@dollas/domain";
 import { readTransactionDraft } from "./draft";
+import { createHouseholdTransfer } from "./transfer-service";
 import {
   amendHouseholdTransaction,
   createHouseholdTransaction,
@@ -32,6 +34,20 @@ export async function createTransactionAction(_state: { error: string }, formDat
   const parsed = readTransactionDraft(formData);
   if ("error" in parsed) return { error: parsed.error };
   return done(await createHouseholdTransaction(books, parsed.draft));
+}
+
+export async function createTransferAction(_state: { error: string }, formData: FormData) {
+  const books = await requireBooks();
+  const amount = parseDollarInput(String(formData.get("amount") ?? ""));
+  if (amount.isErr()) return { error: amount.error.message };
+  return done(
+    await createHouseholdTransfer(books, {
+      fromAccountId: String(formData.get("fromAccountId") ?? ""),
+      toAccountId: String(formData.get("toAccountId") ?? ""),
+      amountCents: amount.value,
+      occurredOn: String(formData.get("occurredOn") ?? ""),
+    }),
+  );
 }
 
 export async function updateTransactionAction(_state: { error: string }, formData: FormData) {
