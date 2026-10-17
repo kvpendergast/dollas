@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/app/page-header";
 import Link from "next/link";
 import { accountsForActiveLists, accountsForHistory, formatCents, isAccountType, PLAID_PROVIDER_ID, SIMPLEFIN_PROVIDER_ID } from "@dollas/domain";
 import { AccountForm } from "@/components/forms/account-form";
@@ -7,7 +8,7 @@ import { PlaidLinkForm } from "@/components/forms/plaid-link";
 import { SimpleFinLinkForm } from "@/components/forms/simplefin-link";
 import { SyncConnectionForm } from "@/components/forms/sync-connection";
 import { Badge } from "@/components/ui/badge";
-import { NextStep } from "@/components/onboarding/next-step";
+import { EmptyState } from "@/components/app/empty-state";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireBooks } from "@/slices/access/guard";
 import { loadAccounts, type AccountListItem } from "@/slices/books/queries";
@@ -69,13 +70,10 @@ export default async function AccountsPage() {
   );
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-4xl">Accounts</h1>
-        <p className="text-sm text-muted-foreground">Opening money, plus every transaction since. That&apos;s the balance.</p>
-      </div>
+      <PageHeader title="Accounts" description={<>Opening money, plus every transaction since. That&apos;s the balance.</>} />
       {active.length === 0 ? (
         <>
-          <NextStep
+          <EmptyState
             title="No accounts yet"
             body="Start with the account most spending comes out of. Enter it by hand here, or link a bank below and its accounts come with it."
             extra={

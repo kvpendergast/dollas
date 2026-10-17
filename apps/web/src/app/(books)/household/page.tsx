@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/app/page-header";
 import { INVITE_TTL_DAYS } from "@dollas/domain";
 import { InviteForm, PendingInviteActions } from "@/components/forms/invite-forms";
 import { Badge } from "@/components/ui/badge";
@@ -17,13 +18,8 @@ export default async function HouseholdPage() {
   const owner = people.ok && people.value.role === "owner";
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="font-heading text-4xl">{books.householdName}</h1>
-        <p className="text-sm text-muted-foreground">
-          Everyone here sees and edits the same accounts, transactions, categories, and budget. Each person has their own
-          login.
-        </p>
-      </div>
+      <PageHeader title={books.householdName} description={<>Everyone here sees and edits the same accounts, transactions, categories, and budget. Each person has their own
+          login.</>} />
       {!people.ok ? (
         <p role="alert" className="text-sm text-over">
           {people.memberMessage}

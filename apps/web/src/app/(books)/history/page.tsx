@@ -5,7 +5,7 @@ import { requireBooks } from "@/slices/access/guard";
 import { loadHistory } from "@/slices/books/queries";
 import { loadFilterContext } from "@/slices/spending/load";
 import { getSpendingBreakdown } from "@/slices/spending/service";
-import { NextStep } from "@/components/onboarding/next-step";
+import { EmptyState } from "@/components/app/empty-state";
 import { loadFirstUseFacts } from "@/slices/onboarding/service";
 
 export default async function HistoryPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -18,7 +18,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
           <h1 className="font-heading text-4xl">History</h1>
           <p className="max-w-2xl text-sm text-muted-foreground">Where the money went, filtered any way you like, and month over month.</p>
         </div>
-        <NextStep
+        <EmptyState
           title="No history yet"
           body={
             facts.hasAccounts
@@ -48,7 +48,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
         </h2>
         <FilterBar path="/history" anchor="#spending" ctx={filters} />
         {board.value.totals.transactionCount === 0 ? (
-          <NextStep
+          <EmptyState
             title="Nothing in this view"
             body="No transactions match this range and these filters. Try all time, or clear the filters."
             href="/history?range=all#spending"

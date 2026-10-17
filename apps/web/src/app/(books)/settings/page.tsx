@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/app/page-header";
 import { NameForm, EmailForm, PasswordSection, TransferForm, LeaveHouseholdDialog, DeleteHouseholdDialog } from "@/components/forms/settings-forms";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireBooks } from "@/slices/access/guard";
@@ -25,10 +26,7 @@ export default async function SettingsPage() {
   const setup = onboarding.ok ? onboarding.value : null;
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="font-heading text-4xl tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">Your login, and your place in {books.householdName}.</p>
-      </div>
+      <PageHeader title="Settings" description={<>Your login, and your place in {books.householdName}.</>} />
       {described.ok ? null : (
         <p role="alert" className="text-sm text-over">
           {described.memberMessage}

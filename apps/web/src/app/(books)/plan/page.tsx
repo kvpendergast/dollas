@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { NextStep } from "@/components/onboarding/next-step";
+import { EmptyState } from "@/components/app/empty-state";
 import { requireBooks } from "@/slices/access/guard";
 import { loadCopyPreview, loadMonthPlan } from "@/slices/plan/load";
 
@@ -105,7 +105,7 @@ export default async function PlanPage({
         </Card>
       ) : null}
       {plan.sections.length === 0 ? (
-        <NextStep
+        <EmptyState
           title="No expense categories to budget yet"
           body="A budget gives expense categories an amount for the month. Set up categories first, then come back here."
           href="/categories"

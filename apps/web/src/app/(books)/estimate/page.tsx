@@ -1,6 +1,6 @@
 import { formatCents, type EstimateMonth } from "@dollas/domain";
 import Link from "next/link";
-import { NextStep } from "@/components/onboarding/next-step";
+import { EmptyState } from "@/components/app/empty-state";
 import { describePace, monthName } from "@/components/estimate/explain";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -144,7 +144,7 @@ export default async function EstimatePage() {
         </CardHeader>
         <CardContent>
           {estimate.categories.length === 0 ? (
-            <NextStep
+            <EmptyState
               title="Nothing to estimate yet"
               body="The estimate comes from recurring bills and the pace of everyday spending. Add transactions or a recurring bill and it fills in."
               href="/activity"
