@@ -2,6 +2,11 @@
 @import "tw-animate-css";
 
 :root {
+  /* Space kept clear above the phone tab bar and the home-indicator safe area. */
+  --safe-bottom: env(safe-area-inset-bottom);
+  --offset-sticky-bar: calc(3.75rem + var(--safe-bottom));
+  --offset-toast: calc(5rem + var(--safe-bottom));
+  --offset-undo: calc(6rem + var(--safe-bottom));
   --background: #f6f4ef;
   --foreground: #1c2420;
   --card: #fffcf8;

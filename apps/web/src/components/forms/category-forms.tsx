@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createCategoryAction, createCategoryGroupAction } from "@/slices/categories/actions";
 import { useActionToast } from "@/lib/use-action-toast";
+import { RadioGroup, RadioPill } from "@/components/ui/radio-group";
 import { Select } from "@/components/ui/select";
 
 export function CategoryGroupForm() {
@@ -36,24 +37,13 @@ function KindChoices({ locked = false }: { locked?: boolean }) {
     <div className="space-y-2">
       <fieldset className="space-y-2" aria-describedby="category-kind-help">
         <legend className="text-sm font-medium">Kind</legend>
-        <div className="grid grid-cols-3 gap-2">
+        <RadioGroup name="kind" defaultValue="expense" required={!locked} disabled={locked} aria-label="Kind" className="grid-cols-3">
           {categoryKinds.map((kind) => (
-            <label key={kind} className={locked ? "" : "cursor-pointer"}>
-              <input
-                type="radio"
-                name="kind"
-                value={kind}
-                defaultChecked={kind === "expense"}
-                required={!locked}
-                disabled={locked}
-                className="peer sr-only"
-              />
-              <span className="flex min-h-11 items-center justify-center rounded-full border-2 border-input bg-white px-3 font-heading text-sm font-bold peer-checked:border-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-checked:shadow-press peer-focus-visible:shadow-focus peer-focus-visible:outline-3 peer-focus-visible:outline-ring peer-disabled:opacity-100">
-                {categoryKindLabel(kind)}
-              </span>
-            </label>
+            <RadioPill key={kind} value={kind}>
+              {categoryKindLabel(kind)}
+            </RadioPill>
           ))}
-        </div>
+        </RadioGroup>
       </fieldset>
       <p id="category-kind-help" className="text-sm text-muted-foreground">
         {TRANSFER_KIND_HELP}

@@ -18,7 +18,7 @@ export function PhoneTabBar({ pathname }: { pathname: string }) {
   return (
     <nav
       aria-label="Phone"
-      className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-foreground bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-foreground bg-card pb-(--safe-bottom) md:hidden"
     >
       <ul className="grid grid-cols-6">
         {bookNav.map((item) => {

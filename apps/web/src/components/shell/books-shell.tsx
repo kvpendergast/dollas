@@ -33,13 +33,13 @@ export function BooksShell({
                 </Link>
               ) : null}
               <form action={signOutAction}>
-                <Button type="submit" variant="ghost" className="px-2 text-muted-foreground hover:text-foreground">
+                <Button type="submit" variant="ghost" className="px-2 font-sans font-medium text-muted-foreground hover:text-foreground">
                   Sign out
                 </Button>
               </form>
             </div>
           </header>
-          <main className="flex-1 px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-8 md:pb-12">{children}</main>
+          <main className="flex-1 px-4 pt-6 pb-(--offset-undo) md:px-8 md:pb-12">{children}</main>
         </div>
       </div>
       <PhoneNav />
