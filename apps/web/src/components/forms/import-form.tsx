@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Segmented, SegmentedOption } from "@/components/ui/segmented";
+import { ChoiceGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Switch } from "@/components/ui/switch";
 import {
   importCsvAction,
@@ -264,14 +264,14 @@ function Mapper({
         />
         <div className="space-y-1.5 sm:col-span-2">
           <Label id="map-amount-mode-label">Amount</Label>
-          <Segmented
+          <ChoiceGroup
             aria-labelledby="map-amount-mode-label"
             value={mapping.amountMode}
             onValueChange={(value) => onChange({ ...mapping, amountMode: value === "debit_credit" ? "debit_credit" : "signed" })}
           >
-            <SegmentedOption value="signed">One amount column</SegmentedOption>
-            <SegmentedOption value="debit_credit">Debit and credit columns</SegmentedOption>
-          </Segmented>
+            <ToggleGroupItem value="signed">One amount column</ToggleGroupItem>
+            <ToggleGroupItem value="debit_credit">Debit and credit columns</ToggleGroupItem>
+          </ChoiceGroup>
         </div>
         {mapping.amountMode === "signed" ? (
           <ColumnSelect
@@ -338,7 +338,7 @@ function Mapper({
         </div>
         <div className="space-y-1.5 sm:col-span-2">
           <Label id="map-account-mode-label">Account</Label>
-          <Segmented
+          <ChoiceGroup
             aria-labelledby="map-account-mode-label"
             value={mapping.accountMode}
             onValueChange={(value) =>
@@ -349,9 +349,9 @@ function Mapper({
               })
             }
           >
-            <SegmentedOption value="fixed">One account for the whole file</SegmentedOption>
-            <SegmentedOption value="column">A column in the file</SegmentedOption>
-          </Segmented>
+            <ToggleGroupItem value="fixed">One account for the whole file</ToggleGroupItem>
+            <ToggleGroupItem value="column">A column in the file</ToggleGroupItem>
+          </ChoiceGroup>
         </div>
         {mapping.accountMode === "column" ? (
           <ColumnSelect

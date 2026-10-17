@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { connectAgentAction, revokeAgentAction, type AgentFormState } from "@/slices/agents/actions";
 import { useActionToast } from "@/lib/use-action-toast";
 
@@ -14,24 +15,30 @@ export function ConnectAgentForm({ oauthQuery, canWrite }: { oauthQuery: string;
       <input type="hidden" name="oauth_query" value={oauthQuery} />
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">What can it do?</legend>
-        <label className="flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm has-[:checked]:border-primary">
-          <input type="radio" name="access" value="read" defaultChecked className="mt-1" />
-          <span>
-            <span className="font-medium">Read</span>
-            <span className="block text-muted-foreground">See accounts, balances, transactions, categories, and the plan.</span>
-          </span>
-        </label>
-        <label
-          className={`flex items-start gap-3 rounded-md border p-3 text-sm has-[:checked]:border-primary ${canWrite ? "cursor-pointer" : "opacity-60"}`}
-        >
-          <input type="radio" name="access" value="read_write" disabled={!canWrite} className="mt-1" />
-          <span>
-            <span className="font-medium">Read and write</span>
-            <span className="block text-muted-foreground">
-              {canWrite ? "Also add and change things in your household, as you." : "This agent only asked to read."}
+        <RadioGroup name="access" defaultValue="read" aria-label="What can it do?">
+          <label
+            htmlFor="access-read"
+            className="flex cursor-pointer items-start gap-3 rounded-md border-2 border-foreground p-3 text-sm has-[[data-state=checked]]:bg-secondary"
+          >
+            <RadioGroupItem id="access-read" value="read" className="mt-0.5" />
+            <span>
+              <span className="font-bold">Read</span>
+              <span className="block text-muted-foreground">See accounts, balances, transactions, categories, and the plan.</span>
             </span>
-          </span>
-        </label>
+          </label>
+          <label
+            htmlFor="access-read-write"
+            className={`flex items-start gap-3 rounded-md border-2 border-foreground p-3 text-sm has-[[data-state=checked]]:bg-secondary ${canWrite ? "cursor-pointer" : "opacity-60"}`}
+          >
+            <RadioGroupItem id="access-read-write" value="read_write" disabled={!canWrite} className="mt-0.5" />
+            <span>
+              <span className="font-bold">Read and write</span>
+              <span className="block text-muted-foreground">
+                {canWrite ? "Also add and change things in your household, as you." : "This agent only asked to read."}
+              </span>
+            </span>
+          </label>
+        </RadioGroup>
       </fieldset>
       <p className="text-xs text-muted-foreground">
         It never sees bank passwords or bank connection keys. You can disconnect it any time in Settings.
