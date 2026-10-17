@@ -17,13 +17,11 @@ import {
   type OpenCsvImport,
 } from "@/slices/activity/import-csv";
 import { useActionToast } from "@/lib/use-action-toast";
-import { selectClass as selectBase } from "@/components/ui/select";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 const initial = { error: "", message: "", stage: "upload" as const, stamp: "", inspection: null, preview: null };
 const undoInitial = { error: "", message: "" };
-const selectClass = cn(selectBase);
-
 export function ImportForm({
   accounts,
   batches,
@@ -143,11 +141,11 @@ export function ImportForm({
         {inspection && mapping?.categoryColumn != null ? (
           <div className="space-y-1.5">
             <Label htmlFor="import-unmatched-categories">Categories Dollas doesn&apos;t know</Label>
-            <select id="import-unmatched-categories" name="unmatchedCategories" className={selectClass} defaultValue="error">
+            <Select id="import-unmatched-categories" name="unmatchedCategories" defaultValue="error">
               <option value="error">Flag those rows so I can fix them</option>
               <option value="uncategorized">Import them as Uncategorized</option>
               <option value="create">Create a category for each new name</option>
-            </select>
+            </Select>
           </div>
         ) : null}
         <div
@@ -319,9 +317,9 @@ function Mapper({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="map-date-order">Date format</Label>
-          <select
+          <Select
             id="map-date-order"
-            className={selectClass}
+           
             value={mapping.dateOrder ?? ""}
             onChange={(event) => {
               const value = event.target.value;
@@ -333,7 +331,7 @@ function Mapper({
             <option value="ymd">Year, month, day</option>
             <option value="mdy">Month, day, year</option>
             <option value="dmy">Day, month, year</option>
-          </select>
+          </Select>
           {inspection.dateOrderAmbiguous ? (
             <p className="text-xs text-muted-foreground">These dates could be month-first or day-first.</p>
           ) : null}
@@ -366,9 +364,9 @@ function Mapper({
         ) : (
           <div className="space-y-1.5">
             <Label htmlFor="map-fixed-account">Dollas account</Label>
-            <select
+            <Select
               id="map-fixed-account"
-              className={selectClass}
+             
               value={mapping.fixedAccountId ?? ""}
               onChange={(event) => {
                 const accountId = event.target.value;
@@ -389,7 +387,7 @@ function Mapper({
                   {account.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         )}
         <ColumnSelect
@@ -432,9 +430,9 @@ function ColumnSelect({
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
-      <select
+      <Select
         id={id}
-        className={selectClass}
+       
         value={value ?? ""}
         onChange={(event) => onChange(event.target.value === "" ? null : Number(event.target.value))}
       >
@@ -444,7 +442,7 @@ function ColumnSelect({
             {column.label}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
   );
 }

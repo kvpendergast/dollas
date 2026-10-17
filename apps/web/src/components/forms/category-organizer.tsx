@@ -22,10 +22,8 @@ import {
   shiftCategoryGroupAction,
 } from "@/slices/categories/actions";
 import { useActionToast } from "@/lib/use-action-toast";
-import { selectClass as selectBase } from "@/components/ui/select";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-
-const selectClass = cn(selectBase, "sm:w-44");
 
 type ActionState = { error: string };
 
@@ -151,7 +149,7 @@ function RemoveGroupForm({ group, destinations }: { group: ListedGroup; destinat
       <input type="hidden" name="groupId" value={group.id} />
       <div className="space-y-1.5">
         <Label htmlFor={selectId}>Where should these categories go?</Label>
-        <select id={selectId} name="destination" className={selectClass} required defaultValue="">
+        <Select id={selectId} name="destination" className="sm:w-44" required defaultValue="">
           <option value="" disabled>
             Choose a place
           </option>
@@ -161,7 +159,7 @@ function RemoveGroupForm({ group, destinations }: { group: ListedGroup; destinat
             </option>
           ))}
           <option value="ungrouped">Ungrouped</option>
-        </select>
+        </Select>
       </div>
       <Button type="submit" variant="destructive" disabled={pending}>
         Remove group
@@ -180,7 +178,7 @@ function MoveCategoryForm({ category, destinations }: { category: ListedCategory
       <input type="hidden" name="categoryId" value={category.id} />
       <div className="w-full space-y-1.5 sm:w-44">
         <Label htmlFor={selectId}>Move to</Label>
-        <select id={selectId} name="destination" className={selectClass} required defaultValue="">
+        <Select id={selectId} name="destination" className="sm:w-44" required defaultValue="">
           <option value="" disabled>
             Choose a place
           </option>
@@ -189,7 +187,7 @@ function MoveCategoryForm({ category, destinations }: { category: ListedCategory
               {destination.label}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <Button type="submit" variant="outline" disabled={pending}>
         Move
@@ -226,20 +224,21 @@ function ChangeKindForm({ category }: { category: ListedCategory }) {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <div className="w-full space-y-1.5 sm:max-w-xs">
           <Label htmlFor={selectId}>Kind</Label>
-          <select
+          <Select
             id={selectId}
             name="kind"
+            className="sm:w-44"
             value={kind}
             onChange={(event) => setKind(event.target.value)}
             aria-describedby={kind === "transfer" ? helpId : undefined}
-            className={selectClass}
+           
           >
             {categoryKinds.map((option) => (
               <option key={option} value={option}>
                 {categoryKindLabel(option)}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <Button type="submit" disabled={pending || kind === category.kind}>
           Change kind

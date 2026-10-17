@@ -26,10 +26,8 @@ import {
 } from "@/slices/activity/payee-rules";
 import { useActionToast } from "@/lib/use-action-toast";
 import { toast } from "@/lib/toast-store";
-import { selectClass as selectBase } from "@/components/ui/select";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-
-const selectClass = cn(selectBase);
 
 type Rule = {
   id: string;
@@ -271,7 +269,7 @@ function CategorySelect({
           {menu.error.message}
         </p>
       ) : (
-        <select id={id} name="categoryId" className={selectClass} required defaultValue={defaultValue ?? categories[0]?.id}>
+        <Select id={id} name="categoryId" required defaultValue={defaultValue ?? categories[0]?.id}>
           {menu.value.map((section) => (
             <optgroup key={section.id} label={section.label}>
               {section.items.map((category) => (
@@ -281,7 +279,7 @@ function CategorySelect({
               ))}
             </optgroup>
           ))}
-        </select>
+        </Select>
       )}
     </div>
   );

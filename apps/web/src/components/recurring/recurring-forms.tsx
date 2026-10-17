@@ -28,10 +28,8 @@ import {
 } from "@/slices/recurring/actions";
 import { useActionToast } from "@/lib/use-action-toast";
 import { toast } from "@/lib/toast-store";
-import { selectClass as selectBase } from "@/components/ui/select";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-
-const selectClass = cn(selectBase);
 
 export type RecurringFormValues = {
   id?: string;
@@ -92,10 +90,10 @@ export function RecurringItemForm({
         <div className="grid grid-cols-[8rem_1fr] gap-3">
           <div className="space-y-1.5">
             <Label htmlFor={`${field}-direction`}>Type</Label>
-            <select id={`${field}-direction`} name="direction" className={selectClass} defaultValue={values.amountCents > 0 ? "income" : "expense"}>
+            <Select id={`${field}-direction`} name="direction" defaultValue={values.amountCents > 0 ? "income" : "expense"}>
               <option value="expense">Bill</option>
               <option value="income">Income</option>
-            </select>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor={`${field}-amount`}>Expected amount</Label>
@@ -112,10 +110,10 @@ export function RecurringItemForm({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={`${field}-cadence`}>How often</Label>
-          <select
+          <Select
             id={`${field}-cadence`}
             name="cadence"
-            className={selectClass}
+           
             value={cadence}
             onChange={(event) => setCadence(event.target.value)}
           >
@@ -124,7 +122,7 @@ export function RecurringItemForm({
                 {CADENCE_LABELS[value]}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className={`grid gap-3 ${cadence === "semimonthly" ? "grid-cols-[1fr_7rem]" : ""}`}>
           <div className="space-y-1.5">
@@ -149,7 +147,7 @@ export function RecurringItemForm({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={`${field}-category`}>Category (optional)</Label>
-          <select id={`${field}-category`} name="categoryId" className={selectClass} defaultValue={values.categoryId ?? ""}>
+          <Select id={`${field}-category`} name="categoryId" defaultValue={values.categoryId ?? ""}>
             <option value="">None</option>
             {menu.isOk()
               ? menu.value.map((section) => (
@@ -162,18 +160,18 @@ export function RecurringItemForm({
                   </optgroup>
                 ))
               : null}
-          </select>
+          </Select>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={`${field}-account`}>Account (optional)</Label>
-          <select id={`${field}-account`} name="accountId" className={selectClass} defaultValue={values.accountId ?? ""}>
+          <Select id={`${field}-account`} name="accountId" defaultValue={values.accountId ?? ""}>
             <option value="">Any account</option>
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
       <details data-sheet className="rounded-sm border-2 border-foreground px-3 py-2">
@@ -387,13 +385,13 @@ export function RecurringLinkControl({
         <div className="flex flex-wrap items-end gap-2">
           <div className="min-w-48 flex-1 space-y-1.5">
             <Label htmlFor={field}>Recurring</Label>
-            <select id={field} className={selectClass} value={itemId} onChange={(event) => setItemId(event.target.value)}>
+            <Select id={field} value={itemId} onChange={(event) => setItemId(event.target.value)}>
               {choices.map((choice) => (
                 <option key={choice.id} value={choice.id}>
                   {choice.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <Button
             type="button"

@@ -10,12 +10,10 @@ import { RecurringLinkControl } from "@/components/recurring/recurring-forms";
 import { SplitControl, type SplitRow } from "./split-control";
 import { useActionToast } from "@/lib/use-action-toast";
 import { toast } from "@/lib/toast-store";
-import { selectClass as selectBase } from "@/components/ui/select";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 type Option = { id: string; name: string; archived?: boolean };
-
-const selectClass = cn(selectBase);
 
 function unsignedDollarInput(cents: number): string {
   const absolute = Math.abs(cents);
@@ -161,10 +159,10 @@ export function TransactionEditor({
             </div>
             <div className="space-y-1.5 md:col-span-2">
               <Label htmlFor={`${field}-account`}>Account</Label>
-              <select
+              <Select
                 id={`${field}-account`}
                 name="accountId"
-                className={selectClass}
+               
                 value={accountId}
                 onChange={(event) => setAccountId(event.target.value)}
                 required
@@ -174,7 +172,7 @@ export function TransactionEditor({
                     {account.archived ? `${account.name} (archived)` : account.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
           <SplitControl

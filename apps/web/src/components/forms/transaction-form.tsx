@@ -8,12 +8,10 @@ import { Label } from "@/components/ui/label";
 import { createTransactionAction } from "@/slices/activity/actions";
 import { SplitControl } from "./split-control";
 import { useActionToast } from "@/lib/use-action-toast";
-import { selectClass as selectBase } from "@/components/ui/select";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 type Option = { id: string; name: string };
-
-const selectClass = cn(selectBase);
 
 function openingCategory(categories: readonly CategoryMenuEntry[]): { id: string; direction: TransactionDirection } {
   const menu = categoryMenuSections([...categories]);
@@ -52,13 +50,13 @@ export function TransactionForm({
               Unarchive an account to add a transaction.
             </p>
           ) : (
-            <select id="accountId" name="accountId" className={selectClass} required>
+            <Select id="accountId" name="accountId" required>
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.name}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         </div>
         <div className="space-y-1.5">

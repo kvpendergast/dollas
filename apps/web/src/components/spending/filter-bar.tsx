@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { FilterContext } from "@/slices/spending/load";
 import { SavedFilters } from "./saved-filters";
-import { selectClass as selectBase } from "@/components/ui/select";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 /**
@@ -44,8 +44,6 @@ function Fieldset({ legend, children }: { legend: string; children: ReactNode })
     </fieldset>
   );
 }
-
-const selectClass = cn(selectBase);
 
 type Chip = { label: string; href: string };
 
@@ -105,13 +103,13 @@ export function FilterBar({
       <form action={path + anchor} method="get" className="space-y-3" role="search" aria-label="Filter transactions">
         <div className="flex flex-wrap items-center gap-2">
           <Input type="search" name="q" defaultValue={filter.search} placeholder={searchPlaceholder} aria-label="Search" className="min-w-0 flex-1 basis-48" maxLength={100} />
-          <select name="range" defaultValue={filter.range} aria-label="Dates" className={cn(selectClass, "h-11 w-auto")}>
+          <Select name="range" defaultValue={filter.range} aria-label="Dates" className="h-11 w-auto">
             {RANGE_PRESETS.map((preset) => (
               <option key={preset} value={preset}>
                 {RANGE_LABELS[preset]}
               </option>
             ))}
-          </select>
+          </Select>
           <Button type="submit" size="sm" className="h-9">
             Search
           </Button>
@@ -182,11 +180,11 @@ export function FilterBar({
               <Check name="member" value={UNKNOWN_MEMBER} checked={filter.memberIds.includes(UNKNOWN_MEMBER)}>
                 Unknown (before this was recorded)
               </Check>
-              <select name="by" defaultValue={filter.memberRole} aria-label="Who" className={`${selectClass} mt-1`}>
+              <Select name="by" defaultValue={filter.memberRole} aria-label="Who" className="mt-1">
                 <option value="any">Added or categorized it</option>
                 <option value="added">Added it (entered, imported, or synced)</option>
                 <option value="categorized">Categorized it</option>
-              </select>
+              </Select>
             </Fieldset>
             <Fieldset legend="Source">
               {(["manual", "csv", "bank"] as const).map((source) => (
@@ -196,11 +194,11 @@ export function FilterBar({
               ))}
             </Fieldset>
             <Fieldset legend="Recurring">
-              <select name="recurring" defaultValue={filter.recurring} aria-label="Recurring" className={selectClass}>
+              <Select name="recurring" defaultValue={filter.recurring} aria-label="Recurring">
                 <option value="any">Any</option>
                 <option value="linked">Linked to a recurring item</option>
                 <option value="not_linked">Not recurring</option>
-              </select>
+              </Select>
             </Fieldset>
             <Fieldset legend="Amount (either direction)">
               <div className="grid grid-cols-2 gap-2">

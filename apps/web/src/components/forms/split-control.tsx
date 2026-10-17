@@ -13,7 +13,7 @@ import {
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { selectClass as selectBase } from "@/components/ui/select";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 export type SplitRow = {
@@ -21,8 +21,6 @@ export type SplitRow = {
   categoryId: string;
   amount: string;
 };
-
-const selectClass = cn(selectBase);
 
 function blankRow(existing: readonly SplitRow[], categories: readonly CategoryMenuEntry[]): SplitRow {
   const used = new Set(existing.map((row) => row.categoryId));
@@ -92,16 +90,16 @@ export function SplitControl({
     <div className="space-y-3">
       <div className="space-y-1.5">
         <Label htmlFor={`${fieldId}-direction`}>Direction</Label>
-        <select
+        <Select
           id={`${fieldId}-direction`}
           name="direction"
-          className={selectClass}
+         
           value={direction}
           onChange={(event) => setDirection(event.target.value === "income" ? "income" : "expense")}
         >
           <option value="expense">Expense</option>
           <option value="income">Income</option>
-        </select>
+        </Select>
       </div>
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3">
@@ -196,11 +194,11 @@ function CategoryFields({
           {menu.error.message}
         </p>
       ) : (
-        <select
+        <Select
           id={index === 0 ? `${fieldId}-category-0` : undefined}
           name="categoryId"
           aria-label={index === 0 ? "Category" : "Split category"}
-          className={selectClass}
+         
           value={row.categoryId}
           onChange={(event) => onChange(row.key, { categoryId: event.target.value })}
           required
@@ -215,7 +213,7 @@ function CategoryFields({
               ))}
             </optgroup>
           ))}
-        </select>
+        </Select>
       )}
       {showAmount ? (
         <Input

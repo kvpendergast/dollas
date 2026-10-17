@@ -1,5 +1,6 @@
 "use client";
 
+import { Select } from "@/components/ui/select";
 import { LAST_OWNER_MESSAGE, type HouseholdRole, type SignInMethod } from "@dollas/domain";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -144,10 +145,9 @@ export function TransferForm({ members }: { members: { userId: string; name: str
     <form action={action} className="space-y-3">
       <div className="space-y-1.5">
         <Label htmlFor="settings-owner">Hand ownership to</Label>
-        <select
+        <Select
           id="settings-owner"
           name="memberId"
-          className="h-12 w-full rounded-sm border-2 border-input bg-white px-3 text-base"
           defaultValue={candidates[0]?.userId}
         >
           {candidates.map((member) => (
@@ -155,7 +155,7 @@ export function TransferForm({ members }: { members: { userId: string; name: str
               {member.name}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <FieldError message={state.error} />
       <FieldNotice message={state.notice} />
