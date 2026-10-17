@@ -9,7 +9,6 @@ import {
   planSoFar,
   toIsoDate,
   type AccountType,
-  type CivilDate,
   type HistoryColumn,
   type SpendingFilter,
 } from "@dollas/domain";

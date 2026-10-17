@@ -24,4 +24,20 @@ function RadioGroupItem({ className, ...props }: React.ComponentProps<typeof Rad
   )
 }
 
-export { RadioGroup, RadioGroupItem }
+/** A radio shown as a pill with its text inside (kind pickers). Same group, same form post. */
+function RadioPill({ className, children, ...props }: React.ComponentProps<typeof RadioGroupPrimitive.Item>) {
+  return (
+    <RadioGroupPrimitive.Item
+      data-slot="radio-pill"
+      className={cn(
+        "flex min-h-11 items-center justify-center rounded-full border-2 border-input bg-white px-3 font-heading text-sm font-bold outline-none focus-visible:shadow-focus focus-visible:outline-3 focus-visible:outline-ring data-[state=checked]:border-foreground data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=checked]:shadow-press disabled:cursor-not-allowed",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </RadioGroupPrimitive.Item>
+  )
+}
+
+export { RadioGroup, RadioGroupItem, RadioPill }

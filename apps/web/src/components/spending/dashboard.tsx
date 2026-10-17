@@ -82,7 +82,7 @@ function SliceList({
                 <li key={slice.key ?? "none"} className="space-y-1">
                   <div className="flex items-center justify-between gap-3 text-sm md:items-baseline">
                     {href ? (
-                      <Link href={href} className="block min-w-0 truncate leading-[44px] text-primary underline-offset-4 hover:underline md:leading-normal" title={`See these in Activity`}>
+                      <Link href={href} className="block min-w-0 truncate leading-11 text-primary underline-offset-4 hover:underline md:leading-normal" title={`See these in Activity`}>
                         {label}
                       </Link>
                     ) : (

@@ -4,6 +4,7 @@ import { FieldError } from "@/components/ui/field";
 import { formatCents, type CopyBudgetLine } from "@dollas/domain";
 import Link from "next/link";
 import { useActionState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { copyPreviousMonthAction } from "@/slices/plan/actions";
 import { useActionToast } from "@/lib/use-action-toast";
@@ -59,13 +60,7 @@ export function CopyBudgetsForm({
             ))}
           </ul>
           <label className="flex items-start gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="overwrite"
-              value="yes"
-              className="mt-1 accent-primary"
-              required={copies.length === 0}
-            />
+            <Checkbox name="overwrite" value="yes" className="mt-0.5" required={copies.length === 0} />
             <span>Overwrite budgets already set this month</span>
           </label>
         </div>

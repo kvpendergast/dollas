@@ -39,7 +39,7 @@ export function BooksShell({
               </form>
             </div>
           </header>
-          <main className="flex-1 px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-8 md:pb-12">{children}</main>
+          <main className="flex-1 px-4 pt-6 pb-(--offset-undo) md:px-8 md:pb-12">{children}</main>
         </div>
       </div>
       <PhoneNav />

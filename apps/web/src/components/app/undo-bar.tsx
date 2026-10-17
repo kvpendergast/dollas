@@ -27,7 +27,7 @@ export function UndoBar({
   return (
     <div
       role="status"
-      className="dl-toast-in fixed inset-x-4 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-md flex-col gap-2 rounded-md border-2 border-foreground bg-card px-4 py-3 shadow-pop md:bottom-8"
+      className="dl-toast-in fixed inset-x-4 bottom-(--offset-undo) z-30 mx-auto flex max-w-md flex-col gap-2 rounded-md border-2 border-foreground bg-card px-4 py-3 shadow-pop md:bottom-8"
     >
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm">{message}</p>

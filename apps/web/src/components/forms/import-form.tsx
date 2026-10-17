@@ -152,7 +152,7 @@ export function ImportForm({
         <div
           className={
             showPreview
-              ? "sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-10 -mx-1 flex flex-col gap-2 rounded-md border-2 border-foreground bg-card p-2 shadow-pop md:static md:mx-0 md:flex-row md:flex-wrap md:border-0 md:bg-transparent md:p-0 md:shadow-none"
+              ? "sticky bottom-(--offset-sticky-bar) z-10 -mx-1 flex flex-col gap-2 rounded-md border-2 border-foreground bg-card p-2 shadow-pop md:static md:mx-0 md:flex-row md:flex-wrap md:border-0 md:bg-transparent md:p-0 md:shadow-none"
               : "flex flex-wrap gap-2"
           }
         >
@@ -308,7 +308,7 @@ function Mapper({
             aria-describedby="map-flip-sign-help"
           />
           <div className="min-w-0">
-            <Label htmlFor="map-flip-sign" className="min-h-[30px]">
+            <Label htmlFor="map-flip-sign" className="min-h-8">
               Flip sign
             </Label>
             <p id="map-flip-sign-help" className="text-sm text-muted-foreground">
@@ -451,7 +451,7 @@ function ColumnSelect({
 function SampleTable({ inspection }: { inspection: ImportInspection }) {
   return (
     <div className="max-h-60 overflow-auto rounded-sm border-2 border-foreground">
-      <Table className="min-w-[28rem]">
+      <Table className="min-w-md">
         <TableCaption className="sr-only">Header and first rows</TableCaption>
         <TableHeader className="sticky top-0 bg-card font-heading text-xs tracking-wider text-foreground uppercase">
           <TableRow>
@@ -516,7 +516,7 @@ function ImportPreviewTable({
         ))}
       </ol>
       <div className="hidden max-h-96 overflow-auto rounded-sm border-2 border-foreground md:block">
-        <Table className="min-w-[40rem]">
+        <Table className="min-w-2xl">
           <TableCaption className="sr-only">Mapped CSV rows</TableCaption>
           <TableHeader className="sticky top-0 bg-card font-heading text-xs tracking-wider text-foreground uppercase">
             <TableRow>
@@ -544,7 +544,7 @@ function ImportPreviewTable({
                     <>
                       <StatusPill status="ready" />
                       {row.possibleTransfer ? (
-                        <p className="mt-1 max-w-[14rem] text-xs whitespace-normal text-muted-foreground">
+                        <p className="mt-1 max-w-56 text-xs whitespace-normal text-muted-foreground">
                           Looks like a transfer or card payment. {row.possibleTransfer}
                         </p>
                       ) : null}

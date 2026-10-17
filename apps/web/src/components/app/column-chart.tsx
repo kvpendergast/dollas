@@ -40,7 +40,7 @@ export function ColumnChart({
     <div aria-hidden="true" data-chart={name} className={cn("grid auto-cols-fr grid-flow-col items-end gap-1.5 sm:gap-2", className)}>
       {items.map((item, index) => (
         <div key={item.key} className={cn("min-w-0", index < phoneFrom && "hidden sm:block")}>
-          <div className="flex items-end justify-center gap-[3px] border-b-2 border-foreground" style={{ height: height + 4 }}>
+          <div className="flex items-end justify-center gap-0.5 border-b-2 border-foreground" style={{ height: height + 4 }}>
             {item.bars.map((bar, barIndex) => (
               <div
                 key={barIndex}

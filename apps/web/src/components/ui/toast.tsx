@@ -9,6 +9,12 @@ import { dismissToast, getServerToasts, getToasts, subscribeToasts } from "@/lib
  * Toasts sit above the phone tab bar (and its safe area), bottom right on
  * desktop. The live region is always mounted so screen readers announce each
  * new message politely.
+ *
+ * Why not shadcn Sonner (PEN-311 decision): Sonner adds a dependency and its own stylesheet and
+ * positioning, so keeping the live region above the phone tab bar (--offset-toast) and under the
+ * reduced-motion block means overriding most of it; our 4-second, 3-at-most store is ~100 lines,
+ * token-styled, and covered by tests. Keep this until we need actions or promises in toasts.
+ * The delete undo is not a toast: see app/undo-bar.tsx (it must not time out).
  */
 export function Toaster() {
   const toasts = useSyncExternalStore(subscribeToasts, getToasts, getServerToasts);
@@ -17,7 +23,7 @@ export function Toaster() {
       role="status"
       aria-live="polite"
       aria-atomic="false"
-      className="pointer-events-none fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-[60] flex flex-col items-center gap-2 px-4 md:inset-x-auto md:right-6 md:bottom-6 md:items-end"
+      className="pointer-events-none fixed inset-x-0 bottom-(--offset-toast) z-[60] flex flex-col items-center gap-2 px-4 md:inset-x-auto md:right-6 md:bottom-6 md:items-end"
     >
       {toasts.map((item) => (
         <div

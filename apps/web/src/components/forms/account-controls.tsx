@@ -5,6 +5,7 @@ import { FieldError } from "@/components/ui/field";
 import { CREDIT_OWED_HINT, DELETE_BLOCKED_MESSAGE, openingBalanceFields, type AccountType } from "@dollas/domain";
 import { useActionState, useState } from "react";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,14 +74,7 @@ export function AccountControls({
           </div>
           {credit ? (
             <label className="flex items-start gap-3 text-sm">
-              <input
-                type="checkbox"
-                name="owed"
-                value="yes"
-                className="mt-1 size-4 accent-primary"
-                checked={owed}
-                onChange={(event) => setOwed(event.target.checked)}
-              />
+              <Checkbox name="owed" value="yes" className="mt-0.5" checked={owed} onCheckedChange={(checked) => setOwed(checked === true)} />
               <span>
                 <span className="font-medium">Owed</span>
                 <span className="mt-1 block text-muted-foreground">{CREDIT_OWED_HINT}</span>
