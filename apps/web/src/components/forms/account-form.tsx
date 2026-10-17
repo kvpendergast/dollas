@@ -7,10 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createAccountAction } from "@/slices/accounts/actions";
 import { useActionToast } from "@/lib/use-action-toast";
-import { selectClass as selectBase } from "@/components/ui/select";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-
-const selectClass = cn(selectBase);
 
 export function AccountForm() {
   const [state, action, pending] = useActionState(createAccountAction, { error: "" });
@@ -28,10 +26,10 @@ export function AccountForm() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="account-type">Type</Label>
-          <select
+          <Select
             id="account-type"
             name="type"
-            className={selectClass}
+           
             value={type}
             onChange={(event) => {
               const next = event.target.value;
@@ -43,7 +41,7 @@ export function AccountForm() {
             <option value="savings">Savings</option>
             <option value="credit">Credit</option>
             <option value="cash">Cash</option>
-          </select>
+          </Select>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="opening">{credit && owed ? "Amount owed" : "Opening balance"}</Label>

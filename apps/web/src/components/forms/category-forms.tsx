@@ -7,10 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createCategoryAction, createCategoryGroupAction } from "@/slices/categories/actions";
 import { useActionToast } from "@/lib/use-action-toast";
-import { selectClass as selectBase } from "@/components/ui/select";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-
-const selectClass = cn(selectBase);
 
 export function CategoryGroupForm() {
   const [state, action, pending] = useActionState(createCategoryGroupAction, { error: "" });
@@ -84,13 +82,13 @@ export function CategoryForm({ groups }: { groups: Array<{ id: string; name: str
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="category-group">Group</Label>
-          <select id="category-group" name="groupId" className={selectClass} required defaultValue={groups[0]?.id}>
+          <Select id="category-group" name="groupId" required defaultValue={groups[0]?.id}>
             {groups.map((group) => (
               <option key={group.id} value={group.id}>
                 {group.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
       <KindChoices />
