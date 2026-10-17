@@ -34,9 +34,9 @@ function TrendChart({ buckets, unit }: { buckets: TrendBucket[]; unit: "week" | 
           const height = Math.round((bucket.spentCents / max) * BAR_HEIGHT);
           return (
             <div key={bucket.from} className={`min-w-0 flex-1 ${index < phoneFrom ? "hidden sm:block" : ""}`}>
-              <div className="flex items-end justify-center" style={{ height: BAR_HEIGHT + 4 }}>
+              <div className="flex items-end justify-center border-b-2 border-foreground" style={{ height: BAR_HEIGHT + 4 }}>
                 <div
-                  className={`dl-bar w-[55%] max-w-6 rounded-t-sm ${bucket.partial ? "bar-partial" : "bg-bar"}`}
+                  className={`dl-bar w-[55%] max-w-6 rounded-t-[8px] border-2 border-b-0 border-foreground ${bucket.partial ? "bar-partial border-dashed" : "bg-bar"}`}
                   style={{ height: Math.max(bucket.spentCents > 0 ? 4 : 0, height), ["--i" as string]: index }}
                 />
               </div>

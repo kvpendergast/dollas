@@ -32,13 +32,13 @@ export function HistoryChart({ columns }: { columns: HistoryColumn[] }) {
           const prior = Math.round((column.priorYearSpentCents / max) * BAR_HEIGHT);
           return (
             <div key={`${column.year}-${column.month}`} className={`min-w-0 ${index < phoneFrom ? "hidden sm:block" : ""}`}>
-              <div className="flex items-end justify-center gap-[3px]" style={{ height: BAR_HEIGHT + 4 }}>
+              <div className="flex items-end justify-center gap-[3px] border-b-2 border-foreground" style={{ height: BAR_HEIGHT + 4 }}>
                 <div
-                  className="dl-bar w-[38%] max-w-4 rounded-t-sm bg-prior"
+                  className="dl-bar w-[38%] max-w-4 rounded-t-[8px] border-2 border-b-0 border-foreground bg-prior"
                   style={{ height: Math.max(column.priorYearSpentCents > 0 ? 4 : 0, prior), ["--i" as string]: index }}
                 />
                 <div
-                  className={`dl-bar w-[38%] max-w-4 rounded-t-sm ${column.partial ? "bar-partial" : "bg-bar"}`}
+                  className={`dl-bar w-[38%] max-w-4 rounded-t-[8px] border-2 border-b-0 border-foreground ${column.partial ? "bar-partial border-dashed" : "bg-bar"}`}
                   style={{ height: Math.max(column.spentCents > 0 ? 4 : 0, current), ["--i" as string]: index }}
                 />
               </div>

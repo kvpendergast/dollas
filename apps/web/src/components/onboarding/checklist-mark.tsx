@@ -38,12 +38,12 @@ export function ChecklistMark({ id, done }: { id: string; done: boolean }) {
     <span
       ref={ref}
       data-mark="done"
-      className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+      className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-primary text-primary-foreground"
       aria-hidden="true"
     >
       <Check className="size-3.5" strokeWidth={3} />
     </span>
   ) : (
-    <span ref={ref} data-mark="todo" className="mt-0.5 size-5 shrink-0 rounded-full border-2 border-border" aria-hidden="true" />
+    <span ref={ref} data-mark="todo" className="mt-0.5 size-5 shrink-0 rounded-full border-2 border-dashed border-foreground bg-white" aria-hidden="true" />
   );
 }
