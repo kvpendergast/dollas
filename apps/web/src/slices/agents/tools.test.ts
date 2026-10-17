@@ -525,8 +525,8 @@ describe("Dollas MCP tools", () => {
       assert.notEqual(pnlDining?.periods[0]?.status, "neutral", "a budgeted expense is under or over");
       assert.equal(pnlDining?.periods[1]?.status === "neutral" || pnlDining?.periods[1]?.budget_cents === 12000, true, "unbudgeted months are neutral (or carry the copied budget)");
       const pnlYtd = await ada.ok("get_profit_and_loss", { to_month: thisMonth, granularity: "ytd" });
-      assert.equal((pnlYtd.periods as unknown[]).length, 1);
       assert.equal(((pnlYtd.periods as Array<{ from: string }>)[0]?.from), `${books.asOf.year}-01`);
+      assert.equal((pnlYtd.periods as unknown[]).length, books.asOf.month > 1 ? 3 : 1, "finished months, this month so far, and a total");
       assert.equal((await ada.call("get_profit_and_loss", { from_month: "2020-01", to_month: thisMonth })).isError, true, "range over 36 months refused");
       assert.equal((await ada.call("get_profit_and_loss", { from_month: thisMonth, to_month: prev })).isError, true, "reversed range refused");
       assert.equal((await ada.call("get_profit_and_loss", { granularity: "week" })).isError, true, "unknown granularity refused");

@@ -125,6 +125,14 @@ h4 {
   );
 }
 
+/* P&L cells for the current month: hatched so it never reads as finished. Tokens only. */
+.pnl-so-far {
+  background: repeating-linear-gradient(-45deg, var(--hatch-b) 0 7px, color-mix(in oklab, var(--hatch-b) 45%, var(--card)) 7px 14px);
+}
+.pnl-so-far-over {
+  background: repeating-linear-gradient(-45deg, color-mix(in oklab, var(--destructive) 16%, var(--card)) 0 7px, var(--error-tint) 7px 14px);
+}
+
 /*
  * Motion (PEN-208). Durations and easing are tokens; every animation uses
  * transform and opacity only, so nothing reflows. The reduced-motion block at
