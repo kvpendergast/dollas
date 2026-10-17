@@ -144,4 +144,19 @@ describe("readTransactionDraft", () => {
       { error: "Choose a date." },
     );
   });
+
+  it("saves a category-only edit of an imported negative amount (amount prefilled unsigned, direction expense)", () => {
+    const result = readTransactionDraft(
+      form({ payee: "PRET A MANGER", occurredOn: "2026-01-31", accountId: "account-1", direction: "expense", amount: "17.94", categoryId: "dining" }),
+    );
+    assert.ok("draft" in result);
+    assert.equal(result.draft.amountCents, -1794);
+    assert.equal(result.draft.splits[0].categoryId, "dining");
+    assert.equal(result.draft.splits[0].amountCents, -1794);
+  });
+
+  it("still refuses a missing amount on the server", () => {
+    const result = readTransactionDraft(form({ payee: "PRET A MANGER", occurredOn: "2026-01-31", accountId: "account-1", direction: "expense", categoryId: "dining" }));
+    assert.deepEqual(Object.keys(result), ["error"]);
+  });
 });

@@ -15,7 +15,8 @@ import { Select } from "@/components/ui/select";
 
 type Option = { id: string; name: string; archived?: boolean };
 
-function unsignedDollarInput(cents: number): string {
+/** "17.94" for -1794 or 1794: the field is unsigned; the Direction select carries the sign. */
+export function unsignedDollarInput(cents: number): string {
   const absolute = Math.abs(cents);
   const dollars = Math.trunc(absolute / 100);
   const remainder = String(absolute % 100).padStart(2, "0");
@@ -28,6 +29,7 @@ export function TransactionEditor({
   categories,
   recurringChoices = [],
   onDeleted,
+  initialOpen = false,
 }: {
   transaction: {
     id: string;
@@ -43,9 +45,10 @@ export function TransactionEditor({
   categories: CategoryMenuEntry[];
   recurringChoices?: Array<{ id: string; name: string }>;
   onDeleted: (transaction: { id: string; payee: string }) => void;
+  initialOpen?: boolean;
 }) {
   const field = `edit-${transaction.id}`;
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [state, action, pending] = useActionState(updateTransactionAction, { error: "" });
   useActionToast(state, "Transaction saved.");
   const [payee, setPayee] = useState(transaction.payee);
@@ -158,7 +161,7 @@ export function TransactionEditor({
                 required
               />
             </div>
-            <div className="space-y-1.5 md:col-span-2">
+            <div className="space-y-1.5">
               <Label htmlFor={`${field}-account`}>Account</Label>
               <Select
                 id={`${field}-account`}
@@ -174,6 +177,17 @@ export function TransactionEditor({
                   </option>
                 ))}
               </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor={`${field}-amount`}>Amount</Label>
+              <Input
+                id={`${field}-amount`}
+                name="amount"
+                inputMode="decimal"
+                placeholder="0.00"
+                defaultValue={unsignedDollarInput(transaction.amountCents)}
+                required
+              />
             </div>
           </div>
           <SplitControl
