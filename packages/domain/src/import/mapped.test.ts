@@ -5,7 +5,7 @@ import { inspectCsvImport, parseCsvAmount, readCsvDate } from "./mapping";
 import { commitMappedImport, previewMappedImport, proposeCsvMapping } from "./service";
 import type { CsvImportStore } from "./store";
 import { transactionsKeptByUndo, transactionsRemovedByUndo, type ImportBatchTransaction } from "./undo";
-import { validateMappedImport, type BankBackedCharge, type CommitCsvRow, type MappedImportContext } from "./validate";
+import { categoryLabelCounts, validateMappedImport, type BankBackedCharge, type CommitCsvRow, type MappedImportContext } from "./validate";
 
 const maple = "maple-house";
 const accounts = [
@@ -498,5 +498,67 @@ describe("undo of an import a bank sync later linked to", () => {
     expect(transactionsRemovedByUndo(rows, maple, "b1").map((row) => row.id)).toEqual(["plain"]);
     expect(transactionsKeptByUndo(rows, maple, "b1").map((row) => row.id)).toEqual(["linked"]);
     expect(transactionsKeptByUndo(rows, "elsewhere", "b1")).toEqual([]);
+  });
+});
+
+describe("unmatched bank category labels (PEN-279)", () => {
+  const csv = [
+    "Date,Description,Amount,Account,Category",
+    "2026-03-01,Cafe,-4.00,Checking,Dining",
+    "2026-03-02,Bistro,-30.00,Checking,dining",
+    "2026-03-03,Market,-10.00,Checking,Groceries",
+    "2026-03-04,Refund,12.00,Checking,Shopping",
+    "2026-03-05,Plain,-1.00,Checking,",
+  ].join("\n");
+
+  async function mappingFor() {
+    const inspected = await inspectCsvImport(csv);
+    if (inspected.isErr()) throw inspected.error;
+    return inspected.value.mapping;
+  }
+
+  it("keeps unknown labels as row errors by default", async () => {
+    const validated = await validateMappedImport(csv, await mappingFor(), context());
+    if (validated.isErr()) throw validated.error;
+    expect(validated.value.errorCount).toBe(3);
+    expect(validated.value.readyCount).toBe(2);
+  });
+
+  it("imports unknown labels as Uncategorized, by the row's sign", async () => {
+    const validated = await validateMappedImport(csv, await mappingFor(), context(), { unmatched: "uncategorized" });
+    if (validated.isErr()) throw validated.error;
+    expect(validated.value.errorCount).toBe(0);
+    const choices = validated.value.ready.map((row) => row.category);
+    expect(choices.filter((choice) => choice.kind === "id")).toHaveLength(4);
+    expect(choices.find((choice) => choice.kind === "fallback" && choice.fallback === "income")).toBeTruthy();
+  });
+
+  it("creates a category per new label (case-insensitive) when asked", async () => {
+    const validated = await validateMappedImport(csv, await mappingFor(), context(), { unmatched: "create" });
+    if (validated.isErr()) throw validated.error;
+    expect(validated.value.errorCount).toBe(0);
+    const created = validated.value.ready.flatMap((row) => (row.category.kind === "create" ? [row.category] : []));
+    expect(created.map((item) => `${item.name}:${item.flavor}`).sort()).toEqual(["Dining:expense", "Shopping:income", "dining:expense"]);
+  });
+
+  it("maps a label to an existing category and rejects a map to a category the household lacks", async () => {
+    const mapping = await mappingFor();
+    const good = await validateMappedImport(csv, mapping, context(), { categoryMap: { dining: "cat-groceries", shopping: "cat-paycheck" } });
+    if (good.isErr()) throw good.error;
+    expect(good.value.errorCount).toBe(0);
+    expect(good.value.ready.filter((row) => row.category.kind === "id" && row.category.id === "cat-groceries")).toHaveLength(3);
+    const bad = await validateMappedImport(csv, mapping, context(), { categoryMap: { dining: "cat-elsewhere" }, unmatched: "uncategorized" });
+    if (bad.isErr()) throw bad.error;
+    expect(bad.value.errorCount).toBe(2);
+  });
+
+  it("lists distinct labels with counts, totals, and current matches", async () => {
+    const counted = await categoryLabelCounts(csv, await mappingFor(), context());
+    if (counted.isErr()) throw counted.error;
+    expect(counted.value).toEqual([
+      { label: "Dining", rows: 2, totalCents: -3400, matchedCategoryId: null, matchedCategoryName: null, ambiguous: false },
+      { label: "Groceries", rows: 1, totalCents: -1000, matchedCategoryId: "cat-groceries", matchedCategoryName: "Groceries", ambiguous: false },
+      { label: "Shopping", rows: 1, totalCents: 1200, matchedCategoryId: null, matchedCategoryName: null, ambiguous: false },
+    ]);
   });
 });

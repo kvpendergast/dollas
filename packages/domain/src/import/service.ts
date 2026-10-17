@@ -2,7 +2,7 @@ import { err, ok, type Result } from "neverthrow";
 import { CsvImportError } from "../errors";
 import { inspectCsvImport, mappingSignature, type ColumnMapping, type CsvInspection } from "./mapping";
 import type { CsvImportStore, ImportWriteResult } from "./store";
-import { validateMappedImport, type MappedValidation } from "./validate";
+import { categoryLabelCounts, validateMappedImport, type CategoryLabelCount, type CategoryOptions, type MappedValidation } from "./validate";
 
 export type CommitMappedImportResult = ImportWriteResult & {
   readyCount: number;
@@ -30,10 +30,19 @@ export async function proposeCsvMapping(
  */
 export async function previewMappedImport(
   store: CsvImportStore,
-  input: { householdId: string; csv: string; mapping: ColumnMapping },
+  input: { householdId: string; csv: string; mapping: ColumnMapping; categories?: CategoryOptions },
 ): Promise<Result<MappedValidation, CsvImportError>> {
   const context = await store.loadContext(input.householdId);
-  return validateMappedImport(input.csv, input.mapping, context);
+  return validateMappedImport(input.csv, input.mapping, context, input.categories);
+}
+
+/** Distinct category labels in the file with counts and their current matches. Nothing is written. */
+export async function listCsvCategoryLabels(
+  store: CsvImportStore,
+  input: { householdId: string; csv: string; mapping: ColumnMapping },
+): Promise<Result<CategoryLabelCount[], CsvImportError>> {
+  const context = await store.loadContext(input.householdId);
+  return categoryLabelCounts(input.csv, input.mapping, context);
 }
 
 /**
@@ -43,10 +52,10 @@ export async function previewMappedImport(
  */
 export async function commitMappedImport(
   store: CsvImportStore,
-  input: { householdId: string; csv: string; mapping: ColumnMapping; remember: boolean },
+  input: { householdId: string; csv: string; mapping: ColumnMapping; remember: boolean; categories?: CategoryOptions },
 ): Promise<Result<CommitMappedImportResult, CsvImportError>> {
   const context = await store.loadContext(input.householdId);
-  const validated = await validateMappedImport(input.csv, input.mapping, context);
+  const validated = await validateMappedImport(input.csv, input.mapping, context, input.categories);
   if (validated.isErr()) return err(validated.error);
   const counts = {
     readyCount: validated.value.readyCount,

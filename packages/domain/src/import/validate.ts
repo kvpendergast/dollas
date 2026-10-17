@@ -66,7 +66,30 @@ export type BankBackedCharge = {
 
 export type CategoryChoice =
   | { kind: "id"; id: string }
-  | { kind: "fallback"; fallback: "income" | "expense" };
+  | { kind: "fallback"; fallback: "income" | "expense" }
+  /** A label the household has no category for; the commit creates it (PEN-279). */
+  | { kind: "create"; name: string; flavor: "income" | "expense" };
+
+/**
+ * What to do with a category label that matches no category (PEN-279).
+ * - "error" (default): the row is an error, as before.
+ * - "uncategorized": the row imports as Uncategorized (income or expense by sign).
+ * - "create": the label becomes a new category (income or expense by the row's sign).
+ * `categoryMap` (lowercased label to category id) takes priority and maps a
+ * label to an existing category, whatever the policy.
+ */
+export type UnmatchedCategories = "error" | "uncategorized" | "create";
+
+export type CategoryOptions = {
+  unmatched?: UnmatchedCategories;
+  categoryMap?: Readonly<Record<string, string>>;
+};
+
+const CATEGORY_NAME_MAX = 80;
+
+export function labelKey(label: string): string {
+  return label.trim().toLowerCase();
+}
 
 export type CommitCsvRow = {
   line: number;
@@ -119,6 +142,7 @@ export async function validateMappedImport(
   csv: string,
   mapping: ColumnMapping,
   context: MappedImportContext,
+  options: CategoryOptions = {},
 ): Promise<Result<MappedValidation, CsvImportError>> {
   const table = await openCsvTable(csv, mapping.hasHeader);
   if (table.isErr()) return err(table.error);
@@ -146,7 +170,7 @@ export async function validateMappedImport(
 
   for (const record of laid.data) {
     const cells = pad(record.cells, laid.width);
-    draft.push(validateRow(record.line, cells, mapping, shape.value, context));
+    draft.push(validateRow(record.line, cells, mapping, shape.value, context, options));
   }
 
   const normalized = draft.flatMap((row) => (row.normalized ? [row.normalized] : []));
@@ -222,6 +246,7 @@ function validateRow(
   mapping: ColumnMapping,
   order: DateOrder,
   context: MappedImportContext,
+  options: CategoryOptions,
 ): {
   line: number;
   errors: CellError[];
@@ -290,12 +315,33 @@ function validateRow(
       categoryText = fallback === "income" ? "Uncategorized income" : "Uncategorized";
     }
   } else {
-    const matched = matchByName(categoryName, context.categories);
-    if (matched.kind === "one") {
+    const mappedId = options.categoryMap?.[labelKey(categoryName)];
+    const matched = mappedId ? null : matchByName(categoryName, context.categories);
+    const mappedTo = mappedId ? context.categories.find((item) => item.id === mappedId) : null;
+    if (mappedId) {
+      if (mappedTo) {
+        category = { kind: "id", id: mappedTo.id };
+        categoryText = mappedTo.name;
+      } else {
+        errors.push(plainIssue(line, "category", categoryName, "The category chosen for this label is not in this household."));
+      }
+    } else if (matched?.kind === "one") {
       category = { kind: "id", id: matched.id };
       categoryText = matched.name;
-    } else if (matched.kind === "none") {
-      errors.push(plainIssue(line, "category", categoryName, `No category named "${categoryName}".`));
+    } else if (matched?.kind === "none") {
+      const policy = options.unmatched ?? "error";
+      if (policy === "error") {
+        errors.push(plainIssue(line, "category", categoryName, `No category named "${categoryName}".`));
+      } else if (amount.ok) {
+        const flavor = amountCents > 0 ? "income" : "expense";
+        if (policy === "create" && categoryName.length <= CATEGORY_NAME_MAX) {
+          category = { kind: "create", name: categoryName, flavor };
+          categoryText = `${categoryName} (new)`;
+        } else {
+          category = fallbackChoice(flavor, context.categories);
+          categoryText = flavor === "income" ? "Uncategorized income" : "Uncategorized";
+        }
+      }
     } else {
       errors.push(plainIssue(line, "category", categoryName, `More than one category is named "${categoryName}".`));
     }
@@ -553,4 +599,60 @@ function alreadySynced(ready: readonly CommitCsvRow[], charges: readonly BankBac
     })),
   );
   return new Set(pairs.map((pair) => pair.incomingKey));
+}
+
+
+export type CategoryLabelCount = {
+  label: string;
+  rows: number;
+  /** Sum of the rows' amounts in cents, as the mapping reads them. */
+  totalCents: number;
+  /** The existing category this label matches by name, if exactly one. */
+  matchedCategoryId: string | null;
+  matchedCategoryName: string | null;
+  /** Same name on more than one category: the label needs a mapping. */
+  ambiguous: boolean;
+};
+
+/**
+ * The distinct category labels in a file with row counts, and which already
+ * match a household category by name (PEN-279). Blank labels are skipped.
+ * Lets a caller map labels to categories before importing.
+ */
+export async function categoryLabelCounts(
+  csv: string,
+  mapping: ColumnMapping,
+  context: MappedImportContext,
+): Promise<Result<CategoryLabelCount[], CsvImportError>> {
+  if (mapping.categoryColumn == null) return err(new CsvImportError("This mapping has no category column."));
+  const table = await openCsvTable(csv, mapping.hasHeader);
+  if (table.isErr()) return err(table.error);
+  const laid = table.value;
+  const shape = assertMapping(mapping, laid.width, laid.data.map((row) => cellAt(row.cells, mapping.dateColumn, laid.width)));
+  if (shape.isErr()) return err(shape.error);
+  const byKey = new Map<string, CategoryLabelCount>();
+  for (const record of laid.data) {
+    const cells = pad(record.cells, laid.width);
+    const label = cellAt(cells, mapping.categoryColumn, cells.length).trim();
+    if (label.length === 0) continue;
+    const amount = readAmount(record.line, cells, mapping);
+    const cents = amount.ok ? amount.cents : 0;
+    const key = labelKey(label);
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.rows += 1;
+      existing.totalCents += cents;
+      continue;
+    }
+    const found = matchByName(label, context.categories);
+    byKey.set(key, {
+      label,
+      rows: 1,
+      totalCents: cents,
+      matchedCategoryId: found.kind === "one" ? found.id : null,
+      matchedCategoryName: found.kind === "one" ? found.name : null,
+      ambiguous: found.kind === "many",
+    });
+  }
+  return ok([...byKey.values()].sort((a, b) => b.rows - a.rows || a.label.localeCompare(b.label)));
 }

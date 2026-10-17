@@ -113,7 +113,7 @@ async function previewCsv(formData: FormData): Promise<ImportCsvState> {
   const books = await requireBooks();
   const file = await readCsvFile(formData);
   if ("error" in file) return { ...initialState, error: file.error, stamp: fileStamp(formData) };
-  const previewed = await previewCsvImport(books, { csv: file.text, mapping: readMapping(formData) });
+  const previewed = await previewCsvImport(books, { csv: file.text, mapping: readMapping(formData), categories: readCategories(formData) });
   if (!previewed.ok) return { ...initialState, error: previewed.memberMessage, stamp: file.stamp };
   const view = previewed.value;
   if (view.kind === "mapping_error") {
@@ -133,7 +133,7 @@ async function commitCsv(formData: FormData): Promise<ImportCsvState> {
   const books = await requireBooks();
   const file = await readCsvFile(formData);
   if ("error" in file) return { ...initialState, error: file.error, stamp: fileStamp(formData) };
-  const committed = await commitCsvImport(books, { csv: file.text, mapping: readMapping(formData) });
+  const committed = await commitCsvImport(books, { csv: file.text, mapping: readMapping(formData), categories: readCategories(formData) });
   if (!committed.ok) return { ...initialState, error: committed.memberMessage, stamp: file.stamp };
   revalidateBooks();
   return { ...initialState, message: committed.value.message, stamp: file.stamp };
@@ -155,6 +155,11 @@ function fileStamp(formData: FormData): string {
 function headerChoice(formData: FormData): boolean | undefined {
   if (!formData.has("hasHeader")) return undefined;
   return formData.get("hasHeader") === "1";
+}
+
+function readCategories(formData: FormData): { unmatched: "error" | "uncategorized" | "create" } {
+  const raw = String(formData.get("unmatchedCategories") ?? "");
+  return { unmatched: raw === "uncategorized" || raw === "create" ? raw : "error" };
 }
 
 function readMapping(formData: FormData): ColumnMapping {

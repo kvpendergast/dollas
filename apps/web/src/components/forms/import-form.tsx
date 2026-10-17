@@ -134,6 +134,16 @@ export function ImportForm({
             onToggleErrors={() => setErrorFilter(errorsOnly ? "" : previewKey)}
           />
         ) : null}
+        {inspection && mapping?.categoryColumn != null ? (
+          <div className="space-y-1.5">
+            <Label htmlFor="import-unmatched-categories">Categories Dollas doesn&apos;t know</Label>
+            <select id="import-unmatched-categories" name="unmatchedCategories" className={selectClass} defaultValue="error">
+              <option value="error">Flag those rows so I can fix them</option>
+              <option value="uncategorized">Import them as Uncategorized</option>
+              <option value="create">Create a category for each new name</option>
+            </select>
+          </div>
+        ) : null}
         <div className="flex flex-wrap gap-2">
           {!inspection ? (
             <Button type="submit" name="intent" value="inspect" className="h-10" disabled={pending}>

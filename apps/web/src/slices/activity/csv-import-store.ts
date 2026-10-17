@@ -4,6 +4,7 @@ import {
   retainedImportFingerprints,
   validateSplits,
   type ColumnMapping,
+  type CategoryChoice,
   type CommitCsvRow,
   type CsvImportStore,
   type DateOrder,
@@ -198,10 +199,31 @@ async function rememberMapping(tx: AppTx, householdId: string, write: ImportWrit
 async function resolveCategory(
   tx: AppTx,
   householdId: string,
-  choice: { kind: "id"; id: string } | { kind: "fallback"; fallback: "income" | "expense" },
+  choice: CategoryChoice,
   cache: Map<string, string>,
 ): Promise<string> {
   if (choice.kind === "id") return choice.id;
+  if (choice.kind === "create") {
+    const key = `create:${choice.flavor}:${choice.name.trim().toLowerCase()}`;
+    const known = cache.get(key);
+    if (known) return known;
+    const same = await tx
+      .select({ id: category.id, name: category.name })
+      .from(category)
+      .where(and(eq(category.householdId, householdId), eq(category.kind, choice.flavor)));
+    const found = same.find((row) => row.name.trim().toLowerCase() === choice.name.trim().toLowerCase());
+    if (found) {
+      cache.set(key, found.id);
+      return found.id;
+    }
+    const [made] = await tx
+      .insert(category)
+      .values({ householdId, name: choice.name.trim(), kind: choice.flavor, sortOrder: 1000 })
+      .returning({ id: category.id });
+    if (!made) throw new Error("Could not import that CSV.");
+    cache.set(key, made.id);
+    return made.id;
+  }
   const cached = cache.get(choice.fallback);
   if (cached) return cached;
   const name = choice.fallback === "income" ? "Uncategorized income" : "Uncategorized";

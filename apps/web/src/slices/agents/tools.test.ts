@@ -359,6 +359,37 @@ describe("Dollas MCP tools", () => {
         values (${maple}, 'a,b', 'x', 3, now() - interval '1 hour') returning id`;
       assert.equal((await ada.call("inspect_csv", { upload_id: expired[0]?.id })).isError, true, "expired uploads are gone");
 
+      // Unknown bank category labels (PEN-279).
+      const labelled = "Date,Description,Amount,Category\n2026-09-10,Cafe One,-4.00,Dining Out\n2026-09-11,Cafe Two,-6.00,dining out\n2026-09-12,Hardware,-20.00,Home Stuff\n";
+      const labelledStage = (await ada.ok("stage_csv", { csv: labelled })).upload_id as string;
+      const labelMapping = {
+        ...((await ada.ok("inspect_csv", { upload_id: labelledStage })).inspection as { proposed_mapping: Record<string, unknown> }).proposed_mapping,
+        account_mode: "fixed",
+        fixed_account_id: checking,
+      };
+      const labels = await ada.ok("list_csv_category_labels", { upload_id: labelledStage, mapping: labelMapping });
+      const labelItems = labels.items as Array<{ label: string; rows: number; matched_category_id: string | null }>;
+      assert.deepEqual(labelItems.map((item) => [item.label, item.rows, item.matched_category_id]), [["Dining Out", 2, null], ["Home Stuff", 1, null]]);
+      const strict = await ada.ok("preview_csv_import", { upload_id: labelledStage, mapping: labelMapping });
+      assert.equal(strict.error_count, 3, "default stays strict");
+      const mapped = await ada.ok("commit_csv_import", {
+        upload_id: labelledStage,
+        mapping: labelMapping,
+        category_map: { "Dining Out": groceries },
+        unmatched_categories: "create",
+      });
+      assert.equal(mapped.added, 3);
+      const madeRows = await owner<{ name: string; kind: string }[]>`select name, kind from category where household_id = ${maple} and name = 'Home Stuff'`;
+      assert.deepEqual(madeRows.map((row) => [row.name, row.kind]), [["Home Stuff", "expense"]]);
+      assert.equal(
+        (await owner`select 1 from transaction_split s join "transaction" t on t.id = s.transaction_id where t.household_id = ${maple} and t.payee in ('Cafe One', 'Cafe Two') and s.category_id = ${groceries}`).length,
+        2,
+      );
+      await ada.ok("undo_csv_import", { import_id: mapped.import_id, confirm: true });
+      const uncategorized = await ada.ok("preview_csv_import", { upload_id: labelledStage, mapping: labelMapping, unmatched_categories: "uncategorized" });
+      assert.equal(uncategorized.ready_count, 3);
+      assert.equal((await birchAgent.call("list_csv_category_labels", { upload_id: labelledStage, mapping: labelMapping })).isError, true);
+
       // Plan: set, clear, switch month, copy last month.
       const books = ada.books;
       const thisMonth = `${books.asOf.year}-${String(books.asOf.month).padStart(2, "0")}`;

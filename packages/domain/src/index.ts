@@ -252,6 +252,7 @@ export {
 
 export {
   commitMappedImport,
+  listCsvCategoryLabels,
   previewMappedImport,
   proposeCsvMapping,
   type CommitMappedImportResult,
@@ -262,8 +263,14 @@ export type { CsvImportStore, ImportWrite, ImportWriteResult, MappingWrite } fro
 export {
   mappedTransactionSchema,
   validateMappedImport,
+  categoryLabelCounts,
+  labelKey,
   type BankBackedCharge,
+  type CategoryChoice,
+  type CategoryLabelCount,
+  type CategoryOptions,
   type CellError,
+  type UnmatchedCategories,
   type CommitCsvRow,
   type MappedField,
   type MappedImportContext,

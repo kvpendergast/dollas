@@ -42,7 +42,7 @@ export const ACTION_PARITY: Record<string, Parity> = {
   previewPayeeRuleApplyAction: { tools: ["preview_payee_rule_apply"] },
   applyPayeeRuleAction: { tools: ["apply_payee_rule"] },
   // CSV import
-  importCsvAction: { tools: ["stage_csv", "inspect_csv", "preview_csv_import", "commit_csv_import"] },
+  importCsvAction: { tools: ["stage_csv", "inspect_csv", "list_csv_category_labels", "preview_csv_import", "commit_csv_import"] },
   undoCsvImportAction: { tools: ["undo_csv_import"] },
   loadCsvImportPanel: { tools: ["list_csv_imports"] },
   // categories and groups
