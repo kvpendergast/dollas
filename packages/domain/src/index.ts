@@ -588,3 +588,22 @@ export {
   type StarterGroup,
   type StarterPlan,
 } from "./onboarding/starter";
+
+export {
+  buildProfitLoss,
+  profitLossStatus,
+  PNL_MAX_MONTHS,
+  type PnlBudget,
+  type PnlCategory,
+  type PnlCategoryRow,
+  type PnlCell,
+  type PnlGranularity,
+  type PnlGroup,
+  type PnlInput,
+  type PnlPeriod,
+  type PnlSplit,
+  type PnlStatus,
+  type PnlStore,
+  type PnlTotals,
+  type ProfitLoss,
+} from "./pnl/profit-loss";

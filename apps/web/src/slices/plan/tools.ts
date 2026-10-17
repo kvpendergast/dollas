@@ -1,6 +1,7 @@
 import { formatBudgetMonth, type MonthPlan } from "@dollas/domain";
 import { z } from "zod";
 import { answer, centsInput, money, plural, tool, uuidInput, monthInput } from "@/slices/agents/tool-kit";
+import { getProfitAndLoss } from "./profit-loss";
 import { clearBudget, copyLastMonth, getMonthPlan, planMonth, previewCopyLastMonth, setBudget } from "./service";
 
 function planOut(plan: MonthPlan) {
@@ -12,6 +13,27 @@ function planOut(plan: MonthPlan) {
 }
 
 export const planTools = [
+  tool({
+    name: "get_profit_and_loss",
+    title: "Get profit and loss",
+    description:
+      "Month-over-month profit and loss in integer cents: income, expenses and net per period, plus each income and expense category (grouped) with actual, budget and status (under, over, neutral). Transfers are excluded; refunds reduce expenses. Pass from_month and to_month (YYYY-MM, at most 36 months; defaults to the last 6 months) and granularity month, quarter or ytd (year to date, from January of each year).",
+    access: "read",
+    input: {
+      from_month: monthInput.optional().describe("First month, YYYY-MM. Defaults to 5 months before to_month. For ytd the report starts in January of this year."),
+      to_month: monthInput.optional().describe("Last month, YYYY-MM. Defaults to the household's current month."),
+      granularity: z.enum(["month", "quarter", "ytd"]).optional().describe("Columns: month (default), calendar quarter, or year to date."),
+    },
+    async run(args, { books }) {
+      return answer(
+        await getProfitAndLoss(books, { fromMonth: args.from_month, toMonth: args.to_month, granularity: args.granularity }),
+        (report) => {
+          const last = report.totals[report.totals.length - 1];
+          return `Profit and loss ${report.from} to ${report.to} by ${report.granularity}: ${plural(report.periods.length, "period")}; latest net ${money(last?.netCents ?? 0, books)}.`;
+        },
+      );
+    },
+  }),
   tool({
     name: "get_plan",
     title: "Get monthly plan",
