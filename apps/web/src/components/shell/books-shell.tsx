@@ -33,7 +33,7 @@ export function BooksShell({
                 </Link>
               ) : null}
               <form action={signOutAction}>
-                <Button type="submit" variant="ghost" className="px-2 text-muted-foreground hover:text-foreground">
+                <Button type="submit" variant="ghost" className="px-2 font-sans font-medium text-muted-foreground hover:text-foreground">
                   Sign out
                 </Button>
               </form>
