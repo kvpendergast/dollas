@@ -1,3 +1,4 @@
+import { FieldError } from "@/components/ui/field";
 import Link from "next/link";
 import { ForgotPasswordForm } from "@/components/forms/auth-forms";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,9 +18,9 @@ export default function ForgotPasswordPage() {
       </CardHeader>
       <CardContent className="space-y-4">
         {mailHelp ? (
-          <p role="alert" className="text-sm text-over">
+          <FieldError>
             {mailHelp}
-          </p>
+          </FieldError>
         ) : null}
         <ForgotPasswordForm />
         <Link href="/sign-in" className="inline-flex min-h-11 items-center text-sm text-primary underline-offset-4 hover:underline">

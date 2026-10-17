@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import {
   SPLIT_CONTROL_COPY,
   canAddSplit,
@@ -190,9 +191,9 @@ function CategoryFields({
   return (
     <div className={showAmount ? "grid gap-2 md:grid-cols-[1fr_8rem_auto] md:items-center" : undefined}>
       {menu.isErr() ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {menu.error.message}
-        </p>
+        </FieldError>
       ) : (
         <Select
           id={index === 0 ? `${fieldId}-category-0` : undefined}

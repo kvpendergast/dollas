@@ -1,3 +1,5 @@
+import { PlanMeter } from "@/components/app/plan-meter";
+import { MoneyAmount } from "@/components/app/money-amount";
 import { PageHeader } from "@/components/app/page-header";
 import { StatCard } from "@/components/app/stat-card";
 import { formatCents, monthLabel, type CategoryMonth, type PlanSoFar } from "@dollas/domain";
@@ -29,15 +31,18 @@ function PlanRow({ row, money }: { row: CategoryMonth; money: (cents: number) =>
     <li className="space-y-1">
       <div className="flex items-baseline justify-between gap-3 text-sm">
         <span className="min-w-0 truncate">{row.name}</span>
-        <span className={`shrink-0 tabular-nums ${over ? "text-over" : ""}`}>
-          {budget == null ? money(row.spentCents) : `${money(row.spentCents)} of ${money(budget)}`}
-          {over ? " · over" : ""}
+        <span className="shrink-0 tabular-nums">
+          {budget == null ? (
+            <MoneyAmount cents={row.spentCents} format={money} />
+          ) : (
+            <>
+              <MoneyAmount cents={row.spentCents} format={money} over={over} /> of {money(budget)}
+            </>
+          )}
         </span>
       </div>
       {budget != null ? (
-        <div className="h-3.5 overflow-hidden rounded-full border-2 border-foreground bg-white" aria-hidden="true">
-          <div className={`h-full rounded-full ${over ? "bg-over" : "bg-primary"}`} style={{ width: `${over ? 100 : share}%` }} />
-        </div>
+        <PlanMeter percent={over ? 100 : share} tone={over ? "over" : "primary"} />
       ) : null}
     </li>
   );

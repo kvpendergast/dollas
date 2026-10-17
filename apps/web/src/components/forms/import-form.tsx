@@ -1,9 +1,12 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
+
 import type { ColumnMapping } from "@dollas/domain";
 import * as React from "react";
 import { useActionState, useState, startTransition } from "react";
-import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/app/status-pill";
+import { ImportRowCard } from "@/components/app/import-row-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -105,9 +108,9 @@ export function ImportForm({
           />
         </div>
         {state.error ? (
-          <p role="alert" className="text-sm text-destructive">
+          <FieldError>
             {state.error}
-          </p>
+          </FieldError>
         ) : null}
         {state.message ? (
           <p role="status" className="text-sm text-muted-foreground">
@@ -512,36 +515,7 @@ function ImportPreviewTable({
       {errorsOnly && rows.length === 0 ? <p className="text-sm text-muted-foreground">No rows with errors.</p> : null}
       <ol aria-label="Mapped CSV rows" className="m-0 list-none space-y-3 p-0 md:hidden">
         {rows.map((row) => (
-          <li key={row.line} data-import-card className="rounded-md border-2 border-foreground bg-card p-3">
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-heading text-xs font-extrabold tracking-wider uppercase">Row {row.line}</span>
-              {row.status === "ready" ? (
-                <Badge variant="ready">Ready</Badge>
-              ) : row.status === "error" ? (
-                <Badge variant="destructive">Error</Badge>
-              ) : (
-                <span className="text-xs font-bold text-muted-foreground">
-                  {row.duplicateOf === "bank" ? "Already synced from bank" : "Duplicate"}
-                </span>
-              )}
-            </div>
-            <dl className="mt-2 grid grid-cols-[5.5rem_1fr] gap-x-3 gap-y-1.5 text-sm">
-              {row.cells.map((cell, index) => (
-                <React.Fragment key={cell.field}>
-                  <dt className="text-xs font-bold text-muted-foreground">{PREVIEW_LABELS[index] ?? cell.field}</dt>
-                  <dd
-                    className={cell.message ? "min-w-0 rounded-sm border-2 border-destructive bg-error-tint px-2 py-1 font-medium break-words text-destructive" : "min-w-0 break-words"}
-                  >
-                    {cell.text || (cell.message ? "" : "—")}
-                    {cell.message ? <span className="mt-0.5 block text-xs">{cell.message}</span> : null}
-                  </dd>
-                </React.Fragment>
-              ))}
-            </dl>
-            {row.status === "ready" && row.possibleTransfer ? (
-              <p className="mt-2 text-xs text-muted-foreground">Looks like a transfer or card payment. {row.possibleTransfer}</p>
-            ) : null}
-          </li>
+          <ImportRowCard key={row.line} row={row} labels={PREVIEW_LABELS} />
         ))}
       </ol>
       <div className="hidden max-h-96 overflow-auto rounded-sm border-2 border-foreground md:block">
@@ -571,7 +545,7 @@ function ImportPreviewTable({
                 <TableCell className="whitespace-nowrap">
                   {row.status === "ready" ? (
                     <>
-                      <Badge variant="ready">Ready</Badge>
+                      <StatusPill status="ready" />
                       {row.possibleTransfer ? (
                         <p className="mt-1 max-w-[14rem] text-xs whitespace-normal text-muted-foreground">
                           Looks like a transfer or card payment. {row.possibleTransfer}
@@ -579,7 +553,7 @@ function ImportPreviewTable({
                       ) : null}
                     </>
                   ) : row.status === "error" ? (
-                    <Badge variant="destructive">Error</Badge>
+                    <StatusPill status="error" />
                   ) : (
                     <span className="text-muted-foreground">
                       {row.duplicateOf === "bank" ? "Already synced from bank" : "Duplicate"}
@@ -611,9 +585,9 @@ function OpenImports({ batches, undoneNotice }: { batches: OpenCsvImport[]; undo
         </p>
       </div>
       {state.error ? (
-        <p role="alert" className="text-sm text-destructive">
+        <FieldError>
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
       {notice ? (
         <p role="status" className="text-sm text-muted-foreground">

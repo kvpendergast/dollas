@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { CREDIT_OWED_HINT } from "@dollas/domain";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -65,9 +66,9 @@ export function AccountForm() {
         </label>
       ) : null}
       {state.error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
       <Button type="submit" disabled={pending}>
         {pending ? "Adding" : "Add account"}

@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
+
 import {
   TRANSFER_KIND_HELP,
   categoryKindChangeWarning,
@@ -38,11 +40,7 @@ type Destination = { value: string; label: string };
 
 function FormError({ message }: { message: string }) {
   if (!message) return null;
-  return (
-    <p role="alert" className="basis-full text-sm text-over">
-      {message}
-    </p>
-  );
+  return <FieldError className="basis-full">{message}</FieldError>;
 }
 
 function ShiftButton({

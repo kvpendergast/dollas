@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,9 +16,9 @@ const initial: OnboardingFormState = { error: "" };
 function Status({ state }: { state: OnboardingFormState }) {
   if (state.error) {
     return (
-      <p role="alert" className="text-sm text-over">
+      <FieldError>
         {state.error}
-      </p>
+      </FieldError>
     );
   }
   return state.notice ? (

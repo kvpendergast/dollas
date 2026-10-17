@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { CREDIT_OWED_HINT, DELETE_BLOCKED_MESSAGE, openingBalanceFields, type AccountType } from "@dollas/domain";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -85,9 +86,9 @@ export function AccountControls({
             </label>
           ) : null}
           {saved.error ? (
-            <p role="alert" className="text-sm text-over">
+            <FieldError>
               {saved.error}
-            </p>
+            </FieldError>
           ) : null}
           <Button type="submit" disabled={saving}>
             {saving ? "Saving" : "Save"}
@@ -104,9 +105,9 @@ export function AccountControls({
             {unarchiving ? "Unarchiving" : "Unarchive"}
           </Button>
           {restored.error ? (
-            <p role="alert" className="mt-2 text-sm text-over">
+            <FieldError className="mt-2">
               {restored.error}
-            </p>
+            </FieldError>
           ) : null}
         </form>
       ) : (
@@ -116,9 +117,9 @@ export function AccountControls({
             {archiving ? "Archiving" : "Archive"}
           </Button>
           {archivedState.error ? (
-            <p role="alert" className="mt-2 text-sm text-over">
+            <FieldError className="mt-2">
               {archivedState.error}
-            </p>
+            </FieldError>
           ) : null}
         </form>
       )}
@@ -142,9 +143,9 @@ export function AccountControls({
             </Button>
           </form>
           {removed.error ? (
-            <p role="alert" className="text-sm text-over">
+            <FieldError>
               {removed.error}
-            </p>
+            </FieldError>
           ) : null}
         </div>
       ) : (

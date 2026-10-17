@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { formatCents, type CategoryMenuEntry } from "@dollas/domain";
 import { Repeat } from "lucide-react";
 import Link from "next/link";
@@ -194,9 +195,9 @@ export function ActivityLedger({
             </Button>
           </div>
           {undoError ? (
-            <p role="alert" className="text-sm text-over">
+            <FieldError>
               {undoError}
-            </p>
+            </FieldError>
           ) : null}
         </div>
       ) : null}

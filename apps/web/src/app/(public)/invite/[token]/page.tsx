@@ -1,3 +1,4 @@
+import { FieldError } from "@/components/ui/field";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { AcceptInviteForm } from "@/components/forms/invite-forms";
@@ -103,9 +104,9 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
       <Card>
         {header}
         <CardContent className="space-y-3">
-          <p role="alert" className="text-sm text-over">
+          <FieldError>
             {visit.message}
-          </p>
+          </FieldError>
           {visit.reason === "wrong_email" ? (
             <>
               <p className="text-sm text-muted-foreground">

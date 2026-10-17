@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { categoryMenuSections, type CategoryMenuEntry } from "@dollas/domain";
 import { useActionState, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
@@ -77,9 +78,9 @@ function PayeeRuleCreate({ categories }: { categories: CategoryMenuEntry[] }) {
         {pending ? "Adding" : "Add rule"}
       </Button>
       {state.error ? (
-        <p role="alert" className="text-sm text-over md:col-span-3">
+        <FieldError className="md:col-span-3">
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
     </form>
   );
@@ -102,9 +103,9 @@ function PayeeRuleRow({ rule, categories }: { rule: Rule; categories: CategoryMe
           {pending ? "Saving" : "Save"}
         </Button>
         {state.error ? (
-          <p role="alert" className="text-sm text-over md:col-span-3">
+          <FieldError className="md:col-span-3">
             {state.error}
-          </p>
+          </FieldError>
         ) : null}
       </form>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -145,9 +146,9 @@ function RemovePayeeRule({ rule }: { rule: Rule }) {
             </Button>
           </DialogFooter>
           {removed.error ? (
-            <p role="alert" className="mt-3 text-sm text-over">
+            <FieldError className="mt-3">
               {removed.error}
-            </p>
+            </FieldError>
           ) : null}
         </form>
       </DialogContent>
@@ -205,9 +206,9 @@ function ApplyPayeeRule({ rule }: { rule: Rule }) {
         {checking ? "Checking" : "Apply to existing"}
       </Button>
       {error && !preview ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {error}
-        </p>
+        </FieldError>
       ) : null}
       <Dialog
         open={preview !== null}
@@ -227,9 +228,9 @@ function ApplyPayeeRule({ rule }: { rule: Rule }) {
                 <DialogDescription>{applied || copy.body}</DialogDescription>
               </DialogHeader>
               {error ? (
-                <p role="alert" className="text-sm text-over">
+                <FieldError>
                   {error}
-                </p>
+                </FieldError>
               ) : null}
               <DialogFooter>
                 <DialogClose asChild>
@@ -265,9 +266,9 @@ function CategorySelect({
     <div className="space-y-1.5">
       <Label htmlFor={id}>Category</Label>
       {menu.isErr() ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {menu.error.message}
-        </p>
+        </FieldError>
       ) : (
         <Select id={id} name="categoryId" required defaultValue={defaultValue ?? categories[0]?.id}>
           {menu.value.map((section) => (

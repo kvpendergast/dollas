@@ -1,7 +1,8 @@
+import { FieldError } from "@/components/ui/field";
 import { formatCents } from "@dollas/domain";
 import Link from "next/link";
 import { RecurringItemControls, RecurringItemForm, UnlinkRecurringButton } from "@/components/recurring/recurring-forms";
-import { RecurringStatusBadge } from "@/components/recurring/status-badge";
+import { StatusPill } from "@/components/app/status-pill";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireBooks } from "@/slices/access/guard";
 import { loadRecurringDetail } from "@/slices/recurring/load";
@@ -26,9 +27,9 @@ export default async function RecurringItemPage({ params }: { params: Promise<{ 
     return (
       <div className="space-y-4">
         {back}
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {page.error}
-        </p>
+        </FieldError>
       </div>
     );
   }
@@ -77,7 +78,7 @@ export default async function RecurringItemPage({ params }: { params: Promise<{ 
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
                     {row.transaction ? <UnlinkRecurringButton transactionId={row.transaction.id} payee={row.transaction.payee} /> : null}
-                    <RecurringStatusBadge status={row.status} />
+                    <StatusPill status={row.status} />
                   </div>
                 </li>
               ))}

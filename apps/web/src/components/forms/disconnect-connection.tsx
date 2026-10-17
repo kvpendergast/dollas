@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { disconnectBankConnectionAction } from "@/slices/connections/actions";
@@ -15,9 +16,9 @@ export function DisconnectConnectionForm({ connectionId, label }: { connectionId
         {pending ? "Disconnecting" : "Disconnect"}
       </Button>
       {state.error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
     </form>
   );

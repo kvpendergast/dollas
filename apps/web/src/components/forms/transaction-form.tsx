@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { categoryMenuSections, directionDefaultForKind, type CategoryMenuEntry, type TransactionDirection } from "@dollas/domain";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
@@ -72,9 +73,9 @@ export function TransactionForm({
         initialSplit={false}
       />
       {state.error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
       <Button type="submit" disabled={pending || accounts.length === 0}>
         {pending ? "Saving" : "Add it"}

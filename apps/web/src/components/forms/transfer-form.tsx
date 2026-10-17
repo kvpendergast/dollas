@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,9 +56,9 @@ export function TransferForm({ accounts, today }: { accounts: Option[]; today: s
         </div>
       </div>
       {state.error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {state.error}
-        </p>
+        </FieldError>
       ) : null}
       <Button type="submit" variant="outline" disabled={pending}>
         {pending ? "Saving" : "Move it"}

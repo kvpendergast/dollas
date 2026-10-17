@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
+
 import { Select } from "@/components/ui/select";
 import { LAST_OWNER_MESSAGE, type HouseholdRole, type SignInMethod } from "@dollas/domain";
 import { useActionState, useState } from "react";
@@ -29,15 +31,6 @@ import {
 import { useActionToast } from "@/lib/use-action-toast";
 
 const initial: SettingsFormState = { error: "" };
-
-function FieldError({ message }: { message: string }) {
-  if (!message) return null;
-  return (
-    <p role="alert" className="text-sm text-over">
-      {message}
-    </p>
-  );
-}
 
 function FieldNotice({ message }: { message?: string }) {
   if (!message) return null;
@@ -71,7 +64,7 @@ export function NameForm({ name }: { name: string }) {
         <Label htmlFor="settings-name">Name</Label>
         <Input id="settings-name" name="name" autoComplete="name" defaultValue={name} required />
       </div>
-      <FieldError message={state.error} />
+      <FieldError>{state.error}</FieldError>
       <FieldNotice message={state.notice} />
       <Button type="submit" disabled={pending}>
         {pending ? "Saving" : "Save name"}
@@ -93,7 +86,7 @@ export function EmailForm({ email }: { email: string }) {
         <Input id="settings-email" name="email" type="email" autoComplete="email" required />
       </div>
       <p className="text-sm text-muted-foreground">{EMAIL_CHANGE_HINT}</p>
-      <FieldError message={state.error} />
+      <FieldError>{state.error}</FieldError>
       <FieldNotice message={state.notice} />
       <Button type="submit" disabled={pending}>
         {pending ? "Sending link" : "Send confirmation link"}
@@ -125,7 +118,7 @@ function PasswordForm() {
         <Label htmlFor="settings-confirm-password">Confirm new password</Label>
         <Input id="settings-confirm-password" name="confirm" type="password" autoComplete="new-password" minLength={8} required />
       </div>
-      <FieldError message={state.error} />
+      <FieldError>{state.error}</FieldError>
       <FieldNotice message={state.notice} />
       <Button type="submit" disabled={pending}>
         {pending ? "Changing" : "Change password"}
@@ -157,7 +150,7 @@ export function TransferForm({ members }: { members: { userId: string; name: str
           ))}
         </Select>
       </div>
-      <FieldError message={state.error} />
+      <FieldError>{state.error}</FieldError>
       <FieldNotice message={state.notice} />
       <Button type="submit" variant="outline" disabled={pending}>
         {pending ? "Handing off" : "Hand off ownership"}
@@ -192,7 +185,7 @@ export function LeaveHouseholdDialog({ lastOwner, householdName }: { lastOwner: 
           </DialogFooter>
         ) : (
           <form action={action} className="space-y-3">
-            <FieldError message={state.error} />
+            <FieldError>{state.error}</FieldError>
             <DialogFooter>
               <DialogClose asChild>
                 <Button type="button" variant="outline">
@@ -240,7 +233,7 @@ export function DeleteHouseholdDialog({ householdName }: { householdName: string
               autoComplete="off"
             />
           </div>
-          <FieldError message={state.error} />
+          <FieldError>{state.error}</FieldError>
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="outline">

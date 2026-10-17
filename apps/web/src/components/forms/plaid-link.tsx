@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/ui/field";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,9 +71,9 @@ function PlaidLinkFields() {
         </p>
       </div>
       {error ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {error}
-        </p>
+        </FieldError>
       ) : null}
       {message ? <p className="text-sm text-income">{message}</p> : null}
       <Button type="button" disabled={pending} onClick={() => void start()}>

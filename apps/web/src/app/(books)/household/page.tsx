@@ -1,3 +1,4 @@
+import { FieldError } from "@/components/ui/field";
 import { PageHeader } from "@/components/app/page-header";
 import { INVITE_TTL_DAYS } from "@dollas/domain";
 import { InviteForm, PendingInviteActions } from "@/components/forms/invite-forms";
@@ -21,9 +22,9 @@ export default async function HouseholdPage() {
       <PageHeader title={books.householdName} description={<>Everyone here sees and edits the same accounts, transactions, categories, and budget. Each person has their own
           login.</>} />
       {!people.ok ? (
-        <p role="alert" className="text-sm text-over">
+        <FieldError>
           {people.memberMessage}
-        </p>
+        </FieldError>
       ) : (
         <>
           <Card>

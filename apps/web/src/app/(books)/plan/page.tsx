@@ -1,3 +1,5 @@
+import { FieldError } from "@/components/ui/field";
+import { PlanMeter } from "@/components/app/plan-meter";
 import { formatBudgetMonth, formatCents, monthLabel, parseBudgetMonth, shiftBudgetMonth } from "@dollas/domain";
 import { BudgetForm } from "@/components/forms/budget-form";
 import { CopyBudgetsForm } from "@/components/forms/copy-budgets-form";
@@ -69,9 +71,9 @@ export default async function PlanPage({
           </div>
         </div>
         {parsed.isErr() ? (
-          <p role="alert" className="text-sm text-over">
+          <FieldError>
             {parsed.error.message}
-          </p>
+          </FieldError>
         ) : null}
       </div>
       <Card className="max-w-sm">
@@ -88,9 +90,9 @@ export default async function PlanPage({
           </CardHeader>
           <CardContent>
             {copy.error || !copy.preview ? (
-              <p role="alert" className="text-sm text-over">
+              <FieldError>
                 {copy.error || "Could not read last month's budgets."}
-              </p>
+              </FieldError>
             ) : (
               <CopyBudgetsForm
                 monthKey={monthKey}
@@ -149,9 +151,7 @@ export default async function PlanPage({
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="h-3.5 overflow-hidden rounded-full border-2 border-foreground bg-white">
-                        <div className={`h-full ${over ? "bg-over" : "bg-bar"}`} style={{ width: `${width}%` }} />
-                      </div>
+                      <PlanMeter percent={width} tone={over ? "over" : "default"} />
                     </CardContent>
                   </Card>
                 );
