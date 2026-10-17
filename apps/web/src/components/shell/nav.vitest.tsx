@@ -1,7 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { AccountMenuPanel } from "@/components/shell/account-menu";
-import { bookNav, desktopNav, isPhoneTabActive } from "@/components/shell/nav";
+import { accountNav, bookNav, desktopNav, isNavActive, isPhoneTabActive } from "@/components/shell/nav";
 import { PhoneTabBar } from "@/components/shell/phone-nav";
 import { DesktopNav } from "@/components/shell/sidebar";
 import { leaveHouseholdCopy, passwordSectionCopy } from "@/components/forms/settings-forms";
@@ -26,9 +25,8 @@ describe("settings navigation", () => {
     expect(phone).toContain("Home");
     expect(phone).toContain("History");
 
-    const account = renderToStaticMarkup(<AccountMenuPanel pathname="/activity" />);
-    expect(account).toContain('aria-label="Account"');
-    expect(account).toContain('href="/settings"');
+    const account = JSON.stringify(accountNav);
+    expect(account).toContain('"/settings"');
     expect(account).toContain("Settings");
     expect(account).not.toMatch(setupLeak);
   });
@@ -79,10 +77,8 @@ describe("household navigation (PEN-208)", () => {
     expect(desktop).toMatch(/href="\/household"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/household"/);
     expect(desktop).toContain('aria-label="Main"');
 
-    const account = renderToStaticMarkup(<AccountMenuPanel pathname="/household" />);
-    expect(account.indexOf('href="/household"')).toBeGreaterThan(-1);
-    expect(account.indexOf('href="/household"')).toBeLessThan(account.indexOf('href="/settings"'));
-    expect(account).toContain('aria-current="page"');
+    expect(accountNav.map((item) => item.href)).toEqual(["/household", "/settings"]);
+    expect(isNavActive("/household", "/household")).toBe(true);
 
     const phone = renderToStaticMarkup(<PhoneTabBar pathname="/household" />);
     expect(phone).not.toContain('href="/household"');

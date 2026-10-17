@@ -1,3 +1,5 @@
+import { PageHeader } from "@/components/app/page-header";
+import { StatCard } from "@/components/app/stat-card";
 import { formatCents, monthLabel, type CategoryMonth, type PlanSoFar } from "@dollas/domain";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -123,47 +125,25 @@ export default async function HomePage() {
   const [home, onboarding] = await Promise.all([loadHome(books), getOnboardingStatus(books)]);
   const setup = onboarding.ok ? onboarding.value : null;
   const nothingYet = home.spentCents === 0 && home.incomeCents === 0 && home.estimate.estimateCents === 0;
-  const leftTone = home.leftCents < 0 ? "text-over" : "text-income";
   const money = (cents: number) => formatCents(cents, books.currency);
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-4xl tracking-tight">{monthLabel(books.asOf.year, books.asOf.month)}</h1>
-        <p className="text-sm text-muted-foreground">This month is still open. Numbers run through today.</p>
-      </div>
+      <PageHeader title={monthLabel(books.asOf.year, books.asOf.month)} description="This month is still open. Numbers run through today." />
       {setup ? <OnboardingChecklist status={setup} /> : null}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4" data-stats>
-        <Card size="sm">
-          <CardHeader>
-            <CardDescription>Income</CardDescription>
-            <CardTitle className="font-heading text-xl min-[400px]:text-2xl sm:text-3xl break-words text-income tabular-nums">{formatCents(home.incomeCents)}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card size="sm">
-          <CardHeader>
-            <CardDescription>Spent</CardDescription>
-            <CardTitle className="font-heading text-xl min-[400px]:text-2xl sm:text-3xl break-words tabular-nums">{formatCents(home.spentCents)}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card size="sm">
-          <CardHeader>
-            <CardDescription>Money left</CardDescription>
-            <CardTitle className={`font-heading text-xl min-[400px]:text-2xl sm:text-3xl break-words tabular-nums ${leftTone}`}>{formatCents(home.leftCents)}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card size="sm">
-          <CardHeader>
-            <CardDescription>In accounts</CardDescription>
-            <CardTitle
-              className={`font-heading text-xl min-[400px]:text-2xl sm:text-3xl break-words tabular-nums ${home.accountBalanceCents < 0 ? "text-over" : "text-income"}`}
-            >
-              {formatCents(home.accountBalanceCents)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">Active accounts only.<span className="hidden sm:inline"> Archived accounts are left out.</span></p>
-          </CardContent>
-        </Card>
+        <StatCard label="Income" value={formatCents(home.incomeCents)} tone="income" />
+        <StatCard label="Spent" value={formatCents(home.spentCents)} />
+        <StatCard label="Money left" value={formatCents(home.leftCents)} tone={home.leftCents < 0 ? "over" : "income"} />
+        <StatCard
+          label="In accounts"
+          value={formatCents(home.accountBalanceCents)}
+          tone={home.accountBalanceCents < 0 ? "over" : "income"}
+          note={
+            <>
+              Active accounts only.<span className="hidden sm:inline"> Archived accounts are left out.</span>
+            </>
+          }
+        />
       </div>
       <Card className="border-primary/20">
         <CardHeader>

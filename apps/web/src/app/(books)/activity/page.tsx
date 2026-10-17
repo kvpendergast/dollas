@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/app/page-header";
 import { accountsForActiveLists, filterHref, filterToSearchParams, toIsoDate } from "@dollas/domain";
 import Link from "next/link";
 import { ActivityLedger } from "@/components/forms/activity-ledger";
@@ -11,7 +12,7 @@ import { loadCsvImportPanel } from "@/slices/activity/import-csv";
 import { PAYEE_RULES_APPLY_TO } from "@/slices/activity/payee-rule-copy";
 import { ACTIVITY_PAGE_SIZE, loadActivity } from "@/slices/books/queries";
 import { FilterBar } from "@/components/spending/filter-bar";
-import { NextStep } from "@/components/onboarding/next-step";
+import { EmptyState } from "@/components/app/empty-state";
 import { StarterCategoriesButton } from "@/components/onboarding/onboarding-forms";
 import { loadFilterContext } from "@/slices/spending/load";
 
@@ -73,10 +74,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
   const newEntryAccounts = accountsForActiveLists(activity.accounts, books.householdId);
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-4xl">Activity</h1>
-        <p className="text-sm text-muted-foreground">
-          What came in, what went out, splits included.{" "}
+      <PageHeader title="Activity" description={<>What came in, what went out, splits included.{" "}
           <a href="#add-transaction" className="font-medium text-primary underline-offset-4 hover:underline">
             Add a transaction
           </a>{" "}
@@ -87,9 +85,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
           ·{" "}
           <a href="#payee-rules" className="font-medium text-primary underline-offset-4 hover:underline">
             Payee rules
-          </a>
-        </p>
-      </div>
+          </a></>} />
       <section id="transactions" className="scroll-mt-20 space-y-4" aria-labelledby="ledger-heading">
         <h2 id="ledger-heading" className="font-heading text-2xl">
           Transactions
@@ -98,11 +94,11 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
         {activity.total > 0 ? <Pager page={activity.page} pageCount={activity.pageCount} total={activity.total} hrefFor={hrefFor} /> : null}
         {activity.transactions.length === 0 ? (
           filtered ? (
-            <NextStep title="Nothing matches these filters" body="Try a wider date range, or clear the filters." href="/activity#transactions" action="Clear filters" />
+            <EmptyState title="Nothing matches these filters" body="Try a wider date range, or clear the filters." href="/activity#transactions" action="Clear filters" />
           ) : newEntryAccounts.length === 0 ? (
-            <NextStep title="No transactions yet" body="Add an account, then add transactions here, import a CSV, or link a bank." href="/accounts" action="Add an account" />
+            <EmptyState title="No transactions yet" body="Add an account, then add transactions here, import a CSV, or link a bank." href="/accounts" action="Add an account" />
           ) : (
-            <NextStep
+            <EmptyState
               title="No transactions yet"
               body="Add one below, import a CSV from your bank, or link a bank on Accounts."
               href="#add-transaction"
@@ -127,14 +123,14 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
         </CardHeader>
         <CardContent>
           {newEntryAccounts.length === 0 ? (
-            <NextStep
+            <EmptyState
               title="Add an account first"
               body="Every transaction belongs to an account: checking, a card, or cash. Add one by hand, or link a bank and transactions arrive on their own."
               href="/accounts"
               action="Add an account"
             />
           ) : activity.categories.length === 0 ? (
-            <NextStep
+            <EmptyState
               title="Set up categories next"
               body="Each transaction gets a category, and there are none yet. Add a starter set in one click, or make your own."
               extra={
@@ -183,7 +179,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
         </CardHeader>
         <CardContent>
           {newEntryAccounts.length === 0 && csvImports.open.length === 0 ? (
-            <NextStep title="Add an account to import into" body="A CSV lands in one account. Add it first." href="/accounts" action="Add an account" />
+            <EmptyState title="Add an account to import into" body="A CSV lands in one account. Add it first." href="/accounts" action="Add an account" />
           ) : (
             <ImportForm
               accounts={newEntryAccounts.map((account) => ({ id: account.id, name: account.name }))}

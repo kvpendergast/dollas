@@ -4,10 +4,10 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
- * The empty-state pattern (PEN-204): say what is missing in plain words and
+ * EmptyState: the empty-state pattern (PEN-204): say what is missing in plain words and
  * give one clear next action. `extra` is for a second, smaller option.
  */
-export function NextStep({
+export function EmptyState({
   title,
   body,
   href,

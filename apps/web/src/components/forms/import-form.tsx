@@ -17,6 +17,7 @@ import {
   type OpenCsvImport,
 } from "@/slices/activity/import-csv";
 import { useActionToast } from "@/lib/use-action-toast";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
@@ -450,29 +451,29 @@ function ColumnSelect({
 function SampleTable({ inspection }: { inspection: ImportInspection }) {
   return (
     <div className="max-h-60 overflow-auto rounded-sm border-2 border-foreground">
-      <table className="w-full min-w-[28rem] text-left text-sm">
-        <caption className="sr-only">Header and first rows</caption>
-        <thead className="sticky top-0 border-b-2 border-foreground bg-card font-heading text-xs tracking-wider text-foreground uppercase">
-          <tr>
+      <Table className="min-w-[28rem]">
+        <TableCaption className="sr-only">Header and first rows</TableCaption>
+        <TableHeader className="sticky top-0 bg-card font-heading text-xs tracking-wider text-foreground uppercase">
+          <TableRow>
             {inspection.columns.map((column) => (
-              <th key={column.index} scope="col" className="px-3 py-2 font-extrabold">
+              <TableHead key={column.index} scope="col" className="font-extrabold">
                 {column.label}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {inspection.sampleRows.map((row, index) => (
-            <tr key={index} className="border-t-2 border-dashed border-border-soft">
+            <TableRow key={index} className="border-t-2 border-b-0 border-dashed">
               {inspection.columns.map((column) => (
-                <td key={column.index} className="px-3 py-2 whitespace-nowrap">
+                <TableCell key={column.index} className="whitespace-nowrap">
                   {row[column.index] || ""}
-                </td>
+                </TableCell>
               ))}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -544,30 +545,30 @@ function ImportPreviewTable({
         ))}
       </ol>
       <div className="hidden max-h-96 overflow-auto rounded-sm border-2 border-foreground md:block">
-        <table className="w-full min-w-[40rem] text-left text-sm">
-          <caption className="sr-only">Mapped CSV rows</caption>
-          <thead className="sticky top-0 border-b-2 border-foreground bg-card font-heading text-xs tracking-wider text-foreground uppercase">
-            <tr>
+        <Table className="min-w-[40rem]">
+          <TableCaption className="sr-only">Mapped CSV rows</TableCaption>
+          <TableHeader className="sticky top-0 bg-card font-heading text-xs tracking-wider text-foreground uppercase">
+            <TableRow>
               {[...PREVIEW_LABELS, "Status"].map((label) => (
-                <th key={label} scope="col" className="px-3 py-2 font-extrabold">
+                <TableHead key={label} scope="col" className="font-extrabold">
                   {label}
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.map((row) => (
-              <tr key={row.line} className="border-t-2 border-dashed border-border-soft">
+              <TableRow key={row.line} className="border-t-2 border-b-0 border-dashed">
                 {row.cells.map((cell) => (
-                  <td
+                  <TableCell
                     key={cell.field}
-                    className={cell.message ? "border-2 border-destructive bg-error-tint px-3 py-2 font-medium text-destructive" : "px-3 py-2"}
+                    className={cell.message ? "border-2 border-destructive bg-error-tint font-medium text-destructive" : undefined}
                   >
                     <div className="whitespace-nowrap">{cell.text || (cell.message ? "" : "—")}</div>
                     {cell.message ? <p className="mt-1 max-w-xs text-xs whitespace-normal">{cell.message}</p> : null}
-                  </td>
+                  </TableCell>
                 ))}
-                <td className="px-3 py-2 whitespace-nowrap">
+                <TableCell className="whitespace-nowrap">
                   {row.status === "ready" ? (
                     <>
                       <Badge variant="ready">Ready</Badge>
@@ -584,11 +585,11 @@ function ImportPreviewTable({
                       {row.duplicateOf === "bank" ? "Already synced from bank" : "Duplicate"}
                     </span>
                   )}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </section>
   );

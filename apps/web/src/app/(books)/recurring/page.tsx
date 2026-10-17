@@ -1,6 +1,7 @@
+import { PageHeader } from "@/components/app/page-header";
 import { CADENCE_LABELS, formatCents } from "@dollas/domain";
 import Link from "next/link";
-import { NextStep } from "@/components/onboarding/next-step";
+import { EmptyState } from "@/components/app/empty-state";
 import { MakeRecurringButton, RecurringItemForm } from "@/components/recurring/recurring-forms";
 import { RecurringStatusBadge } from "@/components/recurring/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,12 +21,7 @@ export default async function RecurringPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-4xl">Recurring</h1>
-        <p className="text-sm text-muted-foreground">
-          Known bills and paychecks. A matching transaction links to its item instead of standing alone.
-        </p>
-      </div>
+      <PageHeader title="Recurring" description={<>Known bills and paychecks. A matching transaction links to its item instead of standing alone.</>} />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Card>
@@ -57,7 +53,7 @@ export default async function RecurringPage() {
         </CardHeader>
         <CardContent>
           {page.items.length === 0 ? (
-            <NextStep
+            <EmptyState
               title="Nothing recurring yet"
               body="Add rent, a paycheck, or a subscription. Matching transactions link to it, and the Spend estimate counts what is still due."
               href="#add-recurring"
