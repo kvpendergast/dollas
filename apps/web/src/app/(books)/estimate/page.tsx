@@ -1,3 +1,4 @@
+import { Alert } from "@/components/ui/alert";
 import { PageHeader } from "@/components/app/page-header";
 import { formatCents, type EstimateMonth } from "@dollas/domain";
 import Link from "next/link";
@@ -69,7 +70,7 @@ function MonthCard({
         />
         <Row label="Spend estimate" value={money(month.estimateCents)} strong />
         {month.moneyLeftCents != null ? (
-          <div className="mt-3 rounded-sm bg-muted px-3 py-2 text-sm">
+          <Alert className="mt-3 border-transparent">
             <div className="flex justify-between gap-3">
               <span className="text-muted-foreground">{current ? "Income so far and expected" : "Recurring income expected"}</span>
               <span className="tabular-nums text-income">{money(month.incomeCents)}</span>
@@ -78,7 +79,7 @@ function MonthCard({
               <span>Expected money left</span>
               <span className={`tabular-nums ${month.moneyLeftCents < 0 ? "text-over" : "text-income"}`}>{money(month.moneyLeftCents)}</span>
             </div>
-          </div>
+          </Alert>
         ) : null}
       </CardContent>
     </Card>

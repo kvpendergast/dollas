@@ -120,7 +120,7 @@ export function FilterBar({
             <span>Filters{count > 0 ? ` (${count})` : ""}</span>
             <span className="text-xs text-muted-foreground group-data-[state=open]/filters:hidden">Accounts, categories, people, source, amount</span>
           </CollapsibleTrigger>
-          <CollapsibleContent className="grid gap-5 border-t-2 border-dashed border-border-soft p-3 data-[state=closed]:hidden @lg:grid-cols-2 @4xl:grid-cols-4">
+          <CollapsibleContent className="grid gap-5 border-t-2 border-dashed border-border-soft p-3 @lg:grid-cols-2 @4xl:grid-cols-4">
             <Fieldset legend="Custom dates">
               <div className="grid grid-cols-2 gap-2">
                 <label className="space-y-1 text-xs text-muted-foreground">

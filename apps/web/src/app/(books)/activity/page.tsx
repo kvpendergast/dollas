@@ -7,7 +7,7 @@ import { ImportForm } from "@/components/forms/import-form";
 import { PayeeRules } from "@/components/forms/payee-rule-form";
 import { TransactionForm } from "@/components/forms/transaction-form";
 import { TransferForm } from "@/components/forms/transfer-form";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireBooks } from "@/slices/access/guard";
 import { loadCsvImportPanel } from "@/slices/activity/import-csv";
 import { PAYEE_RULES_APPLY_TO } from "@/slices/activity/payee-rule-copy";
@@ -173,9 +173,9 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
         <CardHeader>
           <CardTitle>Import a CSV</CardTitle>
           <CardDescription>{"Upload any CSV. You'll match the columns next."}</CardDescription>
-          <CardAction>
+          <div className="pt-1">
             <HowImportWorks />
-          </CardAction>
+          </div>
         </CardHeader>
         <CardContent>
           {newEntryAccounts.length === 0 && csvImports.open.length === 0 ? (

@@ -27,7 +27,7 @@ function CollapsibleTrigger({ className, ...props }: React.ComponentProps<typeof
 }
 
 function CollapsibleContent({ className, ...props }: React.ComponentProps<typeof CollapsiblePrimitive.Content>) {
-  return <CollapsiblePrimitive.Content data-slot="collapsible-content" forceMount className={cn("dl-sheet", className)} {...props} />;
+  return <CollapsiblePrimitive.Content data-slot="collapsible-content" forceMount className={cn("dl-sheet data-[state=closed]:hidden", className)} {...props} />;
 }
 
 export { Collapsible, CollapsibleContent, CollapsibleTrigger };
