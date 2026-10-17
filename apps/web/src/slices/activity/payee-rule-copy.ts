@@ -14,6 +14,10 @@ export type PayeeRuleApplyCounts = {
   changeCount: number;
   skippedSplitCount: number;
   skippedWithoutCategoryCount: number;
+  /** Up to ten distinct payees the rule matches, most frequent first (PEN-282). */
+  samplePayees?: { payee: string; count: number }[];
+  /** Other rules that also match some of those payees (PEN-282). */
+  conflicts?: { ruleId: string; pattern: string; categoryId: string; sameCategory: boolean; winsOnImport: boolean; sharedPayees: string[] }[];
 };
 
 function countPhrase(count: number, singular: string, plural: string): string {

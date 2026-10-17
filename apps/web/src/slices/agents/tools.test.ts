@@ -398,6 +398,37 @@ describe("Dollas MCP tools", () => {
       assert.equal((await owner`select 1 from transaction_split where transaction_id = ${bulkIds[0] ?? ""} and category_id = ${groceries}`).length, 1);
       await ada.ok("delete_payee_rule", { rule_id: ruleBulk.id, confirm: true });
 
+      // Lighter reads and richer rule previews (PEN-282).
+      const wide = await ada.ok("create_payee_rule", { pattern: "bulk", category_id: dining });
+      const narrow = await ada.ok("create_payee_rule", { pattern: "bulk bakery annex", category_id: groceries });
+      const wideRule = await ada.ok("preview_payee_rule_apply", { rule_id: wide.id });
+      const sampled = wideRule.sample_payees as Array<{ payee: string; transactions: number }>;
+      assert.deepEqual(sampled.map((item) => [item.payee.toLowerCase(), item.transactions]), [["bulk bakery", 3], ["bulk bakery annex", 1]], "case variants are one payee");
+      const overlaps = wideRule.conflicting_rules as Array<{ rule_id: string; same_category: boolean; wins_on_import: boolean; shared_payees: string[] }>;
+      assert.deepEqual(overlaps.map((item) => [item.rule_id, item.same_category, item.wins_on_import]), [[narrow.id, false, true]]);
+      assert.deepEqual((await ada.ok("preview_payee_rule_apply", { rule_id: narrow.id })).conflicting_rules, [
+        { rule_id: wide.id, pattern: "bulk", category_id: dining, same_category: false, wins_on_import: false, shared_payees: ["Bulk Bakery Annex"] },
+      ]);
+      await ada.ok("delete_payee_rule", { rule_id: wide.id, confirm: true });
+      await ada.ok("delete_payee_rule", { rule_id: narrow.id, confirm: true });
+      const compactList = await ada.ok("list_transactions", { payee_contains: "bulk bakery annex", compact: true });
+      assert.deepEqual(Object.keys((compactList.items as Array<Record<string, unknown>>)[0] ?? {}).sort(), ["account_name", "amount_cents", "category", "category_id", "id", "occurred_on", "payee"]);
+      const picked = await ada.ok("list_transactions", { payee_contains: "bulk bakery annex", fields: ["payee", "splits"] });
+      assert.deepEqual(Object.keys((picked.items as Array<Record<string, unknown>>)[0] ?? {}).sort(), ["id", "payee", "splits"]);
+      const splitCompact = await ada.ok("list_transactions", { payee_contains: "Bulk Bakery", compact: true, limit: 50 });
+      assert.ok((splitCompact.items as Array<{ category: string }>).some((item) => item.category.startsWith("Split: ")), "split transactions say so");
+      const payeesAll = await ada.ok("list_payees", { contains: "bulk" });
+      const bakery = (payeesAll.items as Array<{ payee: string; transaction_count: number; total_cents: number; uncategorized_count: number }>).find((item) => item.payee.toLowerCase() === "bulk bakery");
+      assert.deepEqual([bakery?.transaction_count, bakery?.total_cents, bakery?.uncategorized_count], [3, -2400, 0]);
+      assert.equal((payeesAll.items as unknown[]).length, 2);
+      assert.ok((payeesAll.payee_count as number) > 2, "totals are household-wide, not filtered");
+      assert.deepEqual(((await ada.ok("list_payees", { contains: "bulk", sort: "name" })).items as Array<{ payee: string }>).length, 2);
+      assert.equal(((await ada.ok("list_payees", { uncategorized_only: true, contains: "bulk" })).items as unknown[]).length, 0);
+      assert.equal(((await birchAgent.ok("list_payees", { contains: "bulk" })).items as unknown[]).length, 0, "another household's payees stay private");
+      const named = await ada.ok("list_accounts", { name: "check" });
+      assert.deepEqual((named.items as Array<{ id: string }>).map((item) => item.id), [checking]);
+      assert.equal(((await ada.ok("list_accounts", { name: "nope-nothing" })).items as unknown[]).length, 0);
+
       // Unknown bank category labels (PEN-279).
       const labelled = "Date,Description,Amount,Category\n2026-09-10,Cafe One,-4.00,Dining Out\n2026-09-11,Cafe Two,-6.00,dining out\n2026-09-12,Hardware,-20.00,Home Stuff\n";
       const labelledStage = (await ada.ok("stage_csv", { csv: labelled })).upload_id as string;

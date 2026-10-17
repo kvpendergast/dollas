@@ -1,8 +1,9 @@
 import { MAX_TRANSACTION_SPLITS, PAYEE_MAX_LENGTH, toIsoDate } from "@dollas/domain";
-import { confirmInput, pageFrom, pageInput, readPage } from "@dollas/mcp";
+import { confirmInput, pageFrom, pageInput, paginate, readPage } from "@dollas/mcp";
 import { z } from "zod";
 import { answer, centsInput, isoDateInput, money, plural, tool, uuidInput } from "@/slices/agents/tool-kit";
 import { categorizeByPayee, categorizeTransactions, BULK_CATEGORIZE_MAX_IDS, type BulkCategorizeOutcome } from "./bulk-categorize-service";
+import { listHouseholdPayees } from "./payees-service";
 import { createHouseholdTransfer } from "./transfer-service";
 import { FILTER_HELP, filterFromArgs, filterInput } from "@/slices/spending/tools";
 import {
@@ -45,6 +46,25 @@ function shown(item: ListedTransaction) {
     note: item.note,
     splits: item.splits.map((split) => ({ category_id: split.categoryId, category_name: split.categoryName, amount_cents: split.amountCents })),
   };
+}
+
+const COMPACT_FIELDS = ["id", "occurred_on", "payee", "amount_cents", "account_name", "category", "category_id"] as const;
+const ALL_FIELDS = [
+  "id", "occurred_on", "payee", "amount_cents", "account_id", "account_name", "account_archived", "deleted", "bank_backed",
+  "bank_matched", "recurring_item", "sources", "added_by", "categorized_by", "note", "splits", "category", "category_id",
+] as const;
+
+/** A listed transaction with its fields trimmed to what the caller asked for (PEN-282). id is always kept. */
+function projected(item: ListedTransaction, fields: readonly string[] | undefined, compact: boolean | undefined) {
+  const wanted = fields && fields.length > 0 ? fields : compact ? COMPACT_FIELDS : null;
+  if (!wanted) return shown(item);
+  const first = item.splits[0];
+  const extra: Record<string, unknown> = {
+    category: item.splits.length === 0 ? null : item.splits.length === 1 ? first?.categoryName : `Split: ${item.splits.map((split) => split.categoryName).join(", ")}`,
+    category_id: item.splits.length === 1 ? first?.categoryId : null,
+  };
+  const full: Record<string, unknown> = { ...shown(item), ...extra };
+  return Object.fromEntries(["id", ...wanted.filter((field) => field !== "id")].map((field) => [field, full[field]]));
 }
 
 export function bulkOut(value: BulkCategorizeOutcome) {
@@ -100,6 +120,8 @@ export const transactionTools = [
       category_id: uuidInput("Category (same as category_ids with one id)").optional(),
       payee_contains: z.string().min(1).max(PAYEE_MAX_LENGTH).optional().describe("Only payees containing this text (case-insensitive)."),
       deleted_only: z.boolean().optional().describe("List deleted transactions instead, so one can be restored."),
+      compact: z.boolean().optional().describe("Return only id, occurred_on, payee, amount_cents, account_name, category (a name, or Split: ...) and category_id. Much smaller."),
+      fields: z.array(z.enum(ALL_FIELDS)).max(ALL_FIELDS.length).optional().describe("Return only these fields (id is always included). Overrides compact."),
       ...pageInput(50),
     },
     async run(args, { books }) {
@@ -119,7 +141,43 @@ export const transactionTools = [
       return answer(
         listed,
         (page) => `${plural(page.items.length, "transaction")} of ${page.total}.`,
-        (page) => pageFrom(page.items.map(shown), page.total, request),
+        (page) => pageFrom(page.items.map((item) => projected(item, args.fields, args.compact)), page.total, request),
+      );
+    },
+  }),
+  tool({
+    name: "list_payees",
+    title: "List payees",
+    description:
+      "Payees across the household (ignoring case), each with transaction_count, total_cents (signed) and uncategorized_count (transactions still in the Uncategorized fallback), plus household-wide totals. Deleted transactions are left out. Use it to find what to categorize with categorize_by_payee or create_payee_rule. sort: transactions (default), total, uncategorized, name.",
+    access: "read",
+    input: {
+      contains: z.string().min(1).max(PAYEE_MAX_LENGTH).optional().describe("Only payees containing this text (case-insensitive)."),
+      uncategorized_only: z.boolean().optional().describe("Only payees with at least one uncategorized transaction."),
+      sort: z.enum(["transactions", "total", "uncategorized", "name"]).optional(),
+      ...pageInput(50),
+    },
+    async run(args, { books }) {
+      const listed = await listHouseholdPayees(books, { contains: args.contains, uncategorizedOnly: args.uncategorized_only, sort: args.sort });
+      return answer(
+        listed,
+        (value) => `${plural(value.payeeCount, "payee")}, ${value.uncategorizedTransactionCount} uncategorized ${value.uncategorizedTransactionCount === 1 ? "transaction" : "transactions"}.`,
+        (value) => ({
+          payee_count: value.payeeCount,
+          transaction_count: value.transactionCount,
+          total_cents: value.totalCents,
+          uncategorized_transaction_count: value.uncategorizedTransactionCount,
+          ...paginate(
+            value.payees.map((item) => ({
+              payee: item.payee,
+              transaction_count: item.transactionCount,
+              total_cents: item.totalCents,
+              uncategorized_count: item.uncategorizedCount,
+              top_categories: item.topCategories,
+            })),
+            readPage(args, 50),
+          ),
+        }),
       );
     },
   }),

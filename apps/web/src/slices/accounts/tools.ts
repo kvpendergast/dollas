@@ -21,11 +21,20 @@ export const accountTools = [
     name: "list_accounts",
     title: "List accounts",
     description:
-      "Accounts in the household with balance_cents (integer cents; negative means owed). Archived accounts are left out unless include_archived is true.",
+      "Accounts in the household with balance_cents (integer cents; negative means owed). Archived accounts are left out unless include_archived is true. name finds accounts by name (case-insensitive; an exact name is returned alone when one matches).",
     access: "read",
-    input: { include_archived: z.boolean().optional().describe("Include archived accounts."), ...pageInput(100) },
+    input: {
+      include_archived: z.boolean().optional().describe("Include archived accounts."),
+      name: z.string().min(1).max(100).optional().describe("Find accounts whose name contains this text. An exact (case-insensitive) match is returned on its own."),
+      ...pageInput(100),
+    },
     async run(args, { books }) {
       const listed = await listHouseholdAccounts(books, { includeArchived: args.include_archived ?? false });
+      if (listed.ok && args.name) {
+        const wanted = args.name.trim().toLowerCase();
+        const exact = listed.value.filter((item) => item.name.trim().toLowerCase() === wanted);
+        listed.value = exact.length === 1 ? exact : listed.value.filter((item) => item.name.toLowerCase().includes(wanted));
+      }
       return answer(
         listed,
         (items) => `${plural(items.length, "account")}.`,

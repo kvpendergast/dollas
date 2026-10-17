@@ -2,17 +2,28 @@ import { confirmInput, pageInput, paginate, readPage } from "@dollas/mcp";
 import { z } from "zod";
 import { answer, plural, tool, uuidInput } from "@/slices/agents/tool-kit";
 import { applyPayeeRule, deletePayeeRule, listPayeeRules, previewPayeeRuleApply, savePayeeRule } from "./payee-rule-service";
-import { PAYEE_RULES_APPLY_TO } from "./payee-rule-copy";
+import { PAYEE_RULES_APPLY_TO, type PayeeRuleApplyCounts } from "./payee-rule-copy";
 
 const patternInput = z.string().min(1).max(120).describe("Payee text to match. A payee containing it (case-insensitive) matches.");
 
-function counts(value: { pattern: string; categoryName: string; changeCount: number; skippedSplitCount: number; skippedWithoutCategoryCount: number }) {
+type CountsValue = PayeeRuleApplyCounts;
+
+function counts(value: CountsValue) {
   return {
     pattern: value.pattern,
     category_name: value.categoryName,
     change_count: value.changeCount,
     skipped_split_count: value.skippedSplitCount,
     skipped_without_category_count: value.skippedWithoutCategoryCount,
+    sample_payees: (value.samplePayees ?? []).map((item) => ({ payee: item.payee, transactions: item.count })),
+    conflicting_rules: (value.conflicts ?? []).map((item) => ({
+      rule_id: item.ruleId,
+      pattern: item.pattern,
+      category_id: item.categoryId,
+      same_category: item.sameCategory,
+      wins_on_import: item.winsOnImport,
+      shared_payees: item.sharedPayees,
+    })),
   };
 }
 
@@ -87,7 +98,7 @@ export const payeeRuleTools = [
   tool({
     name: "preview_payee_rule_apply",
     title: "Preview applying a payee rule",
-    description: "How many existing transactions a saved rule would move to its category, and how many split or uncategorized ones it would skip. Nothing is written.",
+    description: "How many existing transactions a saved rule would move to its category, and how many split or uncategorized ones it would skip, plus sample_payees (the distinct payees it matches, most frequent first) and conflicting_rules (other rules that also match some of them; wins_on_import is true when the other, longer rule would beat this one on a new import or sync). Nothing is written.",
     access: "read",
     input: { rule_id: uuidInput("Payee rule") },
     async run(args, { books }) {

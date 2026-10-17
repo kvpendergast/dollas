@@ -113,7 +113,7 @@ export const PAGE_PARITY: Record<string, Parity> = {
   "/": { tools: ["get_month_summary", "get_onboarding_status"] },
   "/accounts": { tools: ["list_accounts", "list_bank_connections"] },
   "/activity": {
-    tools: ["list_transactions", "list_saved_filters", "list_recurring_items", "list_payee_rules", "list_csv_imports", "list_accounts", "list_categories"],
+    tools: ["list_transactions", "list_payees", "list_saved_filters", "list_recurring_items", "list_payee_rules", "list_csv_imports", "list_accounts", "list_categories"],
   },
   "/categories": { tools: ["list_categories", "get_onboarding_status"] },
   "/history": { tools: ["get_spending_breakdown", "get_spending_history", "list_saved_filters"] },
