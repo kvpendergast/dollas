@@ -9,6 +9,7 @@ import {
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Pencil } from "lucide-react";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -254,10 +255,10 @@ function ChangeKindForm({ category }: { category: ListedCategory }) {
           <p role="status" className="text-sm">
             {warning}
           </p>
-          <label htmlFor={confirmId} className="flex min-h-10 items-center gap-3 text-sm">
-            <input id={confirmId} type="checkbox" name="confirmBudgetRemoval" value="yes" required className="size-5" />
-            <span>Remove its budgets</span>
-          </label>
+          <div className="flex min-h-11 items-center gap-3 text-sm">
+            <Checkbox id={confirmId} name="confirmBudgetRemoval" value="yes" required />
+            <label htmlFor={confirmId}>Remove its budgets</label>
+          </div>
         </div>
       ) : null}
       <FormError message={otherError} />

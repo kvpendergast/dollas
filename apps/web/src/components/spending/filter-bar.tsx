@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import type { FilterContext } from "@/slices/spending/load";
 import { SavedFilters } from "./saved-filters";
@@ -29,8 +30,8 @@ import { cn } from "@/lib/utils";
 
 function Check({ name, value, checked, children }: { name: string; value: string; checked: boolean; children: ReactNode }) {
   return (
-    <label className="flex min-h-9 items-center gap-2 rounded-md px-2 text-sm hover:bg-muted">
-      <input type="checkbox" name={name} value={value} defaultChecked={checked} className="size-4 accent-[var(--primary)]" />
+    <label className="flex min-h-11 items-center gap-2 rounded-md px-2 text-sm hover:bg-muted">
+      <Checkbox name={name} value={value} defaultChecked={checked} />
       <span className="min-w-0 truncate">{children}</span>
     </label>
   );
