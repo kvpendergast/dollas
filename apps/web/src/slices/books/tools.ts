@@ -1,4 +1,4 @@
-import { answer, money, tool } from "@/slices/agents/tool-kit";
+import { answer, money, monthInput, tool } from "@/slices/agents/tool-kit";
 import { getHomeSummary, getSpendEstimate, getSpendingHistory } from "./service";
 
 export const booksTools = [
@@ -6,13 +6,13 @@ export const booksTools = [
     name: "get_month_summary",
     title: "Get this month's summary",
     description:
-      "The Home page numbers for the current month: income, spent, and left; total budgeted; plan: spent against budget for every budgeted category (budgeted, including ones with nothing spent, and unbudgeted spending; has_budget false means no budget this month); total account balance; and the Spend estimate headline (the same numbers as get_spend_estimate). Integer cents.",
+      "The Home page numbers for the current month: income, spent, and left; total budgeted; plan: spent against budget for every budgeted category (budgeted, including ones with nothing spent, and unbudgeted spending; has_budget false means no budget this month); total account balance (always today's); and the Spend estimate headline (the same numbers as get_spend_estimate; null for any month but the current one). Give month (YYYY-MM) for another month: a past or future month runs to its last day. Integer cents.",
     access: "read",
-    input: {},
-    async run(_args, { books }) {
+    input: { month: monthInput.optional() },
+    async run(args, { books }) {
       return answer(
-        await getHomeSummary(books),
-        (home) => `Spent ${money(home.spentCents, books)} of ${money(home.incomeCents, books)} income this month.`,
+        await getHomeSummary(books, args.month),
+        (home) => `Spent ${money(home.spentCents, books)} of ${money(home.incomeCents, books)} income in ${home.currentMonth ? "this month" : home.month}.`,
       );
     },
   }),

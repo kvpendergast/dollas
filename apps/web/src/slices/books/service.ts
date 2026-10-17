@@ -1,8 +1,8 @@
 import type { HistoryColumn, SpendEstimate } from "@dollas/domain";
-import { failure, succeed, type ServiceResult } from "@/lib/service-result";
+import { failure, refuse, succeed, type ServiceResult } from "@/lib/service-result";
 import type { BooksContext } from "@/slices/access/member";
 import { loadSpendEstimate } from "./estimate";
-import { loadHistory, loadHome } from "./queries";
+import { loadHistory, loadHome, loadHomeFor, parsePlanMonth } from "./queries";
 
 /**
  * Read services for Home, History, and the Spend estimate, shared by those
@@ -10,10 +10,14 @@ import { loadHistory, loadHome } from "./queries";
  */
 
 export type HomeSummary = Awaited<ReturnType<typeof loadHome>>;
+export type MonthSummary = Awaited<ReturnType<typeof loadHomeFor>>;
 
-export async function getHomeSummary(books: BooksContext): Promise<ServiceResult<HomeSummary>> {
+/** The Home numbers for the current month, or for `month` (YYYY-MM) when given. */
+export async function getHomeSummary(books: BooksContext, month?: string): Promise<ServiceResult<MonthSummary>> {
+  const wanted = month === undefined ? null : parsePlanMonth(month);
+  if (month !== undefined && !wanted) return refuse("Use a month like 2026-09.");
   try {
-    return succeed(await loadHome(books));
+    return succeed(await loadHomeFor(books, wanted));
   } catch (error) {
     return failure(error, "Could not load this month's summary.", { action: "load-home", householdId: books.householdId });
   }

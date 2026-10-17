@@ -1,4 +1,8 @@
 import { MAX_TRANSACTION_SPLITS, PAYEE_MAX_LENGTH, toIsoDate } from "@dollas/domain";
+import { and, eq, inArray } from "drizzle-orm";
+import { withActor } from "@/db/actor";
+import { category, ledgerAccount } from "@/db/schema";
+import { succeed, type ServiceActor, type ServiceResult } from "@/lib/service-result";
 import { confirmInput, pageFrom, pageInput, paginate, readPage } from "@dollas/mcp";
 import { z } from "zod";
 import { answer, centsInput, isoDateInput, money, plural, tool, uuidInput } from "@/slices/agents/tool-kit";
@@ -91,14 +95,46 @@ function bulkSummary(value: BulkCategorizeOutcome): string {
   return `${lead} to ${value.categoryName}${notes.length ? ` (${notes.join(", ")})` : ""}.`;
 }
 
-function saved(value: SavedTransaction) {
+type NamedTransaction = SavedTransaction & { accountName: string; categoryNames: Record<string, string> };
+
+/** A saved transaction with the names behind its ids, so a result reads without a lookup (PEN-283). */
+async function named(books: ServiceActor, result: ServiceResult<SavedTransaction>): Promise<ServiceResult<NamedTransaction>> {
+  if (!result.ok) return result;
+  try {
+    const found = await withActor(books.userId, async (tx) => ({
+      categories: await tx
+        .select({ id: category.id, name: category.name })
+        .from(category)
+        .where(and(eq(category.householdId, books.householdId), inArray(category.id, result.value.splits.map((split) => split.categoryId)))),
+      accounts: await tx
+        .select({ name: ledgerAccount.name })
+        .from(ledgerAccount)
+        .where(and(eq(ledgerAccount.householdId, books.householdId), eq(ledgerAccount.id, result.value.accountId))),
+    }));
+    return succeed({
+      ...result.value,
+      accountName: found.accounts[0]?.name ?? "",
+      categoryNames: Object.fromEntries(found.categories.map((row) => [row.id, row.name])),
+    });
+  } catch {
+    // The write already happened; the ids alone are still a correct answer.
+    return succeed({ ...result.value, accountName: "", categoryNames: {} });
+  }
+}
+
+function saved(value: NamedTransaction) {
   return {
     id: value.id,
     occurred_on: value.occurredOn,
     payee: value.payee,
     amount_cents: value.amountCents,
     account_id: value.accountId,
-    splits: value.splits.map((split) => ({ category_id: split.categoryId, amount_cents: split.amountCents })),
+    account_name: value.accountName || null,
+    splits: value.splits.map((split) => ({
+      category_id: split.categoryId,
+      category_name: value.categoryNames[split.categoryId] ?? null,
+      amount_cents: split.amountCents,
+    })),
   };
 }
 
@@ -202,7 +238,7 @@ export const transactionTools = [
         { accountId: args.account_id, occurredOn: args.occurred_on, payee: args.payee, amountCents: args.amount_cents, splits },
         "mcp",
       );
-      return answer(created, (value) => `Added ${value.payee} for ${money(value.amountCents, books)} on ${value.occurredOn}.`, saved);
+      return answer(await named(books, created), (value) => `Added ${value.payee} for ${money(value.amountCents, books)} on ${value.occurredOn}.`, saved);
     },
   }),
   tool({
@@ -263,7 +299,7 @@ export const transactionTools = [
         },
         "mcp",
       );
-      return answer(edited, (value) => `Saved ${value.payee}.`, saved);
+      return answer(await named(books, edited), (value) => `Saved ${value.payee}.`, saved);
     },
   }),
   tool({
@@ -275,7 +311,7 @@ export const transactionTools = [
     input: { transaction_id: uuidInput("Transaction"), category_id: uuidInput("Category") },
     async run(args, { books }) {
       const edited = await amendHouseholdTransaction(books, args.transaction_id, { categoryId: args.category_id }, "mcp");
-      return answer(edited, (value) => `Categorized ${value.payee}.`, saved);
+      return answer(await named(books, edited), (value) => `Categorized ${value.payee} as ${value.categoryNames[args.category_id] ?? "that category"}.`, saved);
     },
   }),
   tool({
@@ -327,7 +363,7 @@ export const transactionTools = [
     input: { transaction_id: uuidInput("Transaction"), splits: splitsInput.min(2).describe("Two or more category splits.") },
     async run(args, { books }) {
       const edited = await amendHouseholdTransaction(books, args.transaction_id, { splits: splitsFrom(args.splits) }, "mcp");
-      return answer(edited, (value) => `Split ${value.payee} across ${plural(value.splits.length, "category", "categories")}.`, saved);
+      return answer(await named(books, edited), (value) => `Split ${value.payee} across ${plural(value.splits.length, "category", "categories")}.`, saved);
     },
   }),
   tool({

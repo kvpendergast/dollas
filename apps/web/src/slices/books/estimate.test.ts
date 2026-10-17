@@ -174,6 +174,7 @@ describe("spend estimate service (PEN-205)", () => {
       // Home's card and the MCP tools read the same service.
       const home = await getHomeSummary(books);
       assert.ok(home.ok);
+      assert.ok(home.value.estimate, "the current month carries the estimate");
       assert.equal(home.value.spentCents, estimate.thisMonth.spentSoFarCents, "Home's spent and the estimate's spent so far agree");
       assert.equal(home.value.estimate.estimateCents, estimate.thisMonth.estimateCents);
       assert.equal(home.value.estimate.nextMonthEstimateCents, estimate.nextMonth.estimateCents);

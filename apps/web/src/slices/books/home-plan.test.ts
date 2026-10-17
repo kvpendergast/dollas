@@ -117,6 +117,19 @@ describe("Home spent vs budget (PEN-212)", () => {
       assert.equal(shown.has_budget, true);
       assert.deepEqual(shown.budgeted.find((row) => row.name === "Gifts"), { category_id: cat(maple, "Gifts"), name: "Gifts", spent_cents: 0, budget_cents: 10000, standing: "within", remaining_cents: 10000 });
 
+      // A month parameter (PEN-283): September has the old spending and its own budget; no estimate.
+      const september = await getHomeSummary(maples, "2026-09");
+      assert.ok(september.ok);
+      assert.deepEqual([september.value.month, september.value.currentMonth, september.value.spentCents], ["2026-09", false, 99999]);
+      assert.equal(september.value.estimate, null);
+      assert.deepEqual(september.value.plan.budgeted.map((row) => [row.name, row.budgetCents, row.spentCents]), [["Food · Coffee", 5000, 0]]);
+      const octoberNamed = await getHomeSummary(maples, "2026-10");
+      assert.ok(octoberNamed.ok && octoberNamed.value.currentMonth && octoberNamed.value.estimate, "naming the current month is the current month");
+      const monthOutcome = await tool.run({ month: "2026-09" }, { books: maples, via: "mcp" } as never);
+      assert.ok(monthOutcome.ok);
+      assert.equal((monthOutcome.value as { spent_cents: number }).spent_cents, 99999);
+      for (const bad of ["2026-13", "sept", "2026-9"]) assert.equal((await getHomeSummary(maples, bad)).ok, false, bad);
+
       // No budget: "Spending so far", by category.
       await spend(birches, "Birch Market", -4200, "Groceries");
       const birchHome = await getHomeSummary(birches);

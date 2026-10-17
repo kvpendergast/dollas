@@ -228,7 +228,8 @@ describe("Dollas MCP tools", () => {
       assert.match(unbalanced.text, /add up/);
       await ada.ok("update_transaction", { transaction_id: t1, payee: "Corner Market Co" });
       const categorized = await ada.ok("categorize_transaction", { transaction_id: t2, category_id: dining });
-      assert.deepEqual(categorized.splits, [{ category_id: dining, amount_cents: -3000 }]);
+      assert.deepEqual(categorized.splits, [{ category_id: dining, category_name: "Dining", amount_cents: -3000 }]);
+      assert.equal(categorized.account_name, "Checking");
       await ada.ok("split_transaction", {
         transaction_id: t1,
         splits: [
@@ -391,6 +392,13 @@ describe("Dollas MCP tools", () => {
       assert.equal((await birchAgent.call("categorize_transactions", { transaction_ids: bulkIds, category_id: groceries })).isError, true, "another household's category refused");
       const birchGroup = (await birchAgent.ok("create_category_group", { name: "Birch Group" })).id as string;
       const birchCategory = (await birchAgent.ok("create_category", { name: "Birch Bulk", kind: "expense", group_id: birchGroup })).id as string;
+      // PEN-283: group names are unique ignoring case, and a category can name its group instead of an id.
+      assert.equal((await birchAgent.call("create_category_group", { name: "birch group" })).isError, true, "case-insensitive duplicate group");
+      const byName = await birchAgent.ok("create_category", { name: "Birch Named", kind: "expense", group_name: "BIRCH GROUP" });
+      assert.equal(byName.group_id, birchGroup);
+      const noGroup = await birchAgent.call("create_category", { name: "Birch Lost", kind: "expense", group_name: "Nowhere" });
+      assert.equal(noGroup.isError, true);
+      assert.match(noGroup.text, /create_category_group/);
       const birchBulk = await birchAgent.ok("categorize_transactions", { transaction_ids: bulkIds, category_id: birchCategory });
       assert.equal(birchBulk.not_found, 3, "another household's transactions are not found");
       const ruleBulk = await ada.ok("create_payee_rule", { pattern: "bulk bakery", category_id: groceries, apply_to_existing: true });
