@@ -10,10 +10,12 @@ import { RecurringLinkControl } from "@/components/recurring/recurring-forms";
 import { SplitControl, type SplitRow } from "./split-control";
 import { useActionToast } from "@/lib/use-action-toast";
 import { toast } from "@/lib/toast-store";
+import { selectClass as selectBase } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 type Option = { id: string; name: string; archived?: boolean };
 
-const selectClass = "h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm";
+const selectClass = cn(selectBase);
 
 function unsignedDollarInput(cents: number): string {
   const absolute = Math.abs(cents);

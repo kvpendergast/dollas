@@ -25,7 +25,7 @@ function DialogOverlay({ className, ...props }: React.ComponentProps<typeof Dial
   return (
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
-      className={cn("dl-overlay fixed inset-0 z-50 bg-foreground/20", className)}
+      className={cn("dl-overlay fixed inset-0 z-50 bg-foreground/40", className)}
       {...props}
     />
   );
@@ -38,13 +38,13 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<t
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "dl-dialog fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[min(32rem,calc(100%-2rem))] overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-6 text-popover-foreground ring-1 ring-foreground/10",
+          "dl-dialog fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[min(32rem,calc(100%-2rem))] overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-4 rounded-md border-2 border-foreground bg-popover p-6 text-popover-foreground shadow-pop",
           className,
         )}
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute top-2 right-2 flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+        <DialogPrimitive.Close className="absolute top-2 right-2 flex size-11 items-center justify-center rounded-full text-foreground hover:bg-amber focus-visible:shadow-focus focus-visible:outline-3 focus-visible:outline-ring">
           <XIcon className="size-4" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
@@ -71,7 +71,7 @@ function DialogTitle({ className, ...props }: React.ComponentProps<typeof Dialog
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("font-heading text-lg leading-snug", className)}
+      className={cn("font-heading text-xl leading-snug font-extrabold", className)}
       {...props}
     />
   );

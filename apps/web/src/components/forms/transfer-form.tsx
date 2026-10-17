@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createTransferAction } from "@/slices/activity/actions";
 import { useActionToast } from "@/lib/use-action-toast";
+import { selectClass as selectBase } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 type Option = { id: string; name: string };
 
-const selectClass = "h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm";
+const selectClass = cn(selectBase);
 
 /** Money between two of the household's own accounts, such as a card payment. Neither income nor spending. */
 export function TransferForm({ accounts, today }: { accounts: Option[]; today: string }) {

@@ -169,7 +169,7 @@ export default async function HomePage() {
         <CardHeader>
           <div className="flex items-center justify-between gap-3">
             <CardTitle>Spend estimate</CardTitle>
-            <Badge>Estimate</Badge>
+            <Badge variant="estimate">Estimate</Badge>
           </div>
           <CardDescription>Where this month is probably headed. The month is not finished.</CardDescription>
         </CardHeader>

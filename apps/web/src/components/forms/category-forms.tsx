@@ -7,8 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createCategoryAction, createCategoryGroupAction } from "@/slices/categories/actions";
 import { useActionToast } from "@/lib/use-action-toast";
+import { selectClass as selectBase } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
-const selectClass = "h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm";
+const selectClass = cn(selectBase);
 
 export function CategoryGroupForm() {
   const [state, action, pending] = useActionState(createCategoryGroupAction, { error: "" });
