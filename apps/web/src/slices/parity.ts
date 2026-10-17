@@ -137,4 +137,7 @@ export const PAGE_PARITY: Record<string, Parity> = {
 /** Tools with no page or action counterpart, because only an agent needs them. */
 export const AGENT_ONLY_TOOLS: Record<string, string> = {
   whoami: "Tells the agent who it acts as and with what access; the web app shows this in its chrome.",
+  // PENDING: the profit and loss screen is not built yet (waiting on the UI mockup). The screen PR
+  // must delete this entry and map the new page route to get_profit_and_loss in PAGE_PARITY.
+  get_profit_and_loss: "Month-over-month profit and loss; the page for it ships in a later PR, which moves this tool to PAGE_PARITY.",
 };

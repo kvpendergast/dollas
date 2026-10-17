@@ -514,6 +514,23 @@ describe("Dollas MCP tools", () => {
       assert.equal((copied.copied as unknown[]).length, 1);
       assert.equal((await ada.call("get_plan", { month: "2026-13" })).isError, true);
 
+      // Profit and loss: shape, granularities, validation, budget status, transfers out.
+      const pnl = await ada.ok("get_profit_and_loss", { from_month: prev, to_month: thisMonth });
+      assert.deepEqual((pnl.periods as Array<{ key: string }>).map((row) => row.key), [prev, thisMonth]);
+      assert.equal((pnl.totals as unknown[]).length, 2);
+      const pnlRows = (pnl.groups as Array<{ categories: Array<{ id: string; kind: string; periods: Array<{ actual_cents: number; budget_cents: number | null; status: string }> }> }>).flatMap((group) => group.categories);
+      assert.equal(pnlRows.some((row) => row.kind === "transfer"), false, "transfers are never rows");
+      const pnlDining = pnlRows.find((row) => row.id === dining);
+      assert.equal(pnlDining?.periods[0]?.budget_cents, 12000, "last month's dining budget shows");
+      assert.notEqual(pnlDining?.periods[0]?.status, "neutral", "a budgeted expense is under or over");
+      assert.equal(pnlDining?.periods[1]?.status === "neutral" || pnlDining?.periods[1]?.budget_cents === 12000, true, "unbudgeted months are neutral (or carry the copied budget)");
+      const pnlYtd = await ada.ok("get_profit_and_loss", { to_month: thisMonth, granularity: "ytd" });
+      assert.equal((pnlYtd.periods as unknown[]).length, 1);
+      assert.equal(((pnlYtd.periods as Array<{ from: string }>)[0]?.from), `${books.asOf.year}-01`);
+      assert.equal((await ada.call("get_profit_and_loss", { from_month: "2020-01", to_month: thisMonth })).isError, true, "range over 36 months refused");
+      assert.equal((await ada.call("get_profit_and_loss", { from_month: thisMonth, to_month: prev })).isError, true, "reversed range refused");
+      assert.equal((await ada.call("get_profit_and_loss", { granularity: "week" })).isError, true, "unknown granularity refused");
+
       // Home, Spend estimate, history.
       const summary = await ada.ok("get_month_summary");
       assert.equal(typeof summary.spent_cents, "number");
@@ -617,7 +634,7 @@ describe("Dollas MCP tools", () => {
 
       // Scope: a read grant runs every read tool and no write tool.
       const reader = await clientFor(ids.ada, maple, "read");
-      for (const name of ["whoami", "list_accounts", "list_transactions", "list_categories", "get_plan", "get_month_summary", "list_household", "get_spending_breakdown", "list_saved_filters", "get_onboarding_status"]) {
+      for (const name of ["whoami", "list_accounts", "list_transactions", "list_categories", "get_plan", "get_profit_and_loss", "get_month_summary", "list_household", "get_spending_breakdown", "list_saved_filters", "get_onboarding_status"]) {
         await reader.ok(name);
       }
       const sneaky = await reader.call("create_transaction", {
@@ -644,6 +661,10 @@ describe("Dollas MCP tools", () => {
       assert.deepEqual((cyAccounts.items as Array<{ id: string }>).map((row) => row.id), [birchAccount?.id]);
       assert.equal((await cy.ok("list_transactions")).total, 0);
       assert.equal(JSON.stringify(await cy.ok("list_categories")).includes(groceries), false, "Maple's categories do not leak (Birch has its own starter Groceries)");
+      const cyPnl = await cy.ok("get_profit_and_loss", { from_month: prev, to_month: thisMonth });
+      assert.equal(JSON.stringify(cyPnl).includes(groceries), false, "Maple's categories stay out of Birch's profit and loss");
+      assert.equal(JSON.stringify(cyPnl).includes(dining), false);
+      assert.deepEqual((cyPnl.totals as Array<{ income_cents: number; expenses_cents: number }>).map((row) => [row.income_cents, row.expenses_cents]), [[0, 0], [0, 0]], "Maple's money stays out of Birch's totals");
       assert.equal((await cy.call("update_transaction", { transaction_id: t1, payee: "Hijacked" })).isError, true);
       assert.equal((await cy.call("delete_transaction", { transaction_id: t1, confirm: true })).isError, true);
       assert.equal((await cy.call("categorize_transaction", { transaction_id: t1, category_id: groceries })).isError, true);
