@@ -23,8 +23,10 @@ export function NextStep({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-lg border border-dashed border-border bg-muted/30 px-4 py-5", className)}>
-      <p className="font-medium">{title}</p>
+    <div className={cn("flex items-start gap-4 rounded-md border-2 border-dashed border-foreground bg-secondary/60 px-4 py-5", className)}>
+      <span aria-hidden="true" className="mt-0.5 size-8 shrink-0 rounded-full border-2 border-dashed border-foreground bg-white" />
+      <div className="min-w-0 flex-1">
+      <p className="font-heading font-extrabold">{title}</p>
       {body ? <p className="mt-1 text-sm text-muted-foreground">{body}</p> : null}
       {href && action ? (
         <div className="mt-3 flex flex-wrap items-start gap-2">
@@ -36,6 +38,7 @@ export function NextStep({
       ) : extra ? (
         <div className="mt-3 flex flex-wrap items-start gap-2">{extra}</div>
       ) : null}
+      </div>
     </div>
   );
 }

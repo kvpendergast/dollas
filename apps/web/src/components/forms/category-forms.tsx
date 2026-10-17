@@ -50,7 +50,7 @@ function KindChoices({ locked = false }: { locked?: boolean }) {
                 disabled={locked}
                 className="peer sr-only"
               />
-              <span className="flex h-10 items-center justify-center rounded-lg border border-input bg-background px-2 text-sm peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50 peer-disabled:opacity-100">
+              <span className="flex min-h-11 items-center justify-center rounded-full border-2 border-input bg-white px-3 font-heading text-sm font-bold peer-checked:border-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-checked:shadow-press peer-focus-visible:shadow-focus peer-focus-visible:outline-3 peer-focus-visible:outline-ring peer-disabled:opacity-100">
                 {categoryKindLabel(kind)}
               </span>
             </label>
