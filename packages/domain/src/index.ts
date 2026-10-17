@@ -601,6 +601,7 @@ export {
   type PnlGroup,
   type PnlInput,
   type PnlPeriod,
+  type PnlPeriodKind,
   type PnlSplit,
   type PnlStatus,
   type PnlStore,

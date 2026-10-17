@@ -52,8 +52,8 @@ describe("profit and loss", () => {
       [b("rent", 2026, 1, 90000), b("pay", 2026, 1, 999)],
     ));
     expect(row(r, "pay")!.periods[0]).toMatchObject({ actualCents: 300000, budgetCents: null, status: "neutral" });
-    expect(r.totals[0]).toEqual({ incomeCents: 300000, expensesCents: 105000, netCents: 195000, budgetExpensesCents: 90000, budgetedActualCents: 100000 });
-    expect(r.totals[1]).toEqual({ incomeCents: 0, expensesCents: 0, netCents: 0, budgetExpensesCents: null, budgetedActualCents: 0 });
+    expect(r.totals[0]).toEqual({ incomeCents: 300000, expensesCents: 105000, netCents: 195000, budgetExpensesCents: 90000, budgetedActualCents: 100000, expensesDeltaCents: 15000, expensesStatus: "over", expensesOverAlready: false });
+    expect(r.totals[1]).toEqual({ incomeCents: 0, expensesCents: 0, netCents: 0, budgetExpensesCents: null, budgetedActualCents: 0, expensesDeltaCents: null, expensesStatus: "neutral", expensesOverAlready: false });
   });
 
   it("excludes transfers and other households", async () => {
@@ -125,5 +125,50 @@ describe("profit and loss", () => {
     expect((await bad({ from: "2023-10", to: "2026-10", g: "quarter" })).isErr()).toBe(true);
     expect((await bad({ from: "2023-11", to: "2026-10" })).isOk()).toBe(true);
     expect(PNL_MAX_MONTHS).toBe(36);
+  });
+
+  describe("current month (so far) and year to date", () => {
+    const spend = [
+      s("rent", -100, "2026-08-02"), s("rent", -100, "2026-09-02"), s("rent", -90, "2026-10-05"),
+      s("food", -30, "2026-09-02"), s("food", -10, "2026-10-05"), s("pay", 500, "2026-10-01"),
+    ];
+    const budgets = [b("rent", 2026, 8, 100), b("rent", 2026, 9, 100), b("rent", 2026, 10, 100), b("food", 2026, 9, 50), b("food", 2026, 10, 20)];
+
+    it("the current month is neutral until spending passes the full budget, then over already", async () => {
+      const calm = await run(store(spend, budgets), { from: "2026-09", to: "2026-10" });
+      expect(row(calm, "rent")!.periods.map((p) => [p.status, p.overAlready])).toEqual([["under", false], ["neutral", false]]);
+      const over = await run(store([...spend, s("rent", -11, "2026-10-09")], budgets), { from: "2026-09", to: "2026-10" });
+      expect(row(over, "rent")!.periods[1]).toMatchObject({ actualCents: 101, budgetCents: 100, deltaCents: 1, status: "over", overAlready: true });
+      expect(row(over, "rent")!.periods[0].overAlready).toBe(false);
+      expect(over.periods.map((p) => p.kind)).toEqual(["full", "so_far"]);
+    });
+
+    it("ytd through the current month is finished months, this month, and an actual-only total", async () => {
+      const r = await run(store(spend, budgets), { from: "2026-03", to: "2026-10", g: "ytd" });
+      expect(r.periods.map((p) => [p.key, p.label, p.from, p.to, p.kind, p.partial])).toEqual([
+        ["2026-ytd-finished", "Jan to Sep", "2026-01", "2026-09", "full", false],
+        ["2026-ytd-current", "Oct", "2026-10", "2026-10", "so_far", true],
+        ["2026-ytd-total", "YTD total", "2026-01", "2026-10", "total", true],
+      ]);
+      expect(row(r, "rent")!.periods[0]).toMatchObject({ actualCents: 200, budgetCents: 200, status: "under" });
+      expect(row(r, "rent")!.periods[1]).toMatchObject({ actualCents: 90, status: "neutral" });
+      expect(row(r, "rent")!.periods[2]).toMatchObject({ actualCents: 290, budgetCents: null, deltaCents: null, status: "neutral", overAlready: false });
+      expect(r.totals[2]).toMatchObject({ budgetExpensesCents: null, expensesStatus: "neutral", incomeCents: 500, expensesCents: 330 });
+    });
+
+    it("a quarter that ends in the current month is so far", async () => {
+      const r = await run(store(spend, budgets), { from: "2026-07", to: "2026-10", g: "quarter" });
+      expect(r.periods.map((p) => [p.key, p.kind])).toEqual([["2026-Q3", "full"], ["2026-Q4", "so_far"]]);
+      expect(row(r, "rent")!.periods[0].status).toBe("under");
+      expect(row(r, "rent")!.periods[1]).toMatchObject({ actualCents: 90, budgetCents: 100, status: "neutral" });
+    });
+
+    it("group subtotals and the expenses row compare total spend, unbudgeted included, with total budget", async () => {
+      const r = await run(store([...spend, s("misc", -500, "2026-09-03")], budgets), { from: "2026-09", to: "2026-10" });
+      const home = r.groups.find((g) => g.id === "g1")!;
+      expect(home.expenseTotals[0]).toMatchObject({ actualCents: 100, budgetCents: 100, status: "under" });
+      expect(r.totals[0]).toMatchObject({ expensesCents: 630, budgetExpensesCents: 150, expensesDeltaCents: 480, expensesStatus: "over" });
+      expect(r.totals[1]).toMatchObject({ expensesStatus: "neutral", expensesOverAlready: false });
+    });
   });
 });

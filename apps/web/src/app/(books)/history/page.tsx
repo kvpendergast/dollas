@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/app/page-header";
+import { Button } from "@/components/ui/button";
 import { HistoryChart } from "@/components/history/history-chart";
 import { SpendingDashboardView } from "@/components/spending/dashboard";
 import { FilterBar } from "@/components/spending/filter-bar";
@@ -37,6 +39,11 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
       <PageHeader
         title="History"
         description="Where the money went, filtered any way you like, and month over month. Pick a category or account to see its transactions."
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link href="/history/profit-and-loss">Profit &amp; loss</Link>
+          </Button>
+        }
       />
       <section id="spending" className="scroll-mt-20 space-y-4" aria-labelledby="spending-heading">
         <h2 id="spending-heading" className="font-heading text-2xl">

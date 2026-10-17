@@ -1,6 +1,7 @@
-import type { BudgetMonth, CopyBudgetPreview, MonthPlan } from "@dollas/domain";
+import type { BudgetMonth, PnlGranularity, ProfitLoss, CopyBudgetPreview, MonthPlan } from "@dollas/domain";
 import type { BooksContext } from "@/slices/access/guard";
 import { getMonthPlan, previewCopyLastMonth } from "./service";
+import { getProfitAndLoss } from "./profit-loss";
 
 /** Page loaders over ./service. */
 
@@ -16,4 +17,13 @@ export async function loadCopyPreview(
 ): Promise<{ preview: CopyBudgetPreview | null; error: string }> {
   const preview = await previewCopyLastMonth(books, month);
   return preview.ok ? { preview: preview.value, error: "" } : { preview: null, error: preview.memberMessage };
+}
+
+export async function loadProfitAndLoss(
+  books: BooksContext,
+  input: { fromMonth?: string; toMonth?: string; granularity: PnlGranularity },
+): Promise<ProfitLoss> {
+  const report = await getProfitAndLoss(books, input);
+  if (!report.ok) throw new Error(report.memberMessage);
+  return report.value;
 }

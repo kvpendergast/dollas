@@ -5,9 +5,13 @@ import { cn } from "@/lib/utils";
  * Table (shadcn). Compose Table > TableHeader/TableBody > TableRow > TableHead/TableCell.
  * The wrapper scrolls sideways on phones so wide tables never overflow the page.
  */
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({
+  className,
+  containerProps,
+  ...props
+}: React.ComponentProps<"table"> & { containerProps?: React.ComponentProps<"div"> }) {
   return (
-    <div data-slot="table-container" className="w-full overflow-x-auto">
+    <div data-slot="table-container" {...containerProps} className={cn("w-full overflow-x-auto", containerProps?.className)}>
       <table data-slot="table" className={cn("w-full caption-bottom text-left text-sm", className)} {...props} />
     </div>
   );

@@ -42,9 +42,17 @@ export type PnlPeriod = {
   from: string;
   to: string;
   months: number;
-  /** The period ends in the current, unfinished month. */
+  /**
+   * "full": finished months, compared with budget. "so_far": ends in the current month, so it is
+   * neutral unless it is already over. "total": year-to-date total including the current month,
+   * actual only (no budget, no comparison).
+   */
+  kind: PnlPeriodKind;
+  /** The period includes the current, unfinished month (so_far and total). */
   partial: boolean;
 };
+
+export type PnlPeriodKind = "full" | "so_far" | "total";
 
 export type PnlCell = {
   actualCents: number;
@@ -54,6 +62,8 @@ export type PnlCell = {
   /** Months in the period that had a budget for this category. */
   budgetedMonths: number;
   status: PnlStatus;
+  /** A so_far period whose spending already passed the full budget. Status is "over" then. */
+  overAlready: boolean;
 };
 
 export type PnlCategoryRow = {
@@ -67,6 +77,8 @@ export type PnlGroup = {
   id: string;
   name: string;
   categories: PnlCategoryRow[];
+  /** Per period: this group's expense categories added up (actual vs the budgets that exist). */
+  expenseTotals: PnlCell[];
 };
 
 export type PnlTotals = {
@@ -77,6 +89,10 @@ export type PnlTotals = {
   budgetExpensesCents: number | null;
   /** Spending in the budgeted categories and months only, to compare with budgetExpensesCents. */
   budgetedActualCents: number;
+  /** Total expenses (unbudgeted spend included) minus budget_expenses; null with no budget or in a total period. */
+  expensesDeltaCents: number | null;
+  expensesStatus: PnlStatus;
+  expensesOverAlready: boolean;
 };
 
 export type ProfitLoss = {
@@ -121,12 +137,15 @@ const iso = (d: CivilDate) => `${String(d.year).padStart(4, "0")}-${String(d.mon
 const index = (month: BudgetMonth) => month.year * 12 + (month.month - 1);
 const fromIndex = (value: number): BudgetMonth => ({ year: Math.floor(value / 12), month: (value % 12) + 1 });
 
-type Bucket = { key: string; label: string; first: number; last: number };
+type Bucket = { key: string; label: string; first: number; last: number; kind: PnlPeriodKind };
 
-function buildBuckets(granularity: PnlGranularity, first: number, last: number): Bucket[] {
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function buildBuckets(granularity: PnlGranularity, first: number, last: number, current: number): Bucket[] {
+  const kindOf = (end: number): PnlPeriodKind => (end === current ? "so_far" : "full");
   const buckets: Bucket[] = [];
   if (granularity === "month") {
-    for (let i = first; i <= last; i++) buckets.push({ key: formatBudgetMonth(fromIndex(i)), label: formatBudgetMonth(fromIndex(i)), first: i, last: i });
+    for (let i = first; i <= last; i++) buckets.push({ key: formatBudgetMonth(fromIndex(i)), label: formatBudgetMonth(fromIndex(i)), first: i, last: i, kind: kindOf(i) });
     return buckets;
   }
   const size = granularity === "quarter" ? 3 : 12;
@@ -138,18 +157,43 @@ function buildBuckets(granularity: PnlGranularity, first: number, last: number):
     const end = Math.min(unitEnd, last);
     if (granularity === "quarter") {
       const q = Math.floor((month.month - 1) / 3) + 1;
-      buckets.push({ key: `${month.year}-Q${q}`, label: `Q${q} ${month.year}`, first: start, last: end });
+      buckets.push({ key: `${month.year}-Q${q}`, label: `Q${q} ${month.year}`, first: start, last: end, kind: kindOf(end) });
+    } else if (end === current && end > start) {
+      // Year to date through the current month: finished months compared, this month so far, plus a total.
+      const done = fromIndex(end - 1);
+      buckets.push({ key: `${month.year}-ytd-finished`, label: `${MONTH_NAMES[month.month - 1]} to ${MONTH_NAMES[done.month - 1]}`, first: start, last: end - 1, kind: "full" });
+      buckets.push({ key: `${month.year}-ytd-current`, label: MONTH_NAMES[fromIndex(end).month - 1], first: end, last: end, kind: "so_far" });
+      buckets.push({ key: `${month.year}-ytd-total`, label: "YTD total", first: start, last: end, kind: "total" });
     } else {
-      buckets.push({ key: `${month.year}-ytd`, label: end === unitEnd ? `${month.year}` : `${month.year} YTD`, first: start, last: end });
+      buckets.push({ key: `${month.year}-ytd`, label: end === unitEnd ? `${month.year}` : `${month.year} YTD`, first: start, last: end, kind: kindOf(end) });
     }
     start = end + 1;
   }
   return buckets;
 }
 
-export function profitLossStatus(actualCents: number, budgetCents: number | null): PnlStatus {
-  if (budgetCents === null) return "neutral";
-  return actualCents > budgetCents ? "over" : "under";
+/**
+ * Finished periods: at or under budget is "under", over is "over". A so_far period is neutral
+ * unless spending already passed the full budget (that cannot reverse), and a total period or a
+ * missing budget is always neutral.
+ */
+export function profitLossStatus(actualCents: number, budgetCents: number | null, kind: PnlPeriodKind = "full"): PnlStatus {
+  if (budgetCents === null || kind === "total") return "neutral";
+  if (actualCents > budgetCents) return "over";
+  return kind === "so_far" ? "neutral" : "under";
+}
+
+function makeCell(actualCents: number, budgetCents: number | null, budgetedMonths: number, kind: PnlPeriodKind): PnlCell {
+  const budget = kind === "total" ? null : budgetCents;
+  const status = profitLossStatus(actualCents, budget, kind);
+  return {
+    actualCents,
+    budgetCents: budget,
+    deltaCents: budget === null ? null : actualCents - budget,
+    budgetedMonths: kind === "total" ? 0 : budgetedMonths,
+    status,
+    overAlready: kind === "so_far" && status === "over",
+  };
 }
 
 export async function buildProfitLoss(store: PnlStore, input: PnlInput): Promise<Result<ProfitLoss, DomainError>> {
@@ -174,8 +218,8 @@ export async function buildProfitLoss(store: PnlStore, input: PnlInput): Promise
     store.listSplits(input.householdId, { start: iso({ year: firstMonth.year, month: firstMonth.month, day: 1 }), end: iso(through) }),
   ]);
 
-  const buckets = buildBuckets(input.granularity, firstIndex, lastIndex);
-  const bucketOf = (monthIndex: number) => buckets.findIndex((bucket) => monthIndex >= bucket.first && monthIndex <= bucket.last);
+  const buckets = buildBuckets(input.granularity, firstIndex, lastIndex, index({ year: input.asOf.year, month: input.asOf.month }));
+  const bucketsOf = (monthIndex: number) => buckets.flatMap((bucket, i) => (monthIndex >= bucket.first && monthIndex <= bucket.last ? [i] : []));
   const own = categories.filter((row) => row.householdId === input.householdId);
   const byId = new Map(own.map((row) => [row.id, row] as const));
 
@@ -196,11 +240,9 @@ export async function buildProfitLoss(store: PnlStore, input: PnlInput): Promise
     const cents = assertCents(split.amountCents);
     if (cents.isErr()) return err(cents.error);
     const month = Number(split.occurredOn.slice(0, 4)) * 12 + (Number(split.occurredOn.slice(5, 7)) - 1);
-    const b = bucketOf(month);
-    if (b < 0) continue;
     // outflows are negative cents: expense spending is positive, a refund (inflow) subtracts
     const signed = category.kind === "income" ? cents.value : -cents.value;
-    slot(actual, category.id)[b] += signed;
+    for (const b of bucketsOf(month)) slot(actual, category.id)[b] += signed;
   }
   for (const row of budgets) {
     const category = byId.get(row.categoryId);
@@ -208,10 +250,10 @@ export async function buildProfitLoss(store: PnlStore, input: PnlInput): Promise
     const amount = assertCents(row.amountCents);
     if (amount.isErr()) return err(amount.error);
     if (amount.value < 0) return err(new BudgetError("A budget cannot be negative."));
-    const b = bucketOf(row.year * 12 + (row.month - 1));
-    if (b < 0) continue;
-    slot(budgetSum, category.id)[b] += amount.value;
-    slot(budgetCount, category.id)[b] += 1;
+    for (const b of bucketsOf(row.year * 12 + (row.month - 1))) {
+      slot(budgetSum, category.id)[b] += amount.value;
+      slot(budgetCount, category.id)[b] += 1;
+    }
   }
 
   type Line = PnlCategoryRow & { sortOrder: number; groupId: string | null; groupName: string | null; groupSort: number | null };
@@ -236,7 +278,7 @@ export async function buildProfitLoss(store: PnlStore, input: PnlInput): Promise
         const actualCents = a?.[b] ?? 0;
         const budgetedMonths = bc?.[b] ?? 0;
         const budgetCents = category.kind === "expense" && budgetedMonths > 0 ? (bs?.[b] ?? 0) : null;
-        return { actualCents, budgetCents, deltaCents: budgetCents === null ? null : actualCents - budgetCents, budgetedMonths, status: profitLossStatus(actualCents, budgetCents) };
+        return makeCell(actualCents, budgetCents, budgetedMonths, buckets[b].kind);
       }),
     });
   }
@@ -265,6 +307,23 @@ export async function buildProfitLoss(store: PnlStore, input: PnlInput): Promise
           return compareCatalogOrder({ id: x.id, name: x.name, sortOrder: x.sortOrder }, { id: y.id, name: y.name, sortOrder: y.sortOrder });
         })
         .map(({ id, name, kind, periods }) => ({ id, name, kind, periods })),
+      expenseTotals: buckets.map((bucket, b) => {
+        let actualCents = 0;
+        let budgetCents = 0;
+        let budgeted = false;
+        let months = 0;
+        for (const line of section.categories) {
+          if (line.kind !== "expense") continue;
+          const cell = line.periods[b];
+          actualCents += cell.actualCents;
+          months = Math.max(months, cell.budgetedMonths);
+          if (cell.budgetCents !== null) {
+            budgeted = true;
+            budgetCents += cell.budgetCents;
+          }
+        }
+        return makeCell(actualCents, budgeted ? budgetCents : null, months, bucket.kind);
+      }),
     }));
 
   const totals: PnlTotals[] = buckets.map((_, b) => {
@@ -285,7 +344,17 @@ export async function buildProfitLoss(store: PnlStore, input: PnlInput): Promise
         }
       }
     }
-    return { incomeCents, expensesCents, netCents: incomeCents - expensesCents, budgetExpensesCents: budgeted ? budgetExpensesCents : null, budgetedActualCents };
+    const expenses = makeCell(expensesCents, budgeted ? budgetExpensesCents : null, 0, buckets[b].kind);
+    return {
+      incomeCents,
+      expensesCents,
+      netCents: incomeCents - expensesCents,
+      budgetExpensesCents: expenses.budgetCents,
+      budgetedActualCents,
+      expensesDeltaCents: expenses.deltaCents,
+      expensesStatus: expenses.status,
+      expensesOverAlready: expenses.overAlready,
+    };
   });
   const periods: PnlPeriod[] = buckets.map((bucket) => ({
     key: bucket.key,
@@ -293,7 +362,8 @@ export async function buildProfitLoss(store: PnlStore, input: PnlInput): Promise
     from: formatBudgetMonth(fromIndex(bucket.first)),
     to: formatBudgetMonth(fromIndex(bucket.last)),
     months: bucket.last - bucket.first + 1,
-    partial: bucket.last === index({ year: input.asOf.year, month: input.asOf.month }),
+    kind: bucket.kind,
+    partial: bucket.kind !== "full",
   }));
 
   return ok({ granularity: input.granularity, from: formatBudgetMonth(firstMonth), to: formatBudgetMonth(lastMonth), periods, groups, totals });

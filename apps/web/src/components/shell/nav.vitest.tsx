@@ -85,3 +85,12 @@ describe("household navigation (PEN-208)", () => {
     expect(bookNav).toHaveLength(6);
   });
 });
+
+describe("profit and loss navigation", () => {
+  it("lives under History: History stays lit, and the phone tab bar keeps its tabs", () => {
+    expect(isNavActive("/history/profit-and-loss", "/history")).toBe(true);
+    expect(isPhoneTabActive("/history/profit-and-loss", "/history")).toBe(true);
+    expect(bookNav.map((item) => item.href)).not.toContain("/history/profit-and-loss");
+    expect(desktopNav.map((item) => item.href)).not.toContain("/history/profit-and-loss");
+  });
+});
