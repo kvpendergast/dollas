@@ -28,8 +28,10 @@ import {
 } from "@/slices/recurring/actions";
 import { useActionToast } from "@/lib/use-action-toast";
 import { toast } from "@/lib/toast-store";
+import { selectClass as selectBase } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
-const selectClass = "h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm";
+const selectClass = cn(selectBase);
 
 export type RecurringFormValues = {
   id?: string;

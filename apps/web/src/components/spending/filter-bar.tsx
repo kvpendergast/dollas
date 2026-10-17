@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { FilterContext } from "@/slices/spending/load";
 import { SavedFilters } from "./saved-filters";
+import { selectClass as selectBase } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 /**
  * Search plus filters for Activity and the Spending dashboard (PEN-212). A
@@ -43,7 +45,7 @@ function Fieldset({ legend, children }: { legend: string; children: ReactNode })
   );
 }
 
-const selectClass = "h-9 w-full rounded-md border border-input bg-background px-2 text-sm";
+const selectClass = cn(selectBase);
 
 type Chip = { label: string; href: string };
 
@@ -103,7 +105,7 @@ export function FilterBar({
       <form action={path + anchor} method="get" className="space-y-3" role="search" aria-label="Filter transactions">
         <div className="flex flex-wrap items-center gap-2">
           <Input type="search" name="q" defaultValue={filter.search} placeholder={searchPlaceholder} aria-label="Search" className="h-9 min-w-0 flex-1 basis-48" maxLength={100} />
-          <select name="range" defaultValue={filter.range} aria-label="Dates" className="h-9 rounded-md border border-input bg-background px-2 text-sm">
+          <select name="range" defaultValue={filter.range} aria-label="Dates" className={cn(selectClass, "h-11 w-auto")}>
             {RANGE_PRESETS.map((preset) => (
               <option key={preset} value={preset}>
                 {RANGE_LABELS[preset]}

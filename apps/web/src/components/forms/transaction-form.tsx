@@ -8,10 +8,12 @@ import { Label } from "@/components/ui/label";
 import { createTransactionAction } from "@/slices/activity/actions";
 import { SplitControl } from "./split-control";
 import { useActionToast } from "@/lib/use-action-toast";
+import { selectClass as selectBase } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 type Option = { id: string; name: string };
 
-const selectClass = "h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm";
+const selectClass = cn(selectBase);
 
 function openingCategory(categories: readonly CategoryMenuEntry[]): { id: string; direction: TransactionDirection } {
   const menu = categoryMenuSections([...categories]);

@@ -20,8 +20,10 @@ import {
   shiftCategoryGroupAction,
 } from "@/slices/categories/actions";
 import { useActionToast } from "@/lib/use-action-toast";
+import { selectClass as selectBase } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
-const selectClass = "h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm sm:w-44";
+const selectClass = cn(selectBase, "sm:w-44");
 
 type ActionState = { error: string };
 

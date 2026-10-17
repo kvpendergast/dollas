@@ -43,7 +43,7 @@ function MonthCard({
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <CardDescription>{title}</CardDescription>
-          <Badge variant="secondary">Estimate</Badge>
+          <Badge variant="estimate">Estimate</Badge>
         </div>
         <CardTitle className="font-heading text-4xl tabular-nums">{money(month.estimateCents)}</CardTitle>
         {budget ? <p className={`text-sm ${budget.tone}`}>{budget.text}</p> : null}
@@ -100,7 +100,7 @@ export default async function EstimatePage() {
       <div>
         <div className="flex items-center gap-3">
           <h1 className="font-heading text-4xl">Spend estimate</h1>
-          <Badge>Estimate</Badge>
+          <Badge variant="estimate">Estimate</Badge>
         </div>
         <p className="text-sm text-muted-foreground">
           What {thisName} and {nextName} will probably cost, from your recurring bills plus your everyday pace. It will move as

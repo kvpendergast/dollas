@@ -13,6 +13,8 @@ import {
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { selectClass as selectBase } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 export type SplitRow = {
   key: string;
@@ -20,7 +22,7 @@ export type SplitRow = {
   amount: string;
 };
 
-const selectClass = "h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm";
+const selectClass = cn(selectBase);
 
 function blankRow(existing: readonly SplitRow[], categories: readonly CategoryMenuEntry[]): SplitRow {
   const used = new Set(existing.map((row) => row.categoryId));

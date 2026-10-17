@@ -13,10 +13,12 @@ import {
   type OpenCsvImport,
 } from "@/slices/activity/import-csv";
 import { useActionToast } from "@/lib/use-action-toast";
+import { selectClass as selectBase } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 const initial = { error: "", message: "", stage: "upload" as const, stamp: "", inspection: null, preview: null };
 const undoInitial = { error: "", message: "" };
-const selectClass = "h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm";
+const selectClass = cn(selectBase);
 
 export function ImportForm({
   accounts,
