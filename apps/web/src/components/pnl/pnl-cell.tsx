@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TableCell } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { activityHref, dollars, expenseCellDisplay, type CellDisplay, type CellIcon, type CellTone } from "./pnl-format";
+import { activityHref, dollars, expenseCellDisplay, incomeCellDisplay, type ActivityTarget, type CellDisplay, type CellIcon, type CellTone } from "./pnl-format";
 
 const ICONS: Record<CellIcon, typeof Check> = { check: Check, up: ArrowUp, clock: Clock, minus: CircleMinus };
 
@@ -69,24 +69,33 @@ export function PnlCell({
   cell,
   period,
   name,
-  categoryId,
+  target,
   periodName,
   showBudgets,
   currency,
   today,
+  income = false,
+  className,
+  fillClass,
 }: {
   cell: Cell;
   period: PnlPeriod;
   name: string;
-  categoryId: string;
+  target: ActivityTarget;
   periodName: string;
   showBudgets: boolean;
   currency: string;
   today: string;
+  /** Income is actual only: no budget, no difference, just what came in. */
+  income?: boolean;
+  /** Replaces the row height (group subtotals are shorter). */
+  className?: string;
+  /** Replaces the state fill (group subtotals keep their group colour). */
+  fillClass?: string;
 }) {
-  const display = expenseCellDisplay(cell, period.kind, name, periodName, currency);
+  const display = income ? incomeCellDisplay(cell.actualCents, name, periodName, currency) : expenseCellDisplay(cell, period.kind, name, periodName, currency);
   const budgetLine =
-    showBudgets && cell.budgetCents !== null && period.kind !== "total"
+    !income && showBudgets && cell.budgetCents !== null && period.kind !== "total"
       ? `of ${dollars(cell.budgetCents, currency)}${period.kind === "so_far" ? " month" : ""}`
       : null;
   const difference =
@@ -97,14 +106,14 @@ export function PnlCell({
         : display.text;
   if (display.tone === "none") {
     return (
-      <TableCell className={cn("h-16 px-2 py-2 text-right", fill(display.tone, period.kind))}>
+      <TableCell className={cn("h-16 px-2 py-2 text-right", className, fillClass ?? fill(display.tone, period.kind))}>
         <span className="sr-only">{display.spoken}</span>
         <PnlCellBody cents={0} display={display} budgetLine={null} currency={currency} className="min-h-12 content-center" />
       </TableCell>
     );
   }
   return (
-    <TableCell className={cn("h-16 p-0 text-right", fill(display.tone, period.kind))}>
+    <TableCell className={cn("h-16 p-0 text-right", className, fillClass ?? fill(display.tone, period.kind))}>
       <Popover>
         <PopoverTrigger asChild>
           <Button
@@ -120,15 +129,19 @@ export function PnlCell({
             {name} · {periodName}
           </h4>
           <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1">
-            <dt>Spent</dt>
+            <dt>{income ? "Received" : "Spent"}</dt>
             <dd className="text-right tabular-nums">{dollars(cell.actualCents, currency)}</dd>
-            <dt>Budget</dt>
-            <dd className="text-right tabular-nums">{cell.budgetCents === null ? "None" : dollars(cell.budgetCents, currency)}</dd>
-            <dt>Difference</dt>
-            <dd className="text-right font-bold">{difference}</dd>
+            {income ? null : (
+              <>
+                <dt>Budget</dt>
+                <dd className="text-right tabular-nums">{cell.budgetCents === null ? "None" : dollars(cell.budgetCents, currency)}</dd>
+                <dt>Difference</dt>
+                <dd className="text-right font-bold">{difference}</dd>
+              </>
+            )}
           </dl>
           <Button asChild variant="secondary" size="sm">
-            <Link href={activityHref(categoryId, period, today)}>See {name} activity</Link>
+            <Link href={activityHref(target, period, today)}>See {name} activity</Link>
           </Button>
         </PopoverContent>
       </Popover>

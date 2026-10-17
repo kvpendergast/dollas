@@ -56,6 +56,12 @@ export function expenseCellDisplay(cell: PnlCell, kind: PnlPeriod["kind"], name:
   return { tone: "under", icon: "check", text: `\u2212${dollars(-delta, currency)} under`, spoken: `${name}, ${period}: ${spent} spent, budget ${budget}, under by ${dollars(-delta, currency)}` };
 }
 
+/** What an income cell says: actual only, no budget comparison. */
+export function incomeCellDisplay(actualCents: number, name: string, period: string, currency = "USD"): CellDisplay {
+  if (actualCents === 0) return { tone: "none", icon: null, text: null, spoken: `${name}, ${period}: nothing received` };
+  return { tone: "plain", icon: null, text: null, spoken: `${name}, ${period}: ${dollars(actualCents, currency)} received` };
+}
+
 /** "Sep 2026" from "2026-09". */
 export function monthKeyLabel(key: string, withYear = true): string {
   const [year, month] = key.split("-").map(Number);
@@ -69,11 +75,17 @@ export function periodHeading(period: PnlPeriod, granularity: "month" | "quarter
   return { short: period.label, long: `${period.label}, ${period.from} to ${period.to}`, sub: period.kind === "total" ? `Includes ${monthKeyLabel(period.to, false)} so far` : null };
 }
 
-/** Where a category's activity for a period lives (Activity filtered by category and dates). */
-export function activityHref(categoryId: string, period: PnlPeriod, today: string): string {
+/** What Activity should filter to: one category, several (income has no group row), or a whole group. */
+export type ActivityTarget = string | { categoryIds: string[] } | { groupId: string };
+
+/** Where a category's (or group's) activity for a period lives (Activity filtered by it and the dates). */
+export function activityHref(target: ActivityTarget, period: PnlPeriod, today: string): string {
   const [year, month] = period.to.split("-").map(Number);
   const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const end = `${period.to}-${String(last).padStart(2, "0")}`;
-  const params = new URLSearchParams({ from: `${period.from}-01`, to: period.partial && end > today ? today : end, category: categoryId });
+  const params = new URLSearchParams({ from: `${period.from}-01`, to: period.partial && end > today ? today : end });
+  if (typeof target === "string") params.append("category", target);
+  else if ("groupId" in target) params.append("group", target.groupId);
+  else for (const id of target.categoryIds) params.append("category", id);
   return `/activity?${params.toString()}`;
 }
