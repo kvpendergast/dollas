@@ -1,4 +1,5 @@
 "use client";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 import { FieldError } from "@/components/ui/field";
 
@@ -108,11 +109,11 @@ export function SavedFilters({ path, anchor = "", ctx }: { path: string; anchor?
           ))}
         </nav>
       ) : null}
-      <details className="w-full">
-        <summary className="flex min-h-11 w-fit cursor-pointer list-none items-center text-sm font-medium text-primary hover:underline">
+      <Collapsible className="w-full">
+        <CollapsibleTrigger className="w-fit text-primary hover:underline">
           {current ? `Manage saved filters` : "Save this filter"}
-        </summary>
-        <div className="dl-sheet mt-2 max-w-md space-y-3 rounded-sm border-2 border-foreground bg-card p-3 shadow-sm">
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-2 max-w-md space-y-3 rounded-sm border-2 border-foreground bg-card p-3 shadow-sm">
           {!current ? (
             <form action={saveAction} className="space-y-1">
               <input type="hidden" name="filter" value={JSON.stringify(ctx.filter)} />
@@ -137,8 +138,8 @@ export function SavedFilters({ path, anchor = "", ctx }: { path: string; anchor?
               ))}
             </ul>
           ) : null}
-        </div>
-      </details>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/app/page-header";
 import { formatCents, type EstimateMonth } from "@dollas/domain";
 import Link from "next/link";
 import { EmptyState } from "@/components/app/empty-state";
@@ -97,16 +98,11 @@ export default async function EstimatePage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <div className="flex items-center gap-3">
-          <h1 className="font-heading text-4xl">Spend estimate</h1>
-          <Badge variant="estimate">Estimate</Badge>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          What {thisName} and {nextName} will probably cost, from your recurring bills plus your everyday pace. It will move as
-          real transactions come in.
-        </p>
-      </div>
+      <PageHeader
+        title="Spend estimate"
+        badge={<Badge variant="estimate">Estimate</Badge>}
+        description={`What ${thisName} and ${nextName} will probably cost, from your recurring bills plus your everyday pace. It will move as real transactions come in.`}
+      />
 
       <div className="grid gap-4 md:grid-cols-2">
         <MonthCard title={`Rest of ${thisName}`} month={estimate.thisMonth} current dailyCents={estimate.pace.dailyCents} money={money} />

@@ -1,3 +1,4 @@
+import { HowImportWorks } from "@/components/app/how-import-works";
 import { PageHeader } from "@/components/app/page-header";
 import { accountsForActiveLists, filterHref, filterToSearchParams, toIsoDate } from "@dollas/domain";
 import Link from "next/link";
@@ -6,7 +7,7 @@ import { ImportForm } from "@/components/forms/import-form";
 import { PayeeRules } from "@/components/forms/payee-rule-form";
 import { TransactionForm } from "@/components/forms/transaction-form";
 import { TransferForm } from "@/components/forms/transfer-form";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireBooks } from "@/slices/access/guard";
 import { loadCsvImportPanel } from "@/slices/activity/import-csv";
 import { PAYEE_RULES_APPLY_TO } from "@/slices/activity/payee-rule-copy";
@@ -171,11 +172,10 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
       <Card id="import" className="scroll-mt-20 overflow-visible">
         <CardHeader>
           <CardTitle>Import a CSV</CardTitle>
-          <CardDescription>
-            Preview the rows before they are added. Importing the same file again adds nothing. A transaction you
-            delete stays deleted, and that line is not added again. Undo removes only the transactions that import
-            added, so you can import the file again after that.
-          </CardDescription>
+          <CardDescription>{"Upload any CSV. You'll match the columns next."}</CardDescription>
+          <CardAction>
+            <HowImportWorks />
+          </CardAction>
         </CardHeader>
         <CardContent>
           {newEntryAccounts.length === 0 && csvImports.open.length === 0 ? (

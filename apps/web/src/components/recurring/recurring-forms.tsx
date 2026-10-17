@@ -1,4 +1,5 @@
 "use client";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 import { FieldError } from "@/components/ui/field";
 import { CADENCES, CADENCE_LABELS, categoryMenuSections, type CategoryMenuEntry } from "@dollas/domain";
@@ -30,7 +31,6 @@ import {
 import { useActionToast } from "@/lib/use-action-toast";
 import { toast } from "@/lib/toast-store";
 import { Select } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 export type RecurringFormValues = {
   id?: string;
@@ -175,8 +175,9 @@ export function RecurringItemForm({
           </Select>
         </div>
       </div>
-      <details data-sheet className="rounded-sm border-2 border-foreground px-3 py-2">
-        <summary className="cursor-pointer text-sm text-muted-foreground">Matching and dates</summary>
+      <Collapsible className="rounded-sm border-2 border-foreground px-3 py-1">
+        <CollapsibleTrigger className="text-muted-foreground">Matching and dates</CollapsibleTrigger>
+        <CollapsibleContent>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
           <div className="space-y-1.5 md:col-span-3">
             <Label htmlFor={`${field}-payee`}>Payee contains</Label>
@@ -225,7 +226,8 @@ export function RecurringItemForm({
             <Input id={`${field}-end`} name="endDate" type="date" defaultValue={values.endDate ?? ""} />
           </div>
         </div>
-      </details>
+        </CollapsibleContent>
+      </Collapsible>
       {state.error ? (
         <FieldError>
           {state.error}

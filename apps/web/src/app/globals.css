@@ -240,9 +240,8 @@ h4 {
 .dl-tick {
   animation: dl-pop var(--motion-slow) var(--ease-out) both;
 }
-/* A <details> sheet opening (filters, menus, saved filters). */
-details[open] > .dl-sheet,
-details[open][data-sheet] > :not(summary) {
+/* A Collapsible / Popover / menu panel opening (Radix data-state). */
+.dl-sheet[data-state="open"] {
   animation: dl-fade-up var(--motion-base) var(--ease-out) both;
 }
 /* Dialogs (Radix data-state). */

@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { createAccountAction } from "@/slices/accounts/actions";
 import { useActionToast } from "@/lib/use-action-toast";
 import { Select } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 export function AccountForm() {
   const [state, action, pending] = useActionState(createAccountAction, { error: "" });

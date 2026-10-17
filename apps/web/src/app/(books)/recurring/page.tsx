@@ -1,3 +1,4 @@
+import { StatCard } from "@/components/app/stat-card";
 import { PageHeader } from "@/components/app/page-header";
 import { CADENCE_LABELS, formatCents } from "@dollas/domain";
 import Link from "next/link";
@@ -24,26 +25,29 @@ export default async function RecurringPage() {
       <PageHeader title="Recurring" description={<>Known bills and paychecks. A matching transaction links to its item instead of standing alone.</>} />
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardDescription>Bills this month</CardDescription>
-            <CardTitle className="font-heading text-3xl tabular-nums">{money(month.paid.expenseCents)} paid</CardTitle>
-            <p className="text-sm text-muted-foreground tabular-nums">
+        <StatCard
+          size="lg"
+          label="Bills this month"
+          value={`${money(month.paid.expenseCents)} paid`}
+          note={
+            <span className="text-sm tabular-nums">
               {money(month.expected.expenseCents)} still expected
               {month.missed.expenseCents > 0 ? ` · ${money(month.missed.expenseCents)} missed` : ""}
-            </p>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Income this month</CardDescription>
-            <CardTitle className="font-heading text-3xl text-income tabular-nums">{money(month.paid.incomeCents)} received</CardTitle>
-            <p className="text-sm text-muted-foreground tabular-nums">
+            </span>
+          }
+        />
+        <StatCard
+          size="lg"
+          tone="income"
+          label="Income this month"
+          value={`${money(month.paid.incomeCents)} received`}
+          note={
+            <span className="text-sm tabular-nums">
               {money(month.expected.incomeCents)} still expected
               {month.missed.incomeCents > 0 ? ` · ${money(month.missed.incomeCents)} missed` : ""}
-            </p>
-          </CardHeader>
-        </Card>
+            </span>
+          }
+        />
       </div>
 
       <Card>

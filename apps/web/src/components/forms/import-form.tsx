@@ -8,7 +8,7 @@ import { useActionState, useState, startTransition } from "react";
 import { StatusPill } from "@/components/app/status-pill";
 import { ImportRowCard } from "@/components/app/import-row-card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { FileInput } from "@/components/ui/file-input";
 import { Label } from "@/components/ui/label";
 import { ChoiceGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Switch } from "@/components/ui/switch";
@@ -22,7 +22,6 @@ import {
 import { useActionToast } from "@/lib/use-action-toast";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 const initial = { error: "", message: "", stage: "upload" as const, stamp: "", inspection: null, preview: null };
 const undoInitial = { error: "", message: "" };
@@ -89,15 +88,13 @@ export function ImportForm({
           });
         }}
       >
-        <p className="text-sm text-muted-foreground">{"Upload any CSV. You'll match the columns next."}</p>
         <input type="hidden" name="stamp" value={stamp} />
         {(showMapper || showPreview) && mapping ? <MappingFields mapping={mapping} /> : null}
         <div className="space-y-1.5">
           <Label htmlFor="csv-file">CSV file</Label>
-          <Input
+          <FileInput
             id="csv-file"
             name="csv"
-            type="file"
             accept=".csv,text/csv"
             required
             onChange={(event) => {

@@ -10,7 +10,6 @@ import { createTransactionAction } from "@/slices/activity/actions";
 import { SplitControl } from "./split-control";
 import { useActionToast } from "@/lib/use-action-toast";
 import { Select } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 type Option = { id: string; name: string };
 

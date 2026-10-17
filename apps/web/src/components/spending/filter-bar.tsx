@@ -1,3 +1,4 @@
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   RANGE_LABELS,
   RANGE_PRESETS,
@@ -19,7 +20,6 @@ import { Input } from "@/components/ui/input";
 import type { FilterContext } from "@/slices/spending/load";
 import { SavedFilters } from "./saved-filters";
 import { Select } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 /**
  * Search plus filters for Activity and the Spending dashboard (PEN-212). A
@@ -115,12 +115,12 @@ export function FilterBar({
             Search
           </Button>
         </div>
-        <details className="group @container rounded-sm border-2 border-foreground">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-sm font-medium">
+        <Collapsible className="group/filters @container rounded-sm border-2 border-foreground">
+          <CollapsibleTrigger className="px-3">
             <span>Filters{count > 0 ? ` (${count})` : ""}</span>
-            <span className="text-xs text-muted-foreground group-open:hidden">Accounts, categories, people, source, amount</span>
-          </summary>
-          <div className="dl-sheet grid gap-5 border-t-2 border-dashed border-border-soft p-3 @lg:grid-cols-2 @4xl:grid-cols-4">
+            <span className="text-xs text-muted-foreground group-data-[state=open]/filters:hidden">Accounts, categories, people, source, amount</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="grid gap-5 border-t-2 border-dashed border-border-soft p-3 data-[state=closed]:hidden @lg:grid-cols-2 @4xl:grid-cols-4">
             <Fieldset legend="Custom dates">
               <div className="grid grid-cols-2 gap-2">
                 <label className="space-y-1 text-xs text-muted-foreground">
@@ -221,8 +221,8 @@ export function FilterBar({
                 Clear all
               </Link>
             </div>
-          </div>
-        </details>
+          </CollapsibleContent>
+        </Collapsible>
       </form>
       {chips.length > 0 ? (
         <ul className="flex flex-wrap gap-2" aria-label="Active filters">

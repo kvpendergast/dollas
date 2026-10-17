@@ -1,6 +1,6 @@
 import { FieldError } from "@/components/ui/field";
 import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { AcceptInviteForm } from "@/components/forms/invite-forms";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -114,9 +114,9 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
               </p>
               <form action={signOutForInviteAction}>
                 <input type="hidden" name="token" value={token} />
-                <button type="submit" className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
+                <Button type="submit" variant="outline" className="w-full">
                   Sign out and use another login
-                </button>
+                </Button>
               </form>
             </>
           ) : null}

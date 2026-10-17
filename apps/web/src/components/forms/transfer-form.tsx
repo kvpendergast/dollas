@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { createTransferAction } from "@/slices/activity/actions";
 import { useActionToast } from "@/lib/use-action-toast";
 import { Select } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 type Option = { id: string; name: string };
 

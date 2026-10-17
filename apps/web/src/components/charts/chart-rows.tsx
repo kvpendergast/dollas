@@ -1,3 +1,4 @@
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { ChartRow, Tone } from "./chart-text";
 
 export function toneClass(tone: Tone): string {
@@ -48,17 +49,19 @@ export function ChartRows({ title, rows, visible = 6 }: { title: string; rows: C
         ))}
       </ol>
       {rest.length > 0 ? (
-        <details className="group">
-          <summary className="flex cursor-pointer list-none items-center py-2 text-sm text-primary underline-offset-4 hover:underline [&::-webkit-details-marker]:hidden">
-            <span className="group-open:hidden">Show {rest.length} earlier</span>
-            <span className="hidden group-open:inline">Hide earlier</span>
-          </summary>
-          <ol className="dl-sheet divide-y-2 divide-dashed divide-border-soft">
-            {rest.map((row) => (
-              <Row key={row.key} row={row} />
-            ))}
-          </ol>
-        </details>
+        <Collapsible className="group/earlier">
+          <CollapsibleTrigger className="w-fit text-primary underline-offset-4 hover:underline">
+            <span className="group-data-[state=open]/earlier:hidden">Show {rest.length} earlier</span>
+            <span className="hidden group-data-[state=open]/earlier:inline">Hide earlier</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <ol className="divide-y-2 divide-dashed divide-border-soft">
+              {rest.map((row) => (
+                <Row key={row.key} row={row} />
+              ))}
+            </ol>
+          </CollapsibleContent>
+        </Collapsible>
       ) : null}
     </div>
   );

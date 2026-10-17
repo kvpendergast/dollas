@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field";
 import {
   SPLIT_CONTROL_COPY,
@@ -15,7 +16,6 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 export type SplitRow = {
   key: string;
@@ -106,9 +106,10 @@ export function SplitControl({
         <div className="flex items-center justify-between gap-3">
           <Label htmlFor={`${fieldId}-category-0`}>Category</Label>
           {canSplit ? (
-            <button
+            <Button
               type="button"
-              className="inline-flex h-10 items-center text-sm text-primary"
+              variant="link"
+              className="h-11 px-0"
               onClick={() => {
                 if (split) {
                   setSplit(false);
@@ -120,7 +121,7 @@ export function SplitControl({
               }}
             >
               {split ? SPLIT_CONTROL_COPY.single : SPLIT_CONTROL_COPY.split}
-            </button>
+            </Button>
           ) : null}
         </div>
         {visible.map((row, index) => (
@@ -138,13 +139,9 @@ export function SplitControl({
           />
         ))}
         {canAdd ? (
-          <button
-            type="button"
-            className="inline-flex h-10 items-center text-sm text-primary"
-            onClick={() => setRows((current) => [...current, blankRow(current, categories)])}
-          >
+          <Button type="button" variant="link" className="h-11 px-0" onClick={() => setRows((current) => [...current, blankRow(current, categories)])}>
             {SPLIT_CONTROL_COPY.add}
-          </button>
+          </Button>
         ) : null}
         {notices.map((notice) => (
           <p
@@ -229,9 +226,9 @@ function CategoryFields({
         />
       ) : null}
       {removable ? (
-        <button type="button" className="inline-flex h-10 items-center text-sm text-muted-foreground" onClick={() => onRemove(row.key)}>
+        <Button type="button" variant="link" className="h-11 px-0 text-muted-foreground" onClick={() => onRemove(row.key)}>
           {SPLIT_CONTROL_COPY.remove}
-        </button>
+        </Button>
       ) : null}
     </div>
   );

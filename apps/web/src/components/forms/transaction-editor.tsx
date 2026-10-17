@@ -12,7 +12,6 @@ import { SplitControl, type SplitRow } from "./split-control";
 import { useActionToast } from "@/lib/use-action-toast";
 import { toast } from "@/lib/toast-store";
 import { Select } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 type Option = { id: string; name: string; archived?: boolean };
 
@@ -90,16 +89,17 @@ export function TransactionEditor({
   return (
     <div className="mt-3 space-y-3 border-t-2 border-dashed border-border-soft pt-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
+        <Button
           type="button"
-          className="inline-flex h-10 items-center text-sm text-primary"
+          variant="link"
+          className="h-11 px-0"
           aria-expanded={open}
           aria-controls={`${field}-panel`}
           aria-label={`Edit ${transaction.payee}`}
           onClick={() => setOpen((value) => !value)}
         >
           Edit
-        </button>
+        </Button>
         <div className="flex flex-wrap items-center gap-2">
         {transaction.bankMatched ? (
           <Button
