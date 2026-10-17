@@ -11,7 +11,7 @@ export function DisconnectConnectionForm({ connectionId, label }: { connectionId
   return (
     <form action={action} className="space-y-2">
       <input type="hidden" name="connectionId" value={connectionId} />
-      <Button type="submit" variant="destructive" className="h-8" disabled={pending} aria-label={`Disconnect ${label}`}>
+      <Button type="submit" variant="destructive" disabled={pending} aria-label={`Disconnect ${label}`}>
         {pending ? "Disconnecting" : "Disconnect"}
       </Button>
       {state.error ? (

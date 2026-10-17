@@ -72,7 +72,7 @@ function SavedRow({ id, name, href, createdBy }: { id: string; name: string; hre
       {editing ? (
         <form action={renameAction} className="flex gap-2">
           <input type="hidden" name="id" value={id} />
-          <Input name="name" defaultValue={name} maxLength={60} aria-label={`New name for ${name}`} className="h-8" />
+          <Input name="name" defaultValue={name} maxLength={60} aria-label={`New name for ${name}`} />
           <Button type="submit" size="sm" disabled={renaming}>
             Save
           </Button>
@@ -118,7 +118,7 @@ export function SavedFilters({ path, anchor = "", ctx }: { path: string; anchor?
                 Save the current search and filters for the whole household
               </label>
               <div className="flex gap-2">
-                <Input id="saved-filter-name" name="name" placeholder="e.g. Groceries this month" maxLength={60} className="h-8" required />
+                <Input id="saved-filter-name" name="name" placeholder="e.g. Groceries this month" maxLength={60} required />
                 <Button type="submit" size="sm" disabled={saving}>
                   Save
                 </Button>

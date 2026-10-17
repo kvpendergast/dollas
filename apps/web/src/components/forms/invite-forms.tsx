@@ -167,7 +167,7 @@ export function AcceptInviteForm({ token, householdName }: { token: string; hous
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" className="h-10 w-full" disabled={pending}>
+      <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Joining" : `Join the ${householdName} household`}
       </Button>
     </form>

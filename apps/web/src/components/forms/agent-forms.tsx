@@ -42,10 +42,10 @@ export function ConnectAgentForm({ oauthQuery, canWrite }: { oauthQuery: string;
         </p>
       ) : null}
       <div className="flex gap-3">
-        <Button type="submit" name="decision" value="accept" className="h-10 flex-1" disabled={pending}>
+        <Button type="submit" name="decision" value="accept" className="flex-1" disabled={pending}>
           {pending ? "Connecting" : "Connect"}
         </Button>
-        <Button type="submit" name="decision" value="deny" variant="outline" className="h-10 flex-1" disabled={pending}>
+        <Button type="submit" name="decision" value="deny" variant="outline" className="flex-1" disabled={pending}>
           Deny
         </Button>
       </div>

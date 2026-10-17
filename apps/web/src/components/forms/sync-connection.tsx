@@ -11,7 +11,7 @@ export function SyncConnectionForm({ connectionId }: { connectionId: string }) {
   return (
     <form action={action} className="space-y-2">
       <input type="hidden" name="connectionId" value={connectionId} />
-      <Button type="submit" variant="secondary" className="h-8" disabled={pending}>
+      <Button type="submit" variant="secondary" disabled={pending}>
         {pending ? "Syncing" : "Sync"}
       </Button>
       {state.error ? (

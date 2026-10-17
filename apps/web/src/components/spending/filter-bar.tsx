@@ -104,7 +104,7 @@ export function FilterBar({
     <div className="space-y-3">
       <form action={path + anchor} method="get" className="space-y-3" role="search" aria-label="Filter transactions">
         <div className="flex flex-wrap items-center gap-2">
-          <Input type="search" name="q" defaultValue={filter.search} placeholder={searchPlaceholder} aria-label="Search" className="h-9 min-w-0 flex-1 basis-48" maxLength={100} />
+          <Input type="search" name="q" defaultValue={filter.search} placeholder={searchPlaceholder} aria-label="Search" className="min-w-0 flex-1 basis-48" maxLength={100} />
           <select name="range" defaultValue={filter.range} aria-label="Dates" className={cn(selectClass, "h-11 w-auto")}>
             {RANGE_PRESETS.map((preset) => (
               <option key={preset} value={preset}>

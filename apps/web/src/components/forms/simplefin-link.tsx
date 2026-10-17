@@ -27,18 +27,18 @@ export function SimpleFinLinkForm() {
             type="password"
             autoComplete="off"
             spellCheck={false}
-            className="h-10"
+           
             required
           />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="simplefin-label">Name</Label>
-          <Input id="simplefin-label" name="label" className="h-10" placeholder="SimpleFIN" maxLength={80} />
+          <Input id="simplefin-label" name="label" placeholder="SimpleFIN" maxLength={80} />
         </div>
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="simplefin-since">Transactions since</Label>
-        <Input id="simplefin-since" name="since" type="date" className="h-10 md:max-w-xs" />
+        <Input id="simplefin-since" name="since" type="date" className="md:max-w-xs" />
         <p className="text-xs text-muted-foreground">
           Leave this blank to start 90 days ago. Later syncs keep this date, and pending charges are added once they
           post.
@@ -50,7 +50,7 @@ export function SimpleFinLinkForm() {
         </p>
       ) : null}
       {state.message ? <p className="text-sm text-income">{state.message}</p> : null}
-      <Button type="submit" className="h-10" disabled={pending}>
+      <Button type="submit" disabled={pending}>
         {pending ? "Linking" : "Link SimpleFIN"}
       </Button>
     </form>

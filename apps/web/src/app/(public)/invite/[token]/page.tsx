@@ -43,7 +43,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Link href={me ? "/" : "/sign-in"} className={cn(buttonVariants({ variant: "outline" }), "h-10 w-full")}>
+          <Link href={me ? "/" : "/sign-in"} className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
             {me ? "Go home" : "Go to sign in"}
           </Link>
         </CardContent>
@@ -70,7 +70,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           <CardDescription>You are already in this household.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Link href="/" className={cn(buttonVariants(), "h-10 w-full")}>
+          <Link href="/" className={cn(buttonVariants(), "w-full")}>
             Go to Home
           </Link>
         </CardContent>
@@ -87,10 +87,10 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
             This invite is for <span className="font-medium text-foreground">{preview.maskedEmail}</span> and works until{" "}
             {day(preview.expiresAt)}. Sign in or create a login with that email.
           </p>
-          <Link href={`/sign-up?invite=${token}`} className={cn(buttonVariants(), "h-10 w-full")}>
+          <Link href={`/sign-up?invite=${token}`} className={cn(buttonVariants(), "w-full")}>
             Create a login
           </Link>
-          <Link href={`/sign-in?invite=${token}`} className={cn(buttonVariants({ variant: "outline" }), "h-10 w-full")}>
+          <Link href={`/sign-in?invite=${token}`} className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
             I already have a login
           </Link>
         </CardContent>
@@ -113,19 +113,19 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
               </p>
               <form action={signOutForInviteAction}>
                 <input type="hidden" name="token" value={token} />
-                <button type="submit" className={cn(buttonVariants({ variant: "outline" }), "h-10 w-full")}>
+                <button type="submit" className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
                   Sign out and use another login
                 </button>
               </form>
             </>
           ) : null}
           {visit.reason === "unverified" ? (
-            <Link href="/verify-email" className={cn(buttonVariants({ variant: "outline" }), "h-10 w-full")}>
+            <Link href="/verify-email" className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
               Verify my email
             </Link>
           ) : null}
           {visit.reason === "other_household" ? (
-            <Link href="/settings" className={cn(buttonVariants({ variant: "outline" }), "h-10 w-full")}>
+            <Link href="/settings" className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
               Open Settings
             </Link>
           ) : null}

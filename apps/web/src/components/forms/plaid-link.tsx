@@ -63,7 +63,7 @@ function PlaidLinkFields() {
     <div className="space-y-3">
       <div className="space-y-1.5">
         <Label htmlFor="plaid-since">Transactions since</Label>
-        <Input ref={sinceRef} id="plaid-since" name="since" type="date" className="h-10 md:max-w-xs" />
+        <Input ref={sinceRef} id="plaid-since" name="since" type="date" className="md:max-w-xs" />
         <p className="text-xs text-muted-foreground">
           Leave this blank to start 90 days ago. Plaid opens in a window from Plaid. Your bank password stays there
           and is not stored in Dollas. Pending charges are added once they post.
@@ -75,7 +75,7 @@ function PlaidLinkFields() {
         </p>
       ) : null}
       {message ? <p className="text-sm text-income">{message}</p> : null}
-      <Button type="button" className="h-10" disabled={pending} onClick={() => void start()}>
+      <Button type="button" disabled={pending} onClick={() => void start()}>
         {pending ? "Linking" : "Link with Plaid"}
       </Button>
     </div>

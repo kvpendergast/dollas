@@ -21,7 +21,7 @@ export function TransferForm({ accounts, today }: { accounts: Option[]; today: s
   return (
     <form action={action} className="space-y-3 border-t-2 border-dashed border-border-soft pt-4">
       <div>
-        <h3 className="text-sm font-medium">Move money between accounts</h3>
+        <h3 className="font-heading text-lg font-extrabold">Move money between accounts</h3>
         <p className="text-sm text-muted-foreground">
           A card payment or a move to savings. It is saved as two transactions in Transfers and does not count as income or spending.
         </p>
@@ -49,11 +49,11 @@ export function TransferForm({ accounts, today }: { accounts: Option[]; today: s
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="transferAmount">Amount</Label>
-          <Input id="transferAmount" name="amount" className="h-10" inputMode="decimal" placeholder="0.00" required />
+          <Input id="transferAmount" name="amount" inputMode="decimal" placeholder="0.00" required />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="transferDate">Date</Label>
-          <Input id="transferDate" name="occurredOn" className="h-10" type="date" defaultValue={today} required />
+          <Input id="transferDate" name="occurredOn" type="date" defaultValue={today} required />
         </div>
       </div>
       {state.error ? (
@@ -61,7 +61,7 @@ export function TransferForm({ accounts, today }: { accounts: Option[]; today: s
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" variant="outline" className="h-10" disabled={pending}>
+      <Button type="submit" variant="outline" disabled={pending}>
         {pending ? "Saving" : "Move it"}
       </Button>
     </form>

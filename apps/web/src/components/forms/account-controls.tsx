@@ -54,14 +54,14 @@ export function AccountControls({
           <input type="hidden" name="accountId" value={account.id} />
           <div className="space-y-1.5">
             <Label htmlFor={`${field}-name`}>Name</Label>
-            <Input id={`${field}-name`} name="name" className="h-10" value={name} onChange={(event) => setName(event.target.value)} required />
+            <Input id={`${field}-name`} name="name" value={name} onChange={(event) => setName(event.target.value)} required />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor={`${field}-opening`}>{credit && owed ? "Amount owed" : "Opening balance"}</Label>
             <Input
               id={`${field}-opening`}
               name="opening"
-              className="h-10"
+             
               inputMode="decimal"
               value={opening}
               onChange={(event) => setOpening(event.target.value)}
@@ -89,7 +89,7 @@ export function AccountControls({
               {saved.error}
             </p>
           ) : null}
-          <Button type="submit" className="h-10" disabled={saving}>
+          <Button type="submit" disabled={saving}>
             {saving ? "Saving" : "Save"}
           </Button>
         </form>
@@ -100,7 +100,7 @@ export function AccountControls({
       {account.archived ? (
         <form action={unarchive}>
           <input type="hidden" name="accountId" value={account.id} />
-          <Button type="submit" variant="outline" className="h-10" disabled={unarchiving} aria-label={`Unarchive ${account.name}`}>
+          <Button type="submit" variant="outline" disabled={unarchiving} aria-label={`Unarchive ${account.name}`}>
             {unarchiving ? "Unarchiving" : "Unarchive"}
           </Button>
           {restored.error ? (
@@ -112,7 +112,7 @@ export function AccountControls({
       ) : (
         <form action={archive}>
           <input type="hidden" name="accountId" value={account.id} />
-          <Button type="submit" variant="outline" className="h-10" disabled={archiving} aria-label={`Archive ${account.name}`}>
+          <Button type="submit" variant="outline" disabled={archiving} aria-label={`Archive ${account.name}`}>
             {archiving ? "Archiving" : "Archive"}
           </Button>
           {archivedState.error ? (
@@ -134,10 +134,10 @@ export function AccountControls({
           <form action={remove} className="flex flex-wrap gap-2">
             <input type="hidden" name="accountId" value={account.id} />
             <input type="hidden" name="confirm" value="yes" />
-            <Button type="submit" variant="destructive" className="h-10" disabled={removing}>
+            <Button type="submit" variant="destructive" disabled={removing}>
               {removing ? "Deleting" : "Delete account"}
             </Button>
-            <Button type="button" variant="outline" className="h-10" onClick={() => setConfirmingDelete(false)}>
+            <Button type="button" variant="outline" onClick={() => setConfirmingDelete(false)}>
               Cancel
             </Button>
           </form>
@@ -151,7 +151,7 @@ export function AccountControls({
         <Button
           type="button"
           variant="destructive"
-          className="h-10"
+         
           aria-label={`Delete ${account.name}`}
           onClick={() => setConfirmingDelete(true)}
         >

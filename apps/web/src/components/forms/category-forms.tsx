@@ -21,7 +21,7 @@ export function CategoryGroupForm() {
         <Label htmlFor="group-name">Group name</Label>
         <Input id="group-name" name="name" required />
       </div>
-      <Button type="submit" className="h-8" disabled={pending}>
+      <Button type="submit" disabled={pending}>
         Add group
       </Button>
       {state.error ? (
@@ -80,7 +80,7 @@ export function CategoryForm({ groups }: { groups: Array<{ id: string; name: str
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="category-name">Category name</Label>
-          <Input id="category-name" name="name" required className="h-10" />
+          <Input id="category-name" name="name" required />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="category-group">Group</Label>
@@ -94,7 +94,7 @@ export function CategoryForm({ groups }: { groups: Array<{ id: string; name: str
         </div>
       </div>
       <KindChoices />
-      <Button type="submit" className="h-10 w-full sm:w-auto" disabled={pending}>
+      <Button type="submit" className="w-full sm:w-auto" disabled={pending}>
         Add category
       </Button>
       {state.error ? (

@@ -67,7 +67,7 @@ function ShiftButton({
       <Button
         type="submit"
         variant="outline"
-        className="h-10 min-w-16"
+        className="min-w-16"
         disabled={disabled || pending}
         aria-label={`Move ${label} ${direction}`}
       >
@@ -115,10 +115,10 @@ function RenameGroupForm({ group }: { group: ListedGroup }) {
           defaultValue={group.name}
           required
           autoComplete="off"
-          className="h-10"
+         
         />
       </div>
-      <Button type="submit" variant="secondary" className="h-10" disabled={pending}>
+      <Button type="submit" variant="secondary" disabled={pending}>
         Rename
       </Button>
       <FormError message={state.error} />
@@ -132,7 +132,7 @@ function RemoveEmptyGroup({ group }: { group: ListedGroup }) {
   return (
     <form action={action} aria-busy={pending}>
       <input type="hidden" name="groupId" value={group.id} />
-      <Button type="submit" variant="destructive" className="h-10" disabled={pending}>
+      <Button type="submit" variant="destructive" disabled={pending}>
         Remove group
       </Button>
       <FormError message={state.error} />
@@ -161,7 +161,7 @@ function RemoveGroupForm({ group, destinations }: { group: ListedGroup; destinat
           <option value="ungrouped">Ungrouped</option>
         </select>
       </div>
-      <Button type="submit" variant="destructive" className="h-10" disabled={pending}>
+      <Button type="submit" variant="destructive" disabled={pending}>
         Remove group
       </Button>
       <FormError message={state.error} />
@@ -189,7 +189,7 @@ function MoveCategoryForm({ category, destinations }: { category: ListedCategory
           ))}
         </select>
       </div>
-      <Button type="submit" variant="outline" className="h-10" disabled={pending}>
+      <Button type="submit" variant="outline" disabled={pending}>
         Move
       </Button>
       <FormError message={state.error} />
@@ -239,7 +239,7 @@ function ChangeKindForm({ category }: { category: ListedCategory }) {
             ))}
           </select>
         </div>
-        <Button type="submit" className="h-10" disabled={pending || kind === category.kind}>
+        <Button type="submit" disabled={pending || kind === category.kind}>
           Change kind
         </Button>
       </div>

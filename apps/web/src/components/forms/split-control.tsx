@@ -220,7 +220,7 @@ function CategoryFields({
       {showAmount ? (
         <Input
           name="splitAmount"
-          className="h-10"
+         
           inputMode="decimal"
           placeholder="0.00"
           aria-label="Split amount"
