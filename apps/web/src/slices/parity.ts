@@ -32,7 +32,7 @@ export const ACTION_PARITY: Record<string, Parity> = {
   // transactions
   createTransactionAction: { tools: ["create_transaction"] },
   createTransferAction: { tools: ["create_transfer"] },
-  updateTransactionAction: { tools: ["update_transaction", "categorize_transaction", "split_transaction"] },
+  updateTransactionAction: { tools: ["update_transaction", "categorize_transaction", "categorize_transactions", "categorize_by_payee", "split_transaction"] },
   deleteTransactionAction: { tools: ["delete_transaction"] },
   restoreTransactionAction: { tools: ["restore_transaction"] },
   separateBankMatchAction: { tools: ["separate_bank_match"] },

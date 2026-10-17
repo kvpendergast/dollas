@@ -359,6 +359,45 @@ describe("Dollas MCP tools", () => {
         values (${maple}, 'a,b', 'x', 3, now() - interval '1 hour') returning id`;
       assert.equal((await ada.call("inspect_csv", { upload_id: expired[0]?.id })).isError, true, "expired uploads are gone");
 
+      // Bulk categorization (PEN-281).
+      const bulkIds: string[] = [];
+      for (const [index, payee] of ["Bulk Bakery", "BULK BAKERY", "Bulk Bakery Annex"].entries()) {
+        bulkIds.push(
+          (await ada.ok("create_transaction", { account_id: checking, occurred_on: `2026-09-0${index + 1}`, payee, amount_cents: -500 * (index + 1), category_id: dining })).id as string,
+        );
+      }
+      const splitOne = (
+        await ada.ok("create_transaction", {
+          account_id: checking,
+          occurred_on: "2026-09-04",
+          payee: "Bulk Bakery",
+          amount_cents: -900,
+          splits: [{ category_id: dining, amount_cents: -400 }, { category_id: groceries, amount_cents: -500 }],
+        })
+      ).id as string;
+      const dry = await ada.ok("categorize_by_payee", { payee: "bulk bakery", category_id: groceries, dry_run: true });
+      assert.deepEqual([dry.changed, dry.skipped_split, dry.dry_run], [2, 1, true], "exact match ignores case and skips splits");
+      assert.equal((await owner`select 1 from transaction_split where transaction_id = ${bulkIds[0] ?? ""} and category_id = ${groceries}`).length, 0, "dry run writes nothing");
+      const byPayee = await ada.ok("categorize_by_payee", { payee: "bulk bakery", category_id: groceries });
+      assert.equal(byPayee.changed, 2);
+      assert.equal((await ada.ok("categorize_by_payee", { payee: "bulk bakery", category_id: groceries })).already_in_category, 2, "idempotent");
+      const contains = await ada.ok("categorize_by_payee", { payee: "bulk bakery", match: "contains", category_id: groceries });
+      assert.equal(contains.changed, 1, "contains also catches the Annex");
+      const stale = randomUUID();
+      const bulk = await ada.ok("categorize_transactions", { transaction_ids: [...bulkIds, splitOne, stale], category_id: dining });
+      assert.deepEqual([bulk.changed, bulk.skipped_split, bulk.not_found], [3, 1, 1]);
+      assert.equal(bulk.category_name, "Dining");
+      assert.equal((await ada.call("categorize_transactions", { transaction_ids: bulkIds, category_id: randomUUID() })).isError, true, "unknown category refused");
+      assert.equal((await birchAgent.call("categorize_transactions", { transaction_ids: bulkIds, category_id: groceries })).isError, true, "another household's category refused");
+      const birchGroup = (await birchAgent.ok("create_category_group", { name: "Birch Group" })).id as string;
+      const birchCategory = (await birchAgent.ok("create_category", { name: "Birch Bulk", kind: "expense", group_id: birchGroup })).id as string;
+      const birchBulk = await birchAgent.ok("categorize_transactions", { transaction_ids: bulkIds, category_id: birchCategory });
+      assert.equal(birchBulk.not_found, 3, "another household's transactions are not found");
+      const ruleBulk = await ada.ok("create_payee_rule", { pattern: "bulk bakery", category_id: groceries, apply_to_existing: true });
+      assert.deepEqual([ruleBulk.applied, ruleBulk.change_count, ruleBulk.skipped_split_count], [true, 3, 1]);
+      assert.equal((await owner`select 1 from transaction_split where transaction_id = ${bulkIds[0] ?? ""} and category_id = ${groceries}`).length, 1);
+      await ada.ok("delete_payee_rule", { rule_id: ruleBulk.id, confirm: true });
+
       // Unknown bank category labels (PEN-279).
       const labelled = "Date,Description,Amount,Category\n2026-09-10,Cafe One,-4.00,Dining Out\n2026-09-11,Cafe Two,-6.00,dining out\n2026-09-12,Hardware,-20.00,Home Stuff\n";
       const labelledStage = (await ada.ok("stage_csv", { csv: labelled })).upload_id as string;

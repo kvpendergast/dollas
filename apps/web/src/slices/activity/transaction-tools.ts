@@ -2,6 +2,7 @@ import { MAX_TRANSACTION_SPLITS, PAYEE_MAX_LENGTH, toIsoDate } from "@dollas/dom
 import { confirmInput, pageFrom, pageInput, readPage } from "@dollas/mcp";
 import { z } from "zod";
 import { answer, centsInput, isoDateInput, money, plural, tool, uuidInput } from "@/slices/agents/tool-kit";
+import { categorizeByPayee, categorizeTransactions, BULK_CATEGORIZE_MAX_IDS, type BulkCategorizeOutcome } from "./bulk-categorize-service";
 import { createHouseholdTransfer } from "./transfer-service";
 import { FILTER_HELP, filterFromArgs, filterInput } from "@/slices/spending/tools";
 import {
@@ -44,6 +45,30 @@ function shown(item: ListedTransaction) {
     note: item.note,
     splits: item.splits.map((split) => ({ category_id: split.categoryId, category_name: split.categoryName, amount_cents: split.amountCents })),
   };
+}
+
+export function bulkOut(value: BulkCategorizeOutcome) {
+  return {
+    category_id: value.categoryId,
+    category_name: value.categoryName,
+    dry_run: value.dryRun,
+    changed: value.changed,
+    already_in_category: value.alreadyThere,
+    skipped_split: value.skippedSplit,
+    skipped_without_category: value.skippedWithoutCategory,
+    not_found: value.notFound,
+    sample_changed: value.samples.map((item) => ({ id: item.id, payee: item.payee, amount_cents: item.amountCents })),
+  };
+}
+
+function bulkSummary(value: BulkCategorizeOutcome): string {
+  const lead = value.dryRun ? `Would move ${plural(value.changed, "transaction")}` : `Moved ${plural(value.changed, "transaction")}`;
+  const notes = [
+    value.alreadyThere ? `${value.alreadyThere} already there` : "",
+    value.skippedSplit ? `${plural(value.skippedSplit, "split transaction")} skipped` : "",
+    value.notFound ? `${value.notFound} not found` : "",
+  ].filter(Boolean);
+  return `${lead} to ${value.categoryName}${notes.length ? ` (${notes.join(", ")})` : ""}.`;
 }
 
 function saved(value: SavedTransaction) {
@@ -193,6 +218,46 @@ export const transactionTools = [
     async run(args, { books }) {
       const edited = await amendHouseholdTransaction(books, args.transaction_id, { categoryId: args.category_id }, "mcp");
       return answer(edited, (value) => `Categorized ${value.payee}.`, saved);
+    },
+  }),
+  tool({
+    name: "categorize_transactions",
+    title: "Categorize transactions in bulk",
+    description: `Put up to ${BULK_CATEGORIZE_MAX_IDS} transactions in one category in one step. Split transactions are skipped (use split_transaction), as are deleted or unknown ids; the counts say how many. dry_run reports what would change without writing. Payee rules are not changed.`,
+    access: "write",
+    idempotent: true,
+    input: {
+      transaction_ids: z.array(uuidInput("Transaction")).min(1).max(BULK_CATEGORIZE_MAX_IDS),
+      category_id: uuidInput("Category"),
+      dry_run: z.boolean().optional().describe("Report the counts and a sample without changing anything."),
+    },
+    async run(args, { books }) {
+      return answer(
+        await categorizeTransactions(books, { transactionIds: args.transaction_ids, categoryId: args.category_id, dryRun: args.dry_run }, "mcp"),
+        bulkSummary,
+        bulkOut,
+      );
+    },
+  }),
+  tool({
+    name: "categorize_by_payee",
+    title: "Categorize all transactions from a payee",
+    description:
+      "Put every existing transaction from a payee in one category without making a payee rule (use create_payee_rule with apply_to_existing to also cover future imports). match exact (default) compares the whole payee, ignoring case; contains matches payees that include the text. Split transactions are skipped. dry_run reports the counts without writing.",
+    access: "write",
+    idempotent: true,
+    input: {
+      payee: z.string().min(1).max(200).describe("The payee text."),
+      match: z.enum(["exact", "contains"]).optional(),
+      category_id: uuidInput("Category"),
+      dry_run: z.boolean().optional().describe("Report the counts and a sample without changing anything."),
+    },
+    async run(args, { books }) {
+      return answer(
+        await categorizeByPayee(books, { payee: args.payee, match: args.match ?? "exact", categoryId: args.category_id, dryRun: args.dry_run }, "mcp"),
+        bulkSummary,
+        bulkOut,
+      );
     },
   }),
   tool({

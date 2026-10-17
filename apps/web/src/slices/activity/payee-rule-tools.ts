@@ -38,12 +38,27 @@ export const payeeRuleTools = [
   tool({
     name: "create_payee_rule",
     title: "Create payee rule",
-    description: `Add a rule that sets a category for matching payees. ${PAYEE_RULES_APPLY_TO} Use apply_payee_rule to update existing ones.`,
+    description: `Add a rule that sets a category for matching payees. ${PAYEE_RULES_APPLY_TO} Set apply_to_existing to also move the existing matching transactions now (split ones are skipped); the result then carries the counts, as apply_payee_rule does.`,
     access: "write",
-    input: { pattern: patternInput, category_id: uuidInput("Category") },
+    input: {
+      pattern: patternInput,
+      category_id: uuidInput("Category"),
+      apply_to_existing: z.boolean().optional().describe("Also apply the new rule to existing transactions. Default false."),
+    },
     async run(args, { books }) {
       const saved = await savePayeeRule(books, { pattern: args.pattern, categoryId: args.category_id }, undefined, "mcp");
-      return answer(saved, (value) => `Added a rule for "${value.pattern}".`, (value) => ({ id: value.id, pattern: value.pattern, category_id: value.categoryId }));
+      if (!saved.ok || !args.apply_to_existing) {
+        return answer(saved, (value) => `Added a rule for "${value.pattern}".`, (value) => ({ id: value.id, pattern: value.pattern, category_id: value.categoryId }));
+      }
+      const applied = await applyPayeeRule(books, saved.value.id, "mcp");
+      if (!applied.ok) {
+        return { ok: false, message: `Added the rule for "${saved.value.pattern}" (id ${saved.value.id}), but applying it failed: ${applied.memberMessage}` };
+      }
+      return answer(
+        applied,
+        (value) => `Added a rule for "${saved.value.pattern}". ${value.message}`,
+        (value) => ({ id: saved.value.id, category_id: saved.value.categoryId, ...counts(value), applied: true }),
+      );
     },
   }),
   tool({
