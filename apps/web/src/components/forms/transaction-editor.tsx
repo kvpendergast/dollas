@@ -106,7 +106,7 @@ export function TransactionEditor({
           <Button
             type="button"
             variant="outline"
-            className="h-10"
+           
             disabled={separating}
             aria-label={`Not the same charge as the bank's: separate ${transaction.payee}`}
             title="Bank sync matched this to your entry. If they are two different charges, keep both."
@@ -118,7 +118,7 @@ export function TransactionEditor({
         <Button
           type="button"
           variant="destructive"
-          className="h-10"
+         
           disabled={removing}
           aria-label={`Delete ${transaction.payee}`}
           onClick={() => void onDelete()}
@@ -141,7 +141,7 @@ export function TransactionEditor({
               <Input
                 id={`${field}-payee`}
                 name="payee"
-                className="h-10"
+               
                 value={payee}
                 onChange={(event) => setPayee(event.target.value)}
                 required
@@ -152,7 +152,7 @@ export function TransactionEditor({
               <Input
                 id={`${field}-date`}
                 name="occurredOn"
-                className="h-10"
+               
                 type="date"
                 value={occurredOn}
                 onChange={(event) => setOccurredOn(event.target.value)}
@@ -190,10 +190,10 @@ export function TransactionEditor({
             </p>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
-            <Button type="submit" className="h-10" disabled={pending}>
+            <Button type="submit" disabled={pending}>
               {pending ? "Saving" : "Save"}
             </Button>
-            <Button type="button" variant="ghost" className="h-10" onClick={() => setOpen(false)}>
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
           </div>

@@ -186,7 +186,7 @@ export function ActivityLedger({
               ref={undoButton}
               type="button"
               variant="outline"
-              className="h-10"
+             
               disabled={restoring}
               onClick={() => void undoDelete()}
             >

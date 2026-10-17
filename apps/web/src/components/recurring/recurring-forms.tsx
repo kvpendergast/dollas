@@ -87,7 +87,7 @@ export function RecurringItemForm({
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor={`${field}-name`}>Name</Label>
-          <Input id={`${field}-name`} name="name" className="h-10" defaultValue={values.name} placeholder="Rent" required />
+          <Input id={`${field}-name`} name="name" defaultValue={values.name} placeholder="Rent" required />
         </div>
         <div className="grid grid-cols-[8rem_1fr] gap-3">
           <div className="space-y-1.5">
@@ -102,7 +102,7 @@ export function RecurringItemForm({
             <Input
               id={`${field}-amount`}
               name="amount"
-              className="h-10 tabular-nums"
+              className="tabular-nums"
               inputMode="decimal"
               defaultValue={values.amountCents === 0 ? "" : dollars(values.amountCents)}
               placeholder="0.00"
@@ -129,7 +129,7 @@ export function RecurringItemForm({
         <div className={`grid gap-3 ${cadence === "semimonthly" ? "grid-cols-[1fr_7rem]" : ""}`}>
           <div className="space-y-1.5">
             <Label htmlFor={`${field}-anchor`}>{monthly ? "Next or last due date" : "One due date"}</Label>
-            <Input id={`${field}-anchor`} name="anchorDate" type="date" className="h-10" defaultValue={values.anchorDate} required />
+            <Input id={`${field}-anchor`} name="anchorDate" type="date" defaultValue={values.anchorDate} required />
           </div>
           {cadence === "semimonthly" ? (
             <div className="space-y-1.5">
@@ -140,7 +140,7 @@ export function RecurringItemForm({
                 type="number"
                 min={1}
                 max={31}
-                className="h-10"
+               
                 defaultValue={values.secondDayOfMonth ?? ""}
                 required
               />
@@ -181,11 +181,11 @@ export function RecurringItemForm({
         <div className="mt-3 grid gap-3 md:grid-cols-3">
           <div className="space-y-1.5 md:col-span-3">
             <Label htmlFor={`${field}-payee`}>Payee contains</Label>
-            <Input id={`${field}-payee`} name="payeeMatch" className="h-10" defaultValue={values.payeeMatch} placeholder="Defaults to the name" />
+            <Input id={`${field}-payee`} name="payeeMatch" defaultValue={values.payeeMatch} placeholder="Defaults to the name" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor={`${field}-percent`}>Amount within ± %</Label>
-            <Input id={`${field}-percent`} name="tolerancePercent" type="number" min={0} max={50} className="h-10" defaultValue={values.tolerancePercent} />
+            <Input id={`${field}-percent`} name="tolerancePercent" type="number" min={0} max={50} defaultValue={values.tolerancePercent} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor={`${field}-range`}>or within ± $</Label>
@@ -193,14 +193,14 @@ export function RecurringItemForm({
               id={`${field}-range`}
               name="toleranceAmount"
               inputMode="decimal"
-              className="h-10"
+             
               defaultValue={values.toleranceCents === 0 ? "" : dollars(values.toleranceCents)}
               placeholder="0.00"
             />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor={`${field}-window`}>Date within ± days</Label>
-            <Input id={`${field}-window`} name="windowDays" type="number" min={0} max={10} className="h-10" defaultValue={values.windowDays} />
+            <Input id={`${field}-window`} name="windowDays" type="number" min={0} max={10} defaultValue={values.windowDays} />
           </div>
           {monthly ? (
             <div className="space-y-1.5">
@@ -211,7 +211,7 @@ export function RecurringItemForm({
                 type="number"
                 min={1}
                 max={31}
-                className="h-10"
+               
                 defaultValue={values.dayOfMonth ?? ""}
                 placeholder="From the date"
               />
@@ -219,11 +219,11 @@ export function RecurringItemForm({
           ) : null}
           <div className="space-y-1.5">
             <Label htmlFor={`${field}-start`}>Starts (optional)</Label>
-            <Input id={`${field}-start`} name="startDate" type="date" className="h-10" defaultValue={values.startDate ?? ""} />
+            <Input id={`${field}-start`} name="startDate" type="date" defaultValue={values.startDate ?? ""} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor={`${field}-end`}>Ends (optional)</Label>
-            <Input id={`${field}-end`} name="endDate" type="date" className="h-10" defaultValue={values.endDate ?? ""} />
+            <Input id={`${field}-end`} name="endDate" type="date" defaultValue={values.endDate ?? ""} />
           </div>
         </div>
       </details>
@@ -236,7 +236,7 @@ export function RecurringItemForm({
           {state.message}
         </p>
       ) : null}
-      <Button type="submit" className="h-10" disabled={pending}>
+      <Button type="submit" disabled={pending}>
         {pending ? "Saving" : submitLabel}
       </Button>
     </form>
@@ -264,12 +264,12 @@ export function RecurringItemControls({ itemId, name, paused }: { itemId: string
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" className="h-10" disabled={busy} onClick={() => void run(() => setRecurringPausedAction(itemId, !paused), paused ? "Resumed. Matching transactions link again." : "Paused. Nothing new links while it is paused.")}>
+        <Button type="button" variant="outline" disabled={busy} onClick={() => void run(() => setRecurringPausedAction(itemId, !paused), paused ? "Resumed. Matching transactions link again." : "Paused. Nothing new links while it is paused.")}>
           {paused ? "Resume" : "Pause"}
         </Button>
         <Dialog>
           <DialogTrigger asChild>
-            <Button type="button" variant="destructive" className="h-10" disabled={busy}>
+            <Button type="button" variant="destructive" disabled={busy}>
               Delete
             </Button>
           </DialogTrigger>
@@ -313,7 +313,7 @@ export function UnlinkRecurringButton({ transactionId, payee }: { transactionId:
       <Button
         type="button"
         variant="ghost"
-        className="h-8 px-2 text-xs"
+        className="px-2 text-xs"
         disabled={busy}
         aria-label={`Unlink ${payee}`}
         onClick={async () => {
@@ -375,7 +375,7 @@ export function RecurringLinkControl({
           <Button
             type="button"
             variant="outline"
-            className="h-10"
+           
             disabled={busy}
             aria-label={`Unlink ${payee} from ${recurring.name}`}
             onClick={() => void run(() => unlinkRecurringTransactionAction(transactionId), "Unlinked. It will not link to this item again on its own.")}
@@ -398,7 +398,7 @@ export function RecurringLinkControl({
           <Button
             type="button"
             variant="outline"
-            className="h-10"
+           
             disabled={busy || !itemId}
             onClick={() => void run(() => linkRecurringTransactionAction(itemId, transactionId), "Linked to the recurring item.")}
           >
@@ -431,7 +431,7 @@ export function MakeRecurringButton({ suggestion }: { suggestion: RecurringFormV
       <input type="hidden" name="categoryId" value={suggestion.categoryId ?? ""} />
       <input type="hidden" name="accountId" value={suggestion.accountId ?? ""} />
       <input type="hidden" name="tolerancePercent" value={suggestion.tolerancePercent} />
-      <Button type="submit" variant="outline" className="h-10" disabled={pending} aria-label={`Make ${suggestion.name} recurring`}>
+      <Button type="submit" variant="outline" disabled={pending} aria-label={`Make ${suggestion.name} recurring`}>
         {pending ? "Adding" : "Make recurring"}
       </Button>
       {state.error ? (

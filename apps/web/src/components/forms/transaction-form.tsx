@@ -39,11 +39,11 @@ export function TransactionForm({
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="payee">Payee</Label>
-          <Input id="payee" name="payee" className="h-10" required />
+          <Input id="payee" name="payee" required />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="occurredOn">Date</Label>
-          <Input id="occurredOn" name="occurredOn" className="h-10" type="date" defaultValue={today} required />
+          <Input id="occurredOn" name="occurredOn" type="date" defaultValue={today} required />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="accountId">Account</Label>
@@ -63,7 +63,7 @@ export function TransactionForm({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="amount">Amount</Label>
-          <Input id="amount" name="amount" className="h-10" inputMode="decimal" placeholder="0.00" required />
+          <Input id="amount" name="amount" inputMode="decimal" placeholder="0.00" required />
         </div>
       </div>
       <SplitControl
@@ -78,7 +78,7 @@ export function TransactionForm({
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" className="h-10" disabled={pending || accounts.length === 0}>
+      <Button type="submit" disabled={pending || accounts.length === 0}>
         {pending ? "Saving" : "Add it"}
       </Button>
     </form>

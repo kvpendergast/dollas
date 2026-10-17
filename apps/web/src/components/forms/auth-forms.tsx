@@ -60,7 +60,7 @@ export function SignInForm({
             <p className="text-sm text-foreground">{state.error}</p>
             <Link
               href={`/verify-email?email=${encodeURIComponent(state.unverifiedEmail)}`}
-              className={cn(buttonVariants({ variant: "outline" }), "h-10 w-full")}
+              className={cn(buttonVariants({ variant: "outline" }), "w-full")}
             >
               Send a verification link
             </Link>
@@ -70,7 +70,7 @@ export function SignInForm({
             {state.error}
           </p>
         ) : null}
-        <Button type="submit" className="h-10 w-full" disabled={pending}>
+        <Button type="submit" className="w-full" disabled={pending}>
           {pending ? "Signing in" : "Sign in"}
         </Button>
       </form>
@@ -141,7 +141,7 @@ export function SignUpForm({
             {state.error}
           </p>
         ) : null}
-        <Button type="submit" className="h-10 w-full" disabled={pending}>
+        <Button type="submit" className="w-full" disabled={pending}>
           {pending ? "Creating login" : path === "start" ? "Create login and household" : "Create login and join"}
         </Button>
       </form>
@@ -168,7 +168,7 @@ export function StartHouseholdForm({ defaultName = "" }: { defaultName?: string 
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" className="h-10 w-full" disabled={pending}>
+      <Button type="submit" className="w-full" disabled={pending}>
         Start the household
       </Button>
     </form>
@@ -188,7 +188,7 @@ export function JoinHouseholdForm() {
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" className="h-10 w-full" disabled={pending}>
+      <Button type="submit" className="w-full" disabled={pending}>
         Open the invite
       </Button>
     </form>
@@ -233,7 +233,7 @@ export function ForgotPasswordForm() {
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" className="h-10 w-full" disabled={pending}>
+      <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Sending" : "Email me a link"}
       </Button>
     </form>
@@ -258,7 +258,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" className="h-10 w-full" disabled={pending}>
+      <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Saving" : "Save password"}
       </Button>
     </form>
@@ -302,7 +302,7 @@ export function ResendVerificationForm({ defaultEmail }: { defaultEmail: string 
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" className="h-10 w-full" disabled={pending || remaining > 0}>
+      <Button type="submit" className="w-full" disabled={pending || remaining > 0}>
         {pending ? "Sending" : "Send another link"}
       </Button>
     </form>

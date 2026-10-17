@@ -24,7 +24,7 @@ export function AccountForm() {
       <div className="grid gap-3 md:grid-cols-3">
         <div className="space-y-1.5">
           <Label htmlFor="account-name">Name</Label>
-          <Input id="account-name" name="name" className="h-10" required />
+          <Input id="account-name" name="name" required />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="account-type">Type</Label>
@@ -47,7 +47,7 @@ export function AccountForm() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="opening">{credit && owed ? "Amount owed" : "Opening balance"}</Label>
-          <Input id="opening" name="opening" className="h-10" inputMode="decimal" defaultValue="0.00" />
+          <Input id="opening" name="opening" inputMode="decimal" defaultValue="0.00" />
         </div>
       </div>
       {credit ? (
@@ -71,7 +71,7 @@ export function AccountForm() {
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" className="h-10" disabled={pending}>
+      <Button type="submit" disabled={pending}>
         {pending ? "Adding" : "Add account"}
       </Button>
     </form>

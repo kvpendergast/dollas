@@ -75,7 +75,7 @@ function PayeeRuleCreate({ categories }: { categories: CategoryMenuEntry[] }) {
         <Input id="payee-rule-pattern" name="pattern" required />
       </div>
       <CategorySelect id="payee-rule-category" categories={categories} />
-      <Button type="submit" className="h-8" disabled={pending}>
+      <Button type="submit" disabled={pending}>
         {pending ? "Adding" : "Add rule"}
       </Button>
       {state.error ? (
@@ -100,7 +100,7 @@ function PayeeRuleRow({ rule, categories }: { rule: Rule; categories: CategoryMe
           <Input id={`${field}-pattern`} name="pattern" defaultValue={rule.pattern} required />
         </div>
         <CategorySelect id={`${field}-category`} categories={categories} defaultValue={rule.categoryId} />
-        <Button type="submit" className="h-8" disabled={pending}>
+        <Button type="submit" disabled={pending}>
           {pending ? "Saving" : "Save"}
         </Button>
         {state.error ? (
@@ -125,7 +125,7 @@ function RemovePayeeRule({ rule }: { rule: Rule }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button type="button" variant="ghost" className="h-8 px-0">
+        <Button type="button" variant="ghost" className="px-0">
           Remove rule
         </Button>
       </DialogTrigger>
@@ -203,7 +203,7 @@ function ApplyPayeeRule({ rule }: { rule: Rule }) {
 
   return (
     <>
-      <Button type="button" variant="outline" className="h-8" disabled={checking} onClick={openPreview}>
+      <Button type="button" variant="outline" disabled={checking} onClick={openPreview}>
         {checking ? "Checking" : "Apply to existing"}
       </Button>
       {error && !preview ? (

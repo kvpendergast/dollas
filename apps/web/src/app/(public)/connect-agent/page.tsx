@@ -23,7 +23,7 @@ function Notice({ title, message, href, label }: { title: string; message: strin
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Link href={href} className={cn(buttonVariants({ variant: "outline" }), "h-10 w-full")}>
+        <Link href={href} className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
           {label}
         </Link>
       </CardContent>

@@ -2,6 +2,7 @@
 
 import type { ColumnMapping } from "@dollas/domain";
 import { useActionState, useState, startTransition } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -148,17 +149,17 @@ export function ImportForm({
         ) : null}
         <div className="flex flex-wrap gap-2">
           {!inspection ? (
-            <Button type="submit" name="intent" value="inspect" className="h-10" disabled={pending}>
+            <Button type="submit" name="intent" value="inspect" disabled={pending}>
               {pending && intent === "inspect" ? "Reading" : "Continue"}
             </Button>
           ) : null}
           {showMapper ? (
-            <Button type="submit" name="intent" value="preview" className="h-10" disabled={pending}>
+            <Button type="submit" name="intent" value="preview" disabled={pending}>
               {pending && intent === "preview" ? "Checking" : "Preview import"}
             </Button>
           ) : null}
           {showPreview && preview && preview.readyCount > 0 ? (
-            <Button type="submit" name="intent" value="commit" className="h-10" disabled={pending}>
+            <Button type="submit" name="intent" value="commit" disabled={pending}>
               {pending && intent === "commit"
                 ? "Importing"
                 : preview.readyCount === 1
@@ -167,7 +168,7 @@ export function ImportForm({
             </Button>
           ) : null}
           {showPreview ? (
-            <Button type="button" variant="outline" className="h-10" onClick={() => setEditingPreview(previewKey)}>
+            <Button type="button" variant="outline" onClick={() => setEditingPreview(previewKey)}>
               Change columns
             </Button>
           ) : null}
@@ -218,11 +219,11 @@ function Mapper({
   return (
     <section aria-label="Match columns" data-import-mapper className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-medium">Match columns</h2>
+        <h2 className="font-heading text-lg font-extrabold">Match columns</h2>
         <Button
           type="button"
           variant="outline"
-          className="h-10"
+         
           disabled={pending}
           onClick={(event) => {
             const form = event.currentTarget.form;
@@ -441,10 +442,10 @@ function SampleTable({ inspection }: { inspection: ImportInspection }) {
     <div className="max-h-60 overflow-auto rounded-sm border-2 border-foreground">
       <table className="w-full min-w-[28rem] text-left text-sm">
         <caption className="sr-only">Header and first rows</caption>
-        <thead className="sticky top-0 bg-card text-xs text-muted-foreground">
+        <thead className="sticky top-0 border-b-2 border-foreground bg-card font-heading text-xs tracking-wider text-foreground uppercase">
           <tr>
             {inspection.columns.map((column) => (
-              <th key={column.index} scope="col" className="px-3 py-2 font-medium">
+              <th key={column.index} scope="col" className="px-3 py-2 font-extrabold">
                 {column.label}
               </th>
             ))}
@@ -488,7 +489,7 @@ function ImportPreviewTable({
         <span className="text-muted-foreground">, {duplicates}</span>
       </p>
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant={errorsOnly ? "default" : "outline"} className="h-10" aria-pressed={errorsOnly} onClick={onToggleErrors}>
+        <Button type="button" variant={errorsOnly ? "default" : "outline"} aria-pressed={errorsOnly} onClick={onToggleErrors}>
           {errorsOnly ? "Showing error rows" : "Show error rows"}
         </Button>
         {preview.errorCount > 0 ? (
@@ -499,10 +500,10 @@ function ImportPreviewTable({
       <div className="max-h-96 overflow-auto rounded-sm border-2 border-foreground">
         <table className="w-full min-w-[40rem] text-left text-sm">
           <caption className="sr-only">Mapped CSV rows</caption>
-          <thead className="sticky top-0 bg-card text-xs text-muted-foreground">
+          <thead className="sticky top-0 border-b-2 border-foreground bg-card font-heading text-xs tracking-wider text-foreground uppercase">
             <tr>
               {["Date", "Payee", "Amount", "Account", "Category", "Notes", "Status"].map((label) => (
-                <th key={label} scope="col" className="px-3 py-2 font-medium">
+                <th key={label} scope="col" className="px-3 py-2 font-extrabold">
                   {label}
                 </th>
               ))}
@@ -514,7 +515,7 @@ function ImportPreviewTable({
                 {row.cells.map((cell) => (
                   <td
                     key={cell.field}
-                    className={cell.message ? "bg-destructive/10 px-3 py-2 text-destructive" : "px-3 py-2"}
+                    className={cell.message ? "border-2 border-destructive bg-error-tint px-3 py-2 font-medium text-destructive" : "px-3 py-2"}
                   >
                     <div className="whitespace-nowrap">{cell.text || (cell.message ? "" : "—")}</div>
                     {cell.message ? <p className="mt-1 max-w-xs text-xs whitespace-normal">{cell.message}</p> : null}
@@ -523,7 +524,7 @@ function ImportPreviewTable({
                 <td className="px-3 py-2 whitespace-nowrap">
                   {row.status === "ready" ? (
                     <>
-                      <span className="text-primary">Ready</span>
+                      <Badge variant="ready">Ready</Badge>
                       {row.possibleTransfer ? (
                         <p className="mt-1 max-w-[14rem] text-xs whitespace-normal text-muted-foreground">
                           Looks like a transfer or card payment. {row.possibleTransfer}
@@ -531,7 +532,7 @@ function ImportPreviewTable({
                       ) : null}
                     </>
                   ) : row.status === "error" ? (
-                    <span className="text-destructive">Error</span>
+                    <Badge variant="destructive">Error</Badge>
                   ) : (
                     <span className="text-muted-foreground">
                       {row.duplicateOf === "bank" ? "Already synced from bank" : "Duplicate"}
@@ -555,7 +556,7 @@ function OpenImports({ batches, undoneNotice }: { batches: OpenCsvImport[]; undo
   return (
     <section aria-label="Imports you can undo" className="space-y-3">
       <div>
-        <h2 className="text-sm font-medium">Imports you can undo</h2>
+        <h2 className="font-heading text-lg font-extrabold">Imports you can undo</h2>
         <p className="text-sm text-muted-foreground">
           Undo removes only the transactions that import added, including ones you had deleted from that import. You
           can import that file again afterwards. Payee rules, transactions you entered yourself, and other imports stay
@@ -602,7 +603,7 @@ function UndoImport({
       <p className="text-sm">
         {count} · {when}
       </p>
-      <Button type="submit" variant="outline" className="h-10" disabled={pending}>
+      <Button type="submit" variant="outline" disabled={pending}>
         {pending ? "Undoing" : "Undo import"}
       </Button>
     </form>

@@ -72,7 +72,7 @@ export function NameForm({ name }: { name: string }) {
       </div>
       <FieldError message={state.error} />
       <FieldNotice message={state.notice} />
-      <Button type="submit" className="h-10" disabled={pending}>
+      <Button type="submit" disabled={pending}>
         {pending ? "Saving" : "Save name"}
       </Button>
     </form>
@@ -94,7 +94,7 @@ export function EmailForm({ email }: { email: string }) {
       <p className="text-sm text-muted-foreground">{EMAIL_CHANGE_HINT}</p>
       <FieldError message={state.error} />
       <FieldNotice message={state.notice} />
-      <Button type="submit" className="h-10" disabled={pending}>
+      <Button type="submit" disabled={pending}>
         {pending ? "Sending link" : "Send confirmation link"}
       </Button>
     </form>
@@ -126,7 +126,7 @@ function PasswordForm() {
       </div>
       <FieldError message={state.error} />
       <FieldNotice message={state.notice} />
-      <Button type="submit" className="h-10" disabled={pending}>
+      <Button type="submit" disabled={pending}>
         {pending ? "Changing" : "Change password"}
       </Button>
     </form>
@@ -159,7 +159,7 @@ export function TransferForm({ members }: { members: { userId: string; name: str
       </div>
       <FieldError message={state.error} />
       <FieldNotice message={state.notice} />
-      <Button type="submit" variant="outline" className="h-10" disabled={pending}>
+      <Button type="submit" variant="outline" disabled={pending}>
         {pending ? "Handing off" : "Hand off ownership"}
       </Button>
     </form>
@@ -173,7 +173,7 @@ export function LeaveHouseholdDialog({ lastOwner, householdName }: { lastOwner: 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" className="h-10">
+        <Button type="button" variant="outline">
           Leave household
         </Button>
       </DialogTrigger>
@@ -185,7 +185,7 @@ export function LeaveHouseholdDialog({ lastOwner, householdName }: { lastOwner: 
         {lastOwner ? (
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline" className="h-10">
+              <Button type="button" variant="outline">
                 Close
               </Button>
             </DialogClose>
@@ -195,11 +195,11 @@ export function LeaveHouseholdDialog({ lastOwner, householdName }: { lastOwner: 
             <FieldError message={state.error} />
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button" variant="outline" className="h-10">
+                <Button type="button" variant="outline">
                   Stay
                 </Button>
               </DialogClose>
-              <Button type="submit" variant="destructive" className="h-10" disabled={pending}>
+              <Button type="submit" variant="destructive" disabled={pending}>
                 {pending ? "Leaving" : "Leave household"}
               </Button>
             </DialogFooter>
@@ -218,7 +218,7 @@ export function DeleteHouseholdDialog({ householdName }: { householdName: string
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="destructive" className="h-10">
+        <Button type="button" variant="destructive">
           Delete household
         </Button>
       </DialogTrigger>
@@ -243,11 +243,11 @@ export function DeleteHouseholdDialog({ householdName }: { householdName: string
           <FieldError message={state.error} />
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline" className="h-10">
+              <Button type="button" variant="outline">
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit" variant="destructive" className="h-10" disabled={pending || !matches}>
+            <Button type="submit" variant="destructive" disabled={pending || !matches}>
               {pending ? "Deleting" : "Delete household"}
             </Button>
           </DialogFooter>
