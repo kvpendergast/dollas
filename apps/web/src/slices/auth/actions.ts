@@ -20,6 +20,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isAgentAuthorizePath } from "@/lib/agent-oauth";
 import { getAuth } from "@/lib/auth";
+import { AUTH_LIMITS, consumeAll, rateKey, tooManyAttempts } from "@/lib/rate-limit";
 import { logError, logInfo } from "@/lib/telemetry";
 import { clientAddress, readAuthError } from "@/slices/auth/auth-error";
 
@@ -66,6 +67,11 @@ export async function signInAction(_state: AuthFormState, formData: FormData): P
   if (invitePath) await rememberInvite(String(formData.get("invite")));
   const agentRaw = String(formData.get("agentReturn") ?? "");
   const returnPath = isAgentAuthorizePath(agentRaw) ? agentRaw : (invitePath ?? "/");
+  const limited = await consumeAll([
+    { key: rateKey("signin-ip", clientAddress(await headers())), rule: AUTH_LIMITS.signInIp },
+    { key: rateKey("signin-email", email), rule: AUTH_LIMITS.signInEmail },
+  ]);
+  if (limited) return { error: tooManyAttempts(limited.retryAfterSeconds), retryAfterSeconds: limited.retryAfterSeconds };
   try {
     await getAuth().api.signInEmail({
       body: { email, password, callbackURL: returnPath },
@@ -149,6 +155,8 @@ export async function resetPasswordAction(_state: AuthFormState, formData: FormD
   if (password.length < 8) return { error: resetPasswordFailure("PASSWORD_TOO_SHORT") };
   if (password.length > 128) return { error: resetPasswordFailure("PASSWORD_TOO_LONG") };
   if (password !== confirm) return { error: "Those two passwords do not match." };
+  const limited = await consumeAll([{ key: rateKey("reset-ip", clientAddress(await headers())), rule: AUTH_LIMITS.resetPasswordIp }]);
+  if (limited) return { error: tooManyAttempts(limited.retryAfterSeconds), retryAfterSeconds: limited.retryAfterSeconds };
   try {
     await getAuth().api.resetPassword({
       body: { newPassword: password, token },
@@ -178,6 +186,8 @@ export async function signUpAction(_state: AuthFormState, formData: FormData): P
   if (name.length < 2) return { error: "Enter the name you use at home." };
   if (path === "join" && !invitePath) return { error: "Paste the whole invite link from your email." };
   if (path === "start" && householdName.length < 2) return { error: "Name the household you are starting." };
+  const limited = await consumeAll([{ key: rateKey("signup-ip", clientAddress(await headers())), rule: AUTH_LIMITS.signUpIp }]);
+  if (limited) return { error: tooManyAttempts(limited.retryAfterSeconds), retryAfterSeconds: limited.retryAfterSeconds };
   try {
     await getAuth().api.signUpEmail({
       // The verification link signs them in and returns to the invite page.

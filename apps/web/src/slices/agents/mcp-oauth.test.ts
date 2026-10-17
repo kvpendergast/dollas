@@ -72,9 +72,12 @@ describe("agent OAuth and MCP", () => {
     const houses: string[] = [];
     const clients: string[] = [];
 
+    const clientAddress = `198.51.100.${1 + Math.floor(Math.random() * 250)}`;
     const call = (path: string, init: RequestInit & { cookie?: string } = {}) => {
       const headers = new Headers(init.headers);
       headers.set("origin", ORIGIN);
+      // Auth routes are rate limited per address in Postgres; each run is its own client address.
+      headers.set("x-forwarded-for", clientAddress);
       if (init.cookie) headers.set("cookie", init.cookie);
       return auth.handler(new Request(`${ORIGIN}${path}`, { ...init, headers, redirect: "manual" }));
     };

@@ -239,6 +239,13 @@
       "when": 1791667207572,
       "tag": "0033_bank_account_reconnect",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792242067299,
+      "tag": "0034_rate_limit",
+      "breakpoints": true
     }
   ]
 }
