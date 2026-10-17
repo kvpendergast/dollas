@@ -147,7 +147,7 @@ export const csvImportTools = [
   tool({
     name: "stage_csv",
     title: "Stage CSV",
-    description: `Step 0 of a CSV import. Upload the file's text once and get an upload_id for inspect_csv, preview_csv_import and commit_csv_import, so the file is never pasted again. The staged file is immutable, kept 24 hours, and its sha256 is returned so you can confirm the bytes. Writes nothing to the books.`,
+    description: `Step 0 of a CSV import. Upload the file's text once and get an upload_id for inspect_csv, preview_csv_import and commit_csv_import, so the file is never pasted again. The staged file is immutable, kept 24 hours, and its sha256 is returned so you can confirm the bytes. Nothing is imported yet.`,
     access: "write",
     input: { csv: z.string().min(1).max(CSV_IMPORT_MAX_CHARS).describe(`The CSV file's full text (up to ${CSV_IMPORT_MAX_CHARS} characters).`) },
     async run(args, { books }) {
