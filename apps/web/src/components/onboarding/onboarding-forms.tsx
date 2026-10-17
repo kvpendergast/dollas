@@ -27,12 +27,12 @@ function Status({ state }: { state: OnboardingFormState }) {
   ) : null;
 }
 
-export function SkipOnboardingButton({ label = "Skip for now" }: { label?: string }) {
+export function SkipOnboardingButton({ label = "Skip for now", variant = "ghost" }: { label?: string; variant?: "ghost" | "outline" }) {
   const [state, action, pending] = useActionState(dismissOnboardingAction, initial);
   useActionToast(state, "Checklist hidden. Bring it back from Home or Settings.");
   return (
     <form action={action} className="space-y-1">
-      <Button type="submit" variant="ghost" size="sm" disabled={pending}>
+      <Button type="submit" variant={variant} size="sm" disabled={pending}>
         {pending ? "Hiding" : label}
       </Button>
       {state.error ? <Status state={state} /> : null}
