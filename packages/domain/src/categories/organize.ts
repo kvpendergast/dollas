@@ -77,7 +77,7 @@ export function renameCategoryGroup(
   }
   if (group.name === defined.value.name) return ok(catalog);
   const clash = catalog.groups.some(
-    (row) => row.householdId === householdId && row.id !== groupId && row.name === defined.value.name,
+    (row) => row.householdId === householdId && row.id !== groupId && row.name.toLowerCase() === defined.value.name.toLowerCase(),
   );
   if (clash) return err(new InvalidCategoryError("That group already exists."));
   return ok({

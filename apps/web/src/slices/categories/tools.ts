@@ -1,6 +1,7 @@
 import { categoryKinds } from "@dollas/domain";
 import { z } from "zod";
 import { answer, plural, tool, uuidInput } from "@/slices/agents/tool-kit";
+import { refuse } from "@/lib/service-result";
 import {
   changeKind,
   createCategory,
@@ -93,10 +94,20 @@ export const categoryTools = [
     input: {
       name: z.string().min(1).max(60).describe("Category name."),
       kind: z.enum(categoryKinds).describe("income, expense, or transfer."),
-      group_id: uuidInput("Group"),
+      group_id: uuidInput("Group").optional(),
+      group_name: z.string().min(1).max(80).optional().describe("Or the name of an existing group (any capitalization), instead of group_id. It is never created for you; use create_category_group first."),
     },
     async run(args, { books }) {
-      const created = await createCategory(books, { name: args.name, kind: args.kind, groupId: args.group_id }, "mcp");
+      let groupId = args.group_id;
+      if (!groupId && args.group_name) {
+        const listed = await listCategories(books);
+        if (!listed.ok) return answer(listed, () => "");
+        const wanted = args.group_name.trim().toLowerCase();
+        groupId = listed.value.groups.find((group) => group.name.toLowerCase() === wanted)?.id;
+        if (!groupId) return answer(refuse(`There is no group named ${args.group_name}. Use create_category_group first, or pass group_id.`), () => "");
+      }
+      if (!groupId) return answer(refuse("Pass group_id or group_name."), () => "");
+      const created = await createCategory(books, { name: args.name, kind: args.kind, groupId }, "mcp");
       return answer(created, (value) => `Added ${value.name}.`, (value) => ({ id: value.id, name: value.name, kind: value.kind, group_id: value.groupId }));
     },
   }),

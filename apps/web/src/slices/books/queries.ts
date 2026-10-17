@@ -29,9 +29,6 @@ import { listPayeeRules } from "@/slices/activity/payee-rule-service";
 import { listHouseholdTransactions } from "@/slices/activity/transactions";
 import { loadSpendEstimate } from "./estimate";
 
-function monthStart(asOf: CivilDate): string {
-  return toIsoDate({ year: asOf.year, month: asOf.month, day: 1 });
-}
 
 /** Posted rows only. A deleted transaction keeps its fingerprint but leaves the books. */
 function postedInHousehold(householdId: string) {
@@ -67,9 +64,32 @@ function compareListed(a: ListedCategory, b: ListedCategory): number {
   return compareCatalogOrder(a, b);
 }
 
+/** The Home numbers for the current month, as the Home page shows them. */
 export async function loadHome(books: BooksContext) {
-  const start = monthStart(books.asOf);
-  const end = toIsoDate(books.asOf);
+  const home = await loadHomeFor(books, null);
+  if (!home.estimate) throw new Error("The current month has a spend estimate.");
+  return { ...home, estimate: home.estimate };
+}
+
+/** A calendar month as YYYY-MM, or null when the text is not one. */
+export function parsePlanMonth(text: string): { year: number; month: number } | null {
+  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(text);
+  if (!match) return null;
+  const year = Number(match[1]);
+  return year >= 2000 && year <= 2200 ? { year, month: Number(match[2]) } : null;
+}
+
+/**
+ * Home's numbers for the current month (month null) or any other month
+ * (PEN-283): the month's income, spending, plan and budgets. A past or future
+ * month runs to its last day, the current one to today. Account balance is
+ * always today's, and the Spend estimate only exists for the current month.
+ */
+export async function loadHomeFor(books: BooksContext, month: { year: number; month: number } | null) {
+  const current = month == null || (month.year === books.asOf.year && month.month === books.asOf.month);
+  const view = current ? { year: books.asOf.year, month: books.asOf.month } : (month as { year: number; month: number });
+  const start = toIsoDate({ year: view.year, month: view.month, day: 1 });
+  const end = current ? toIsoDate(books.asOf) : toIsoDate({ year: view.year, month: view.month, day: new Date(Date.UTC(view.year, view.month, 0)).getUTCDate() });
   const rows = await withActor(books.userId, async (tx) => {
     const transactions = await tx
       .select({
@@ -103,8 +123,8 @@ export async function loadHome(books: BooksContext) {
       .where(
         and(
           eq(categoryBudget.householdId, books.householdId),
-          eq(categoryBudget.year, books.asOf.year),
-          eq(categoryBudget.month, books.asOf.month),
+          eq(categoryBudget.year, view.year),
+          eq(categoryBudget.month, view.month),
         ),
       );
     const accountRows = await tx
@@ -148,8 +168,10 @@ export async function loadHome(books: BooksContext) {
     budgets: rows.budgets.map((row) => ({ categoryId: row.categoryId, name: categoryLabel(row.categoryName, row.groupName), budgetCents: row.amountCents })),
   });
   const budgetedCents = rows.budgets.reduce((sum, row) => sum + row.amountCents, 0);
-  const estimate = await loadSpendEstimate(books);
+  const estimate = current ? await loadSpendEstimate(books) : null;
   return {
+    month: `${view.year}-${String(view.month).padStart(2, "0")}`,
+    currentMonth: current,
     incomeCents,
     spentCents,
     leftCents: incomeCents - spentCents,
@@ -159,15 +181,17 @@ export async function loadHome(books: BooksContext) {
     hasAccounts: accountsForActiveLists(accounts, books.householdId).length > 0,
     accountBalanceCents: accountTotal.value,
     /** Home's estimate card: the same numbers as the Spend estimate page and get_spend_estimate. */
-    estimate: {
-      estimateCents: estimate.thisMonth.estimateCents,
-      spentSoFarCents: estimate.thisMonth.spentSoFarCents,
-      recurringExpectedCents: estimate.thisMonth.recurringExpectedCents,
-      paceCents: estimate.thisMonth.paceCents,
-      dailyPaceCents: estimate.pace.dailyCents,
-      paceBasis: estimate.pace.basis,
-      nextMonthEstimateCents: estimate.nextMonth.estimateCents,
-    },
+    estimate: estimate
+      ? {
+          estimateCents: estimate.thisMonth.estimateCents,
+          spentSoFarCents: estimate.thisMonth.spentSoFarCents,
+          recurringExpectedCents: estimate.thisMonth.recurringExpectedCents,
+          paceCents: estimate.thisMonth.paceCents,
+          dailyPaceCents: estimate.pace.dailyCents,
+          paceBasis: estimate.pace.basis,
+          nextMonthEstimateCents: estimate.nextMonth.estimateCents,
+        }
+      : null,
   };
 }
 

@@ -10,7 +10,7 @@ import {
   type CatalogDirection,
   type CategoryCatalog,
 } from "@dollas/domain";
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 import { withActor } from "@/db/actor";
 import { category, categoryBudget, categoryGroup } from "@/db/schema";
 import { logInfo } from "@/lib/telemetry";
@@ -25,7 +25,7 @@ import { loadCatalog, saveCatalog } from "./catalog";
  * @dollas/domain; these load, decide, and save in one household transaction.
  */
 
-const KNOWN = ["Choose a group in this household.", "That category is already in this group."];
+const KNOWN = ["That group already exists.", "Choose a group in this household.", "That category is already in this group."];
 
 function isUniqueViolation(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === "23505";
@@ -50,6 +50,12 @@ export async function createCategoryGroup(
   if (defined.isErr()) return refuse(defined.error.message, defined.error);
   try {
     const id = await withActor(actor.userId, async (tx) => {
+      // The unique key is case-sensitive; "groceries" next to "Groceries" is the same group to a person.
+      const [clash] = await tx
+        .select({ id: categoryGroup.id })
+        .from(categoryGroup)
+        .where(and(eq(categoryGroup.householdId, actor.householdId), sql`lower(${categoryGroup.name}) = lower(${defined.value.name})`));
+      if (clash) throw new Error("That group already exists.");
       const [last] = await tx
         .select({ sortOrder: categoryGroup.sortOrder })
         .from(categoryGroup)
@@ -67,7 +73,7 @@ export async function createCategoryGroup(
     return succeed({ id, name: defined.value.name });
   } catch (error) {
     if (isUniqueViolation(error)) return refuse("That group already exists.", error);
-    return failure(error, "Could not add that group.", { action: "create-category-group", via, householdId: actor.householdId });
+    return failure(error, "Could not add that group.", { action: "create-category-group", via, householdId: actor.householdId }, KNOWN);
   }
 }
 
