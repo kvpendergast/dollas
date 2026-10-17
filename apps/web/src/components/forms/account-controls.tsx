@@ -3,6 +3,7 @@
 import { FieldError } from "@/components/ui/field";
 import { CREDIT_OWED_HINT, DELETE_BLOCKED_MESSAGE, openingBalanceFields, type AccountType } from "@dollas/domain";
 import { useActionState, useState } from "react";
+import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,7 +33,6 @@ export function AccountControls({
   const [name, setName] = useState(account.name);
   const [opening, setOpening] = useState(amount);
   const [owed, setOwed] = useState(owedAtStart);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [saved, save, saving] = useActionState(updateAccountAction, { error: "" });
   useActionToast(saved, "Account saved.");
   const [archivedState, archive, archiving] = useActionState(archiveAccountAction, { error: "" });
@@ -124,40 +124,24 @@ export function AccountControls({
         </form>
       )}
 
-      {blocked ? null : confirmingDelete ? (
-        <div role="alertdialog" aria-labelledby={`${field}-delete-title`} className="space-y-3 rounded-sm bg-muted px-3 py-3">
-          <div>
-            <p id={`${field}-delete-title`} className="font-medium">
-              Delete {account.name}?
-            </p>
-            <p className="text-sm text-muted-foreground">This cannot be undone.</p>
-          </div>
-          <form action={remove} className="flex flex-wrap gap-2">
-            <input type="hidden" name="accountId" value={account.id} />
-            <input type="hidden" name="confirm" value="yes" />
-            <Button type="submit" variant="destructive" disabled={removing}>
-              {removing ? "Deleting" : "Delete account"}
+      {blocked ? null : (
+        <ConfirmDialog
+          trigger={
+            <Button type="button" variant="destructive" aria-label={`Delete ${account.name}`}>
+              Delete
             </Button>
-            <Button type="button" variant="outline" onClick={() => setConfirmingDelete(false)}>
-              Cancel
-            </Button>
-          </form>
-          {removed.error ? (
-            <FieldError>
-              {removed.error}
-            </FieldError>
-          ) : null}
-        </div>
-      ) : (
-        <Button
-          type="button"
-          variant="destructive"
-         
-          aria-label={`Delete ${account.name}`}
-          onClick={() => setConfirmingDelete(true)}
+          }
+          title={`Delete ${account.name}?`}
+          description="This cannot be undone."
+          action={remove}
+          pending={removing}
+          error={removed.error}
+          confirmLabel="Delete account"
+          pendingLabel="Deleting"
         >
-          Delete
-        </Button>
+          <input type="hidden" name="accountId" value={account.id} />
+          <input type="hidden" name="confirm" value="yes" />
+        </ConfirmDialog>
       )}
     </div>
   );
