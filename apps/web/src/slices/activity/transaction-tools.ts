@@ -2,6 +2,7 @@ import { MAX_TRANSACTION_SPLITS, PAYEE_MAX_LENGTH, toIsoDate } from "@dollas/dom
 import { confirmInput, pageFrom, pageInput, readPage } from "@dollas/mcp";
 import { z } from "zod";
 import { answer, centsInput, isoDateInput, money, plural, tool, uuidInput } from "@/slices/agents/tool-kit";
+import { createHouseholdTransfer } from "./transfer-service";
 import { FILTER_HELP, filterFromArgs, filterInput } from "@/slices/spending/tools";
 import {
   amendHouseholdTransaction,
@@ -119,6 +120,37 @@ export const transactionTools = [
         "mcp",
       );
       return answer(created, (value) => `Added ${value.payee} for ${money(value.amountCents, books)} on ${value.occurredOn}.`, saved);
+    },
+  }),
+  tool({
+    name: "create_transfer",
+    title: "Create transfer",
+    description:
+      "Move money between two of the household's own accounts, e.g. a credit card payment from checking. Writes two transactions (money out of from_account_id, money into to_account_id) in the Transfers category, which is made on first use. Transfers are neither income nor spending. Use this for the rows commit_csv_import flags as possible_transfer instead of importing both sides as spending. amount_cents is a positive amount.",
+    access: "write",
+    input: {
+      from_account_id: uuidInput("Account the money leaves"),
+      to_account_id: uuidInput("Account the money goes into"),
+      amount_cents: centsInput("Positive amount"),
+      occurred_on: isoDateInput("Date"),
+    },
+    async run(args, { books }) {
+      const created = await createHouseholdTransfer(
+        books,
+        { fromAccountId: args.from_account_id, toAccountId: args.to_account_id, amountCents: args.amount_cents, occurredOn: args.occurred_on },
+        "mcp",
+      );
+      return answer(
+        created,
+        (value) => `Moved ${money(value.amountCents, books)} from ${value.fromAccountName} to ${value.toAccountName} on ${value.occurredOn}.`,
+        (value) => ({
+          from_transaction_id: value.fromTransactionId,
+          to_transaction_id: value.toTransactionId,
+          category_id: value.categoryId,
+          amount_cents: value.amountCents,
+          occurred_on: value.occurredOn,
+        }),
+      );
     },
   }),
   tool({

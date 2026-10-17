@@ -136,16 +136,18 @@ function inspectionOut(inspection: CsvInspection) {
 }
 
 function previewOut(preview: CsvPreview, args: { rows?: "problems" | "all"; limit?: number; cursor?: string }) {
-  const wanted = args.rows === "all" ? preview.rows : preview.rows.filter((row) => row.status !== "ready");
+  const wanted = args.rows === "all" ? preview.rows : preview.rows.filter((row) => row.status !== "ready" || row.possibleTransfer);
   return {
     ready_count: preview.readyCount,
     error_count: preview.errorCount,
     duplicate_count: preview.duplicateCount,
+    possible_transfer_count: preview.possibleTransferCount,
     rows: paginate(
       wanted.map((row) => ({
         line: row.line,
         status: row.status,
         duplicate_of: row.duplicateOf,
+        possible_transfer: row.possibleTransfer,
         amount_cents: row.amountCents,
         cells: row.cells.map((cell) => ({ field: cell.field, text: cell.text, error: cell.message })),
       })),
@@ -155,11 +157,15 @@ function previewOut(preview: CsvPreview, args: { rows?: "problems" | "all"; limi
 }
 
 function previewSummary(preview: CsvPreview): string {
-  return `${plural(preview.readyCount, "row")} ready, ${plural(preview.errorCount, "row")} with errors, ${plural(preview.duplicateCount, "duplicate")}.`;
+  const transfers =
+    preview.possibleTransferCount > 0
+      ? ` ${plural(preview.possibleTransferCount, "ready row")} look like transfers or card payments (possible_transfer): importing them counts that money twice. Leave them out, or record them with create_transfer.`
+      : "";
+  return `${plural(preview.readyCount, "row")} ready, ${plural(preview.errorCount, "row")} with errors, ${plural(preview.duplicateCount, "duplicate")}.${transfers}`;
 }
 
 const rowsInput = {
-  rows: z.enum(["problems", "all"]).optional().describe("Which rows to list: only rows with errors or duplicates (default), or all."),
+  rows: z.enum(["problems", "all"]).optional().describe("Which rows to list: only rows with errors, duplicates or a possible_transfer flag (default), or all."),
   ...pageInput(50),
 };
 

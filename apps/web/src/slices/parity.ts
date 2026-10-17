@@ -31,6 +31,7 @@ export const ACTION_PARITY: Record<string, Parity> = {
   deleteAccountAction: { tools: ["delete_account"] },
   // transactions
   createTransactionAction: { tools: ["create_transaction"] },
+  createTransferAction: { tools: ["create_transfer"] },
   updateTransactionAction: { tools: ["update_transaction", "categorize_transaction", "split_transaction"] },
   deleteTransactionAction: { tools: ["delete_transaction"] },
   restoreTransactionAction: { tools: ["restore_transaction"] },

@@ -32,12 +32,15 @@ const FALLBACK = "Could not import that CSV.";
 export type CsvPreviewRow = Pick<MappedPreviewRow, "line" | "status" | "amountCents" | "cells"> & {
   /** Set on duplicates: "bank" means the bank already synced this charge (PEN-203). */
   duplicateOf: "import" | "bank" | null;
+  /** Why a ready row looks like a transfer or card payment (PEN-280), else null. */
+  possibleTransfer: string | null;
 };
 
 export type CsvPreview = {
   readyCount: number;
   errorCount: number;
   duplicateCount: number;
+  possibleTransferCount: number;
   rows: CsvPreviewRow[];
 };
 
@@ -65,15 +68,17 @@ export function checkCsvText(csv: string): string | null {
   return null;
 }
 
-function presentable(outcome: { readyCount: number; errorCount: number; duplicateCount: number; rows: MappedPreviewRow[] }): CsvPreview {
+function presentable(outcome: { readyCount: number; errorCount: number; duplicateCount: number; possibleTransferCount: number; rows: MappedPreviewRow[] }): CsvPreview {
   return {
     readyCount: outcome.readyCount,
     errorCount: outcome.errorCount,
     duplicateCount: outcome.duplicateCount,
+    possibleTransferCount: outcome.possibleTransferCount,
     rows: outcome.rows.map((row) => ({
       line: row.line,
       status: row.status,
       duplicateOf: row.duplicateOf ?? null,
+      possibleTransfer: row.possibleTransfer ?? null,
       amountCents: row.amountCents,
       cells: row.cells,
     })),

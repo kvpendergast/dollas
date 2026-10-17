@@ -36,7 +36,7 @@ export type CellError = {
   message: string;
 };
 
-export type ImportAccount = { id: string; name: string };
+export type ImportAccount = { id: string; name: string; /** checking, savings, credit, or cash; lets the preview spot card payments. */ type?: string };
 export type ImportCategory = { id: string; name: string; kind: string };
 
 export type MappedImportContext = {
@@ -119,6 +119,8 @@ export type MappedPreviewRow = {
   amountCents: Cents | null;
   fingerprint: string | null;
   commit: CommitCsvRow | null;
+  /** Why this ready row looks like a transfer or card payment (PEN-280). It still imports as is; the caller decides. */
+  possibleTransfer?: string;
 };
 
 export type MappedValidation = {
@@ -128,7 +130,31 @@ export type MappedValidation = {
   readyCount: number;
   errorCount: number;
   duplicateCount: number;
+  /** Ready rows that look like transfers or card payments between your own accounts. */
+  possibleTransferCount: number;
 };
+
+const TRANSFER_WORDS = /\b(payment|autopay|auto pay|transfer|xfer|thank you)\b/i;
+
+/**
+ * Card payments and moves between your own accounts show up in bank files as
+ * ordinary rows and would be counted twice (once as the payment, once as the
+ * card spending). Spot the likely ones: a positive amount on a credit account,
+ * or payment-like words in the payee or notes. A hint only; nothing is changed.
+ */
+export function possibleTransferReason(row: {
+  payee: string;
+  note: string | null;
+  amountCents: number;
+  accountType?: string;
+}): string | null {
+  const wording = TRANSFER_WORDS.test(row.payee) || (row.note != null && TRANSFER_WORDS.test(row.note));
+  const onCard = row.accountType === "credit" && row.amountCents > 0;
+  if (wording && onCard) return "A positive amount on a credit account with payment wording: likely a card payment.";
+  if (wording) return "The text mentions a payment or transfer.";
+  if (onCard) return "A positive amount on a credit account: a card payment or a refund.";
+  return null;
+}
 
 const FIELD_ORDER: MappedField[] = ["date", "payee", "amount", "account", "category", "notes"];
 
@@ -166,6 +192,7 @@ export async function validateMappedImport(
       categoryName: string;
     } | null;
     commit: Omit<CommitCsvRow, "fingerprint"> | null;
+    transferHint: string | null;
   }> = [];
 
   for (const record of laid.data) {
@@ -216,6 +243,7 @@ export async function validateMappedImport(
       amountCents: row.amountCents,
       fingerprint,
       commit,
+      ...(row.transferHint ? { possibleTransfer: row.transferHint } : {}),
     });
   }
 
@@ -237,6 +265,7 @@ export async function validateMappedImport(
     readyCount: ready.length,
     errorCount: rows.filter((row) => row.status === "error").length,
     duplicateCount: rows.filter((row) => row.status === "duplicate").length,
+    possibleTransferCount: rows.filter((row) => row.status === "ready" && row.possibleTransfer).length,
   });
 }
 
@@ -260,6 +289,7 @@ function validateRow(
     categoryName: string;
   } | null;
   commit: Omit<CommitCsvRow, "fingerprint"> | null;
+  transferHint: string | null;
 } {
   const errors: CellError[] = [];
   const dateRaw = cellAt(cells, mapping.dateColumn, cells.length);
@@ -357,13 +387,19 @@ function validateRow(
   };
 
   if (errors.length > 0 || !date.ok || !amount.ok || !account.ok || !category) {
-    return { line, errors, texts, amountCents: amount.ok ? amount.cents : null, normalized: null, commit: null };
+    return { line, errors, texts, amountCents: amount.ok ? amount.cents : null, normalized: null, commit: null, transferHint: null };
   }
 
   return {
     line,
     errors,
     amountCents,
+    transferHint: possibleTransferReason({
+      payee,
+      note,
+      amountCents,
+      accountType: context.accounts.find((item) => item.id === account.id)?.type,
+    }),
     texts: { ...texts, amount: "" },
     normalized: {
       occurredOn,

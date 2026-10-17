@@ -5,7 +5,7 @@ import { inspectCsvImport, parseCsvAmount, readCsvDate } from "./mapping";
 import { commitMappedImport, previewMappedImport, proposeCsvMapping } from "./service";
 import type { CsvImportStore } from "./store";
 import { transactionsKeptByUndo, transactionsRemovedByUndo, type ImportBatchTransaction } from "./undo";
-import { categoryLabelCounts, validateMappedImport, type BankBackedCharge, type CommitCsvRow, type MappedImportContext } from "./validate";
+import { categoryLabelCounts, possibleTransferReason, validateMappedImport, type BankBackedCharge, type CommitCsvRow, type MappedImportContext } from "./validate";
 
 const maple = "maple-house";
 const accounts = [
@@ -560,5 +560,30 @@ describe("unmatched bank category labels (PEN-279)", () => {
       { label: "Groceries", rows: 1, totalCents: -1000, matchedCategoryId: "cat-groceries", matchedCategoryName: "Groceries", ambiguous: false },
       { label: "Shopping", rows: 1, totalCents: 1200, matchedCategoryId: null, matchedCategoryName: null, ambiguous: false },
     ]);
+  });
+});
+
+describe("payment-looking rows (PEN-280)", () => {
+  it("flags payment wording and positive card amounts, and nothing else", () => {
+    expect(possibleTransferReason({ payee: "Online Payment Thank You", note: null, amountCents: 25000, accountType: "credit" })).toMatch(/likely a card payment/);
+    expect(possibleTransferReason({ payee: "Autopay", note: null, amountCents: -5000, accountType: "checking" })).toMatch(/payment or transfer/);
+    expect(possibleTransferReason({ payee: "Shoe refund", note: null, amountCents: 2000, accountType: "credit" })).toMatch(/card payment or a refund/);
+    expect(possibleTransferReason({ payee: "Coffee", note: null, amountCents: -350, accountType: "credit" })).toBeNull();
+    expect(possibleTransferReason({ payee: "Coffee", note: "transfer from savings", amountCents: -350, accountType: "checking" })).not.toBeNull();
+    expect(possibleTransferReason({ payee: "Paycheck", note: null, amountCents: 300000, accountType: "checking" })).toBeNull();
+    expect(possibleTransferReason({ payee: "Prepayment plan", note: null, amountCents: -100, accountType: "checking" })).toBeNull();
+  });
+
+  it("counts flagged ready rows in the preview without changing their status", async () => {
+    const csv = "Date,Description,Amount\n2026-03-01,Card Payment,100.00\n2026-03-02,Cafe,-4.00\n";
+    const inspected = await inspectCsvImport(csv);
+    if (inspected.isErr()) throw inspected.error;
+    const mapping = { ...inspected.value.mapping, accountMode: "fixed" as const, fixedAccountId: "acct-visa" };
+    const validated = await validateMappedImport(csv, mapping, context({ accounts: [{ id: "acct-visa", name: "Visa", type: "credit" }] }));
+    if (validated.isErr()) throw validated.error;
+    expect(validated.value.readyCount).toBe(2);
+    expect(validated.value.possibleTransferCount).toBe(1);
+    expect(validated.value.rows[0]?.possibleTransfer).toBeTruthy();
+    expect(validated.value.rows[1]?.possibleTransfer).toBeUndefined();
   });
 });

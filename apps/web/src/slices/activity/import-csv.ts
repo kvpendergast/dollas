@@ -30,6 +30,7 @@ export type ImportPreviewRow = {
   line: number;
   status: "ready" | "error" | "duplicate";
   duplicateOf: "import" | "bank" | null;
+  possibleTransfer: string | null;
   cells: ImportPreviewCell[];
 };
 
@@ -205,6 +206,7 @@ function presentPreview(outcome: CsvPreview, stamp: string): ImportPreview {
       line: row.line,
       status: row.status,
       duplicateOf: row.duplicateOf,
+      possibleTransfer: row.possibleTransfer,
       cells: row.cells.map((cell) => ({
         field: cell.field,
         text: cell.field === "amount" && row.amountCents != null && cell.message == null ? formatCents(row.amountCents) : cell.text,
