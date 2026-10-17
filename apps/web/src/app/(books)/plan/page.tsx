@@ -45,7 +45,7 @@ export default async function PlanPage({
     <div className="space-y-6">
       <div className="space-y-4">
         <div>
-          <h1 className="font-serif text-4xl">Plan</h1>
+          <h1 className="font-heading text-4xl">Plan</h1>
           <p className="text-sm text-muted-foreground">
             {label}, category by category. Each expense category gets a budget for the month.
           </p>
@@ -77,7 +77,7 @@ export default async function PlanPage({
       <Card className="max-w-sm">
         <CardHeader>
           <CardDescription>{partial ? "Income so far" : "Income"}</CardDescription>
-          <CardTitle className="font-serif text-3xl text-income tabular-nums">{formatCents(plan.incomeCents)}</CardTitle>
+          <CardTitle className="font-heading text-3xl text-income tabular-nums">{formatCents(plan.incomeCents)}</CardTitle>
         </CardHeader>
       </Card>
       {copy ? (
@@ -115,7 +115,7 @@ export default async function PlanPage({
         <div className="space-y-8">
           {plan.sections.map((section) => (
             <section key={section.id} className="space-y-3" aria-labelledby={`plan-group-${section.id}`}>
-              <h2 id={`plan-group-${section.id}`} className="font-serif text-2xl">
+              <h2 id={`plan-group-${section.id}`} className="font-heading text-2xl">
                 {section.name}
               </h2>
               {section.categories.map((category) => {

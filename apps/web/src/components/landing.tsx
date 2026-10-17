@@ -10,9 +10,9 @@ const points = [
 export function Landing() {
   return (
     <main className="mx-auto flex min-h-full w-full max-w-2xl flex-col justify-center px-6 py-16">
-      <p className="font-serif text-5xl tracking-tight text-primary">dollas</p>
+      <p className="font-heading text-5xl tracking-tight text-primary">dollas</p>
       <p className="mt-3 text-sm text-muted-foreground">money for one household</p>
-      <h1 className="mt-6 font-serif text-4xl tracking-tight md:text-5xl">Two logins. One household.</h1>
+      <h1 className="mt-6 font-heading text-4xl tracking-tight md:text-5xl">Two logins. One household.</h1>
       <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground">
         You and your person each sign in. The household stays shared, and they run on your own computer.
       </p>

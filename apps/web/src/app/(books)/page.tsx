@@ -128,7 +128,7 @@ export default async function HomePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-serif text-4xl tracking-tight">{monthLabel(books.asOf.year, books.asOf.month)}</h1>
+        <h1 className="font-heading text-4xl tracking-tight">{monthLabel(books.asOf.year, books.asOf.month)}</h1>
         <p className="text-sm text-muted-foreground">This month is still open. Numbers run through today.</p>
       </div>
       {setup ? <OnboardingChecklist status={setup} /> : null}
@@ -136,26 +136,26 @@ export default async function HomePage() {
         <Card size="sm">
           <CardHeader>
             <CardDescription>Income</CardDescription>
-            <CardTitle className="font-serif text-xl min-[400px]:text-2xl sm:text-3xl break-words text-income tabular-nums">{formatCents(home.incomeCents)}</CardTitle>
+            <CardTitle className="font-heading text-xl min-[400px]:text-2xl sm:text-3xl break-words text-income tabular-nums">{formatCents(home.incomeCents)}</CardTitle>
           </CardHeader>
         </Card>
         <Card size="sm">
           <CardHeader>
             <CardDescription>Spent</CardDescription>
-            <CardTitle className="font-serif text-xl min-[400px]:text-2xl sm:text-3xl break-words tabular-nums">{formatCents(home.spentCents)}</CardTitle>
+            <CardTitle className="font-heading text-xl min-[400px]:text-2xl sm:text-3xl break-words tabular-nums">{formatCents(home.spentCents)}</CardTitle>
           </CardHeader>
         </Card>
         <Card size="sm">
           <CardHeader>
             <CardDescription>Money left</CardDescription>
-            <CardTitle className={`font-serif text-xl min-[400px]:text-2xl sm:text-3xl break-words tabular-nums ${leftTone}`}>{formatCents(home.leftCents)}</CardTitle>
+            <CardTitle className={`font-heading text-xl min-[400px]:text-2xl sm:text-3xl break-words tabular-nums ${leftTone}`}>{formatCents(home.leftCents)}</CardTitle>
           </CardHeader>
         </Card>
         <Card size="sm">
           <CardHeader>
             <CardDescription>In accounts</CardDescription>
             <CardTitle
-              className={`font-serif text-xl min-[400px]:text-2xl sm:text-3xl break-words tabular-nums ${home.accountBalanceCents < 0 ? "text-over" : "text-income"}`}
+              className={`font-heading text-xl min-[400px]:text-2xl sm:text-3xl break-words tabular-nums ${home.accountBalanceCents < 0 ? "text-over" : "text-income"}`}
             >
               {formatCents(home.accountBalanceCents)}
             </CardTitle>
@@ -189,7 +189,7 @@ export default async function HomePage() {
           </CardContent>
         ) : (
         <CardContent className="space-y-3">
-          <p className="font-serif text-5xl tabular-nums">{money(home.estimate.estimateCents)}</p>
+          <p className="font-heading text-5xl tabular-nums">{money(home.estimate.estimateCents)}</p>
           <p className="text-sm text-muted-foreground tabular-nums">{estimateParts(home.estimate, money)}</p>
           <p className="text-sm text-muted-foreground">
             {home.estimate.paceBasis === "not_enough_history"

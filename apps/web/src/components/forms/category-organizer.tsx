@@ -307,7 +307,7 @@ function GroupCard({ group, groups, index }: { group: ListedGroup; groups: Liste
     <li>
       <Card>
         <CardHeader>
-          <h2 className="font-serif text-2xl leading-none">{group.name}</h2>
+          <h2 className="font-heading text-2xl leading-none">{group.name}</h2>
           {group.categories.length === 0 ? <CardDescription>No categories in this group yet.</CardDescription> : null}
         </CardHeader>
         <CardContent className="space-y-4">
@@ -361,7 +361,7 @@ export function CategoryOrganizer({ groups, ungrouped }: { groups: ListedGroup[]
       {ungrouped.length > 0 ? (
         <Card>
           <CardHeader>
-            <h2 className="font-serif text-2xl leading-none">Ungrouped</h2>
+            <h2 className="font-heading text-2xl leading-none">Ungrouped</h2>
             <CardDescription>
               {groups.length === 0
                 ? "Add a group, then move a category into it."

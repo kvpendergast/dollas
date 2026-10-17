@@ -27,7 +27,7 @@ function AccountCard({ account }: { account: AccountListItem }) {
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <p className={`font-serif text-3xl tabular-nums ${owed ? "text-over" : "text-income"}`}>
+          <p className={`font-heading text-3xl tabular-nums ${owed ? "text-over" : "text-income"}`}>
             {formatCents(owed ? -account.balanceCents : account.balanceCents)}
           </p>
           <p className="text-xs text-muted-foreground">{owed ? "Owed" : "Balance"}</p>
@@ -70,7 +70,7 @@ export default async function AccountsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-serif text-4xl">Accounts</h1>
+        <h1 className="font-heading text-4xl">Accounts</h1>
         <p className="text-sm text-muted-foreground">Opening money, plus every transaction since. That&apos;s the balance.</p>
       </div>
       {active.length === 0 ? (
@@ -96,7 +96,7 @@ export default async function AccountsPage() {
       {archived.length > 0 ? (
         <section className="space-y-3">
           <div>
-            <h2 className="font-serif text-2xl">Archived</h2>
+            <h2 className="font-heading text-2xl">Archived</h2>
             <p className="text-sm text-muted-foreground">
               Archived accounts leave the home total, account pickers, and new activity. Their transactions stay on
               Activity and History.
@@ -129,7 +129,7 @@ export default async function AccountsPage() {
                 <div key={connection.id} className="space-y-3 rounded-xl bg-background px-4 py-3 ring-1 ring-foreground/10">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="font-serif text-2xl">{connection.label}</p>
+                      <p className="font-heading text-2xl">{connection.label}</p>
                       <p className="text-xs text-muted-foreground">
                         {connection.providerId}
                         {connection.transactionsSince ? ` · transactions since ${connection.transactionsSince}` : ""}
@@ -156,12 +156,12 @@ export default async function AccountsPage() {
             </div>
           )}
           <div className="space-y-3">
-            <h3 className="font-serif text-xl">SimpleFIN</h3>
+            <h3 className="font-heading text-xl">SimpleFIN</h3>
             <SimpleFinLinkForm />
           </div>
           {plaidEnabled ? (
             <div className="space-y-3 border-t border-foreground/10 pt-6">
-              <h3 className="font-serif text-xl">Plaid</h3>
+              <h3 className="font-heading text-xl">Plaid</h3>
               <p className="text-sm text-muted-foreground">
                 Link a bank through Plaid. It can sit beside a SimpleFIN connection, on a different account.
               </p>

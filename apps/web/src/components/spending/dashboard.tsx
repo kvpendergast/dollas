@@ -121,25 +121,25 @@ export function SpendingDashboardView({ board }: { board: SpendingDashboard }) {
         <Card size="sm">
           <CardHeader>
             <CardDescription>Spent</CardDescription>
-            <CardTitle className="font-serif text-3xl tabular-nums">{formatCents(spent)}</CardTitle>
+            <CardTitle className="font-heading text-3xl tabular-nums">{formatCents(spent)}</CardTitle>
           </CardHeader>
         </Card>
         <Card size="sm">
           <CardHeader>
             <CardDescription>Income</CardDescription>
-            <CardTitle className="font-serif text-3xl tabular-nums text-income">{formatCents(board.totals.incomeCents)}</CardTitle>
+            <CardTitle className="font-heading text-3xl tabular-nums text-income">{formatCents(board.totals.incomeCents)}</CardTitle>
           </CardHeader>
         </Card>
         <Card size="sm">
           <CardHeader>
             <CardDescription>Income minus spending</CardDescription>
-            <CardTitle className={`font-serif text-3xl tabular-nums ${board.totals.netCents < 0 ? "text-over" : ""}`}>{formatCents(board.totals.netCents)}</CardTitle>
+            <CardTitle className={`font-heading text-3xl tabular-nums ${board.totals.netCents < 0 ? "text-over" : ""}`}>{formatCents(board.totals.netCents)}</CardTitle>
           </CardHeader>
         </Card>
         <Card size="sm">
           <CardHeader>
             <CardDescription>Transactions</CardDescription>
-            <CardTitle className="font-serif text-3xl tabular-nums">
+            <CardTitle className="font-heading text-3xl tabular-nums">
               <Link href={drill({})} className="underline-offset-4 hover:underline">
                 {board.totals.transactionCount}
               </Link>

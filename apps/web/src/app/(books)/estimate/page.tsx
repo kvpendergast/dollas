@@ -14,7 +14,7 @@ function Row({ label, value, detail, strong }: { label: string; value: string; d
         <p>{label}</p>
         {detail ? <p className="text-xs text-muted-foreground">{detail}</p> : null}
       </div>
-      <span className={`shrink-0 tabular-nums ${strong ? "font-serif text-xl" : ""}`}>{value}</span>
+      <span className={`shrink-0 tabular-nums ${strong ? "font-heading text-xl" : ""}`}>{value}</span>
     </div>
   );
 }
@@ -45,7 +45,7 @@ function MonthCard({
           <CardDescription>{title}</CardDescription>
           <Badge variant="secondary">Estimate</Badge>
         </div>
-        <CardTitle className="font-serif text-4xl tabular-nums">{money(month.estimateCents)}</CardTitle>
+        <CardTitle className="font-heading text-4xl tabular-nums">{money(month.estimateCents)}</CardTitle>
         {budget ? <p className={`text-sm ${budget.tone}`}>{budget.text}</p> : null}
       </CardHeader>
       <CardContent>
@@ -99,7 +99,7 @@ export default async function EstimatePage() {
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
         <div className="flex items-center gap-3">
-          <h1 className="font-serif text-4xl">Spend estimate</h1>
+          <h1 className="font-heading text-4xl">Spend estimate</h1>
           <Badge>Estimate</Badge>
         </div>
         <p className="text-sm text-muted-foreground">

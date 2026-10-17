@@ -74,7 +74,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-serif text-4xl">Activity</h1>
+        <h1 className="font-heading text-4xl">Activity</h1>
         <p className="text-sm text-muted-foreground">
           What came in, what went out, splits included.{" "}
           <a href="#add-transaction" className="font-medium text-primary underline-offset-4 hover:underline">
@@ -91,7 +91,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
         </p>
       </div>
       <section id="transactions" className="scroll-mt-20 space-y-4" aria-labelledby="ledger-heading">
-        <h2 id="ledger-heading" className="font-serif text-2xl">
+        <h2 id="ledger-heading" className="font-heading text-2xl">
           Transactions
         </h2>
         <FilterBar path="/activity" anchor="#transactions" ctx={filters} />

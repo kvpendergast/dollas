@@ -30,7 +30,7 @@ export default async function CategoriesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-serif text-4xl">Categories</h1>
+        <h1 className="font-heading text-4xl">Categories</h1>
         <p className="max-w-xl text-sm text-muted-foreground">
           A group holds categories. Transactions and budgets use categories, not groups. A category is income, an
           expense, or a transfer. {TRANSFER_KIND_HELP}
