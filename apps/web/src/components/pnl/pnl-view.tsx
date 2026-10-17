@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronsRight, CircleMinus, Clock, Info } from "lucide-react";
 import type { PnlCell as Cell, PnlGroup, PnlGranularity, PnlPeriod, ProfitLoss } from "@dollas/domain";
 import { EmptyState } from "@/components/app/empty-state";
@@ -194,12 +194,8 @@ export function PnlView({
     </TableRow>
   );
 
-  const groupCells = (tone: string, render: (b: number) => ReactNode) =>
-    periods.map((p, b) => (
-      <TableCell key={p.key} className={cn("h-[52px] px-2 py-1 text-right", tone)}>
-        {render(b)}
-      </TableCell>
-    ));
+  // Group subtotal cells open the same popover as category cells (each renders its own table cell).
+  const groupCells = (render: (b: number) => ReactNode) => periods.map((p, b) => <Fragment key={p.key}>{render(b)}</Fragment>);
 
   function renderExpenseGroup(group: PnlGroup, index: number) {
     const open = !collapsed.includes(group.id);
@@ -213,10 +209,21 @@ export function PnlView({
             group.name,
             tone,
             open,
-            groupCells(tone, (b) => {
-              const cell = group.expenseTotals[b];
-              const display = expenseCellDisplay(cell, periods[b].kind, group.name, headings[b].long, currency);
-              return <PnlCellBody cents={cell.actualCents} display={display} budgetLine={null} currency={currency} className="text-sm" />;
+            groupCells((b) => {
+              return (
+                <PnlCell
+                  cell={group.expenseTotals[b]}
+                  period={periods[b]}
+                  name={group.name}
+                  target={{ groupId: group.id }}
+                  periodName={headings[b].long}
+                  showBudgets={false}
+                  currency={currency}
+                  today={popToday}
+                  className="h-[52px]"
+                  fillClass={tone}
+                />
+              );
             }),
           )}
           {rows.map((row) => (
@@ -233,7 +240,7 @@ export function PnlView({
                   cell={row.periods[b]}
                   period={p}
                   name={row.name}
-                  categoryId={row.id}
+                  target={row.id}
                   periodName={headings[b].long}
                   showBudgets={showBudgets}
                   currency={currency}
@@ -369,8 +376,20 @@ export function PnlView({
                   "Income",
                   "bg-mint",
                   incomeOpen,
-                  groupCells("bg-mint", (b) => (
-                    <MoneyAmount cents={totals[b].incomeCents} format={(value) => dollars(value, currency)} className="text-[0.9375rem] font-semibold" />
+                  groupCells((b) => (
+                    <PnlCell
+                      cell={{ actualCents: totals[b].incomeCents, budgetCents: null, deltaCents: null, budgetedMonths: 0, status: "neutral", overAlready: false }}
+                      period={periods[b]}
+                      name="Income"
+                      target={{ categoryIds: incomeRows.map((row) => row.id) }}
+                      periodName={headings[b].long}
+                      showBudgets={false}
+                      currency={currency}
+                      today={popToday}
+                      income
+                      className="h-[52px]"
+                      fillClass="bg-mint"
+                    />
                   )),
                 )}
                 {incomeRows.map((row) => (
@@ -379,10 +398,19 @@ export function PnlView({
                       <span className="block pl-1.5">{row.name}</span>
                     </TableHead>
                     {periods.map((p, b) => (
-                      <TableCell key={p.key} className={cn("h-16 px-2 py-2 text-right", cellFill(p.kind))}>
-                        <span className="sr-only">{`${row.name}, ${headings[b].long}: ${dollars(row.periods[b].actualCents, currency)} received`}</span>
-                        <MoneyAmount cents={row.periods[b].actualCents} format={(value) => dollars(value, currency)} className="text-base font-semibold" />
-                      </TableCell>
+                      <PnlCell
+                        key={p.key}
+                        cell={row.periods[b]}
+                        period={p}
+                        name={row.name}
+                        target={row.id}
+                        periodName={headings[b].long}
+                        showBudgets={false}
+                        currency={currency}
+                        today={popToday}
+                        income
+                        fillClass={cellFill(p.kind)}
+                      />
                     ))}
                   </TableRow>
                 ))}

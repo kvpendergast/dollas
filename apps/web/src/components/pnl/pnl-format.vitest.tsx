@@ -88,6 +88,18 @@ describe("P&L screen", () => {
     expect(html).not.toMatch(/one-off|planned net/i);
     expect(html).toContain('aria-label="Expand table to full screen"');
   });
+  it("makes income categories and group subtotals buttons, with the same labels style as expenses", () => {
+    const html = renderToStaticMarkup(<PnlView report={report} period="months" months={6} currency="USD" today="2026-10-17" />);
+    expect(html).toContain('aria-label="Paycheck, Sep 2026: $5,000 received"');
+    expect(html).toContain('aria-label="Income, Sep 2026: $5,000 received"');
+    expect(html).toContain('aria-label="Food, Sep 2026: $3,000 spent, budget $3,100, under by $100"');
+    expect(html).toContain("min-h-12");
+  });
+  it("links income and groups to Activity", () => {
+    const period = periods[0];
+    expect(activityHref({ categoryIds: ["a", "b"] }, period, "2026-10-17")).toBe("/activity?from=2026-09-01&to=2026-09-30&category=a&category=b");
+    expect(activityHref({ groupId: "f" }, period, "2026-10-17")).toBe("/activity?from=2026-09-01&to=2026-09-30&group=f");
+  });
   it("shows an empty state when there is nothing to compare", () => {
     const html = renderToStaticMarkup(<PnlView report={{ ...report, groups: [] }} period="months" months={6} currency="USD" today="2026-10-17" />);
     expect(html).toContain("Nothing to compare yet");
