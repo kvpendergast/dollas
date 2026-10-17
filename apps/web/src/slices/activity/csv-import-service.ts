@@ -3,10 +3,13 @@ import {
   CsvImportError,
   commitMappedImport,
   csvTooLargeMessage,
+  listCsvCategoryLabels,
   previewMappedImport,
   proposeCsvMapping,
   transactionsKeptByUndo,
   transactionsRemovedByUndo,
+  type CategoryLabelCount,
+  type CategoryOptions,
   type ColumnMapping,
   type CsvInspection,
   type MappedPreviewRow,
@@ -108,7 +111,7 @@ export async function inspectCsvImport(
 /** Validates every row against the mapping and reports cell-level errors. Nothing is written. */
 export async function previewCsvImport(
   actor: ServiceActor,
-  input: { csv: string; mapping: ColumnMapping },
+  input: { csv: string; mapping: ColumnMapping; categories?: CategoryOptions },
 ): Promise<ServiceResult<CsvPreviewOutcome>> {
   const bad = checkCsvText(input.csv);
   if (bad) return refuse(bad);
@@ -118,13 +121,37 @@ export async function previewCsvImport(
         const store = csvImportStore(tx);
         const proposed = await proposeCsvMapping(store, { householdId: actor.householdId, csv: input.csv, hasHeader: input.mapping.hasHeader });
         if (proposed.isErr()) throw proposed.error;
-        const validated = await previewMappedImport(store, { householdId: actor.householdId, csv: input.csv, mapping: input.mapping });
+        const validated = await previewMappedImport(store, { householdId: actor.householdId, csv: input.csv, mapping: input.mapping, categories: input.categories });
         if (validated.isErr()) return { kind: "mapping_error", inspection: proposed.value, message: shownImportError(validated.error) };
         return { kind: "preview", inspection: proposed.value, preview: presentable(validated.value) };
       }),
     );
   } catch (error) {
     return failure(error, FALLBACK, { action: "preview-csv", householdId: actor.householdId });
+  }
+}
+
+/** Distinct category labels in the file with counts, so each can be mapped before importing. Nothing is written. */
+export async function csvCategoryLabels(
+  actor: ServiceActor,
+  input: { csv: string; mapping: ColumnMapping },
+): Promise<ServiceResult<CategoryLabelCount[]>> {
+  const bad = checkCsvText(input.csv);
+  if (bad) return refuse(bad);
+  try {
+    return succeed(
+      await withActor(actor.userId, async (tx) => {
+        const labels = await listCsvCategoryLabels(csvImportStore(tx), {
+          householdId: actor.householdId,
+          csv: input.csv,
+          mapping: input.mapping,
+        });
+        if (labels.isErr()) throw labels.error;
+        return labels.value;
+      }),
+    );
+  } catch (error) {
+    return failure(error, FALLBACK, { action: "csv-category-labels", householdId: actor.householdId });
   }
 }
 
@@ -140,7 +167,7 @@ export function commitMessage(added: number, errorCount: number): string {
 /** Writes the ready rows as one undoable import and remembers the mapping. Error and duplicate rows are skipped. */
 export async function commitCsvImport(
   actor: ServiceActor,
-  input: { csv: string; mapping: ColumnMapping },
+  input: { csv: string; mapping: ColumnMapping; categories?: CategoryOptions },
   via: Via = "web",
 ): Promise<ServiceResult<CsvCommitOutcome>> {
   const bad = checkCsvText(input.csv);
@@ -152,6 +179,7 @@ export async function commitCsvImport(
         csv: input.csv,
         mapping: input.mapping,
         remember: true,
+        categories: input.categories,
       });
       if (outcome.isErr()) throw outcome.error;
       return outcome.value;
