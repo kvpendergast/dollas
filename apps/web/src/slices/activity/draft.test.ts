@@ -159,4 +159,15 @@ describe("readTransactionDraft", () => {
     const result = readTransactionDraft(form({ payee: "PRET A MANGER", occurredOn: "2026-01-31", accountId: "account-1", direction: "expense", categoryId: "dining" }));
     assert.deepEqual(Object.keys(result), ["error"]);
   });
+
+  it("reads the note trimmed, blank as null, and refuses one over 500 characters", () => {
+    const entry = { ...past, categoryId: "dining" };
+    const noted = readTransactionDraft(form({ ...entry, note: "  for the party " }));
+    assert.ok("draft" in noted);
+    assert.equal(noted.draft.note, "for the party");
+    const blank = readTransactionDraft(form({ ...entry, note: "  " }));
+    assert.ok("draft" in blank);
+    assert.equal(blank.draft.note, null);
+    assert.deepEqual(Object.keys(readTransactionDraft(form({ ...entry, note: "x".repeat(501) }))), ["error"]);
+  });
 });

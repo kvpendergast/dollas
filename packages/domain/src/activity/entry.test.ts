@@ -75,3 +75,22 @@ describe("amendTransactionEntry", () => {
     ).toBe(true);
   });
 });
+
+describe("transaction note", () => {
+  it("is trimmed, blank means null, and 500 characters is the cap", () => {
+    expect(defineTransactionEntry({ ...base, note: "  hi  " })._unsafeUnwrap().note).toBe("hi");
+    expect(defineTransactionEntry({ ...base, note: "   " })._unsafeUnwrap().note).toBeNull();
+    expect(defineTransactionEntry(base)._unsafeUnwrap().note).toBeNull();
+    expect(defineTransactionEntry({ ...base, note: "x".repeat(500) }).isOk()).toBe(true);
+    expect(defineTransactionEntry({ ...base, note: "x".repeat(501) })._unsafeUnwrapErr().message).toContain("500");
+  });
+
+  it("an amend keeps the note unless the patch gives one; null or blank clears it", () => {
+    const current = { ...base, note: "kept" };
+    expect(amendTransactionEntry(current, { payee: "Other" })._unsafeUnwrap().note).toBe("kept");
+    expect(amendTransactionEntry(current, { categoryId: "dining" })._unsafeUnwrap().note).toBe("kept");
+    expect(amendTransactionEntry(current, { note: " new " })._unsafeUnwrap().note).toBe("new");
+    expect(amendTransactionEntry(current, { note: "" })._unsafeUnwrap().note).toBeNull();
+    expect(amendTransactionEntry(current, { note: null })._unsafeUnwrap().note).toBeNull();
+  });
+});

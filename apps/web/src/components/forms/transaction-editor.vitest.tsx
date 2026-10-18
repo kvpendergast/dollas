@@ -10,11 +10,11 @@ const categories = [
 ];
 const accounts = [{ id: "33333333-3333-4333-8333-333333333333", name: "Amazon Prime credit card" }];
 
-function html(amountCents: number) {
+function html(amountCents: number, note: string | null = null) {
   return renderToStaticMarkup(
     <TransactionEditor
       initialOpen
-      transaction={{ id: "t1", payee: "PRET A MANGER", occurredOn: "2026-01-31", amountCents, accountId: accounts[0].id, splits: [{ categoryId: food, amountCents }] }}
+      transaction={{ id: "t1", payee: "PRET A MANGER", occurredOn: "2026-01-31", amountCents, accountId: accounts[0].id, note, splits: [{ categoryId: food, amountCents }] }}
       accounts={accounts}
       categories={categories}
       onDeleted={() => {}}
@@ -33,5 +33,12 @@ describe("transaction edit form amount", () => {
     expect(out).toContain(">Amount</label>");
     expect(out).toMatch(/<input[^>]*name="amount"[^>]*value="17.94"/);
     expect(out).toContain('name="direction" value="expense"');
+  });
+  it("renders an optional Note field with the existing note, capped at 500", () => {
+    const out = html(-1794, "for the party");
+    expect(out).toContain("Note (optional)</label>");
+    expect(out).toMatch(/<textarea[^>]*name="note"[^>]*maxLength="500"|<textarea[^>]*maxlength="500"[^>]*name="note"|<textarea[^>]*name="note"[^>]*maxlength="500"/i);
+    expect(out).toContain(">for the party</textarea>");
+    expect(html(-1794)).toMatch(/<textarea[^>]*name="note"[^>]*><\/textarea>/);
   });
 });

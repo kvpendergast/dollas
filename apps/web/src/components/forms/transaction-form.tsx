@@ -1,7 +1,7 @@
 "use client";
 
 import { FieldError } from "@/components/ui/field";
-import { categoryMenuSections, directionDefaultForKind, type CategoryMenuEntry, type TransactionDirection } from "@dollas/domain";
+import { NOTE_MAX_LENGTH, categoryMenuSections, directionDefaultForKind, type CategoryMenuEntry, type TransactionDirection } from "@dollas/domain";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { createTransactionAction } from "@/slices/activity/actions";
 import { SplitControl } from "./split-control";
 import { useActionToast } from "@/lib/use-action-toast";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 type Option = { id: string; name: string };
 
@@ -63,6 +64,10 @@ export function TransactionForm({
           <Label htmlFor="amount">Amount</Label>
           <Input id="amount" name="amount" inputMode="decimal" placeholder="0.00" required />
         </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="note">Note (optional)</Label>
+        <Textarea id="note" name="note" rows={2} maxLength={NOTE_MAX_LENGTH} />
       </div>
       <SplitControl
         fieldId="entry"

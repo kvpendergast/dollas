@@ -253,6 +253,7 @@ export async function createHouseholdTransaction(
           occurredOn: entry.occurredOn,
           payee: entry.payee,
           amountCents: entry.amountCents,
+          note: entry.note,
         })
         .returning({ id: transaction.id });
       if (!row) throw new Error("transaction insert returned no row");
@@ -281,6 +282,7 @@ async function loadEntry(tx: AppTx, householdId: string, transactionId: string):
       occurredOn: transaction.occurredOn,
       accountId: transaction.accountId,
       amountCents: transaction.amountCents,
+      note: transaction.note,
       deletedAt: transaction.deletedAt,
     })
     .from(transaction)
@@ -291,7 +293,7 @@ async function loadEntry(tx: AppTx, householdId: string, transactionId: string):
     .select({ categoryId: transactionSplit.categoryId, amountCents: transactionSplit.amountCents })
     .from(transactionSplit)
     .where(and(eq(transactionSplit.transactionId, transactionId), eq(transactionSplit.householdId, householdId)));
-  return { payee: existing.payee, occurredOn: existing.occurredOn, accountId: existing.accountId, amountCents: existing.amountCents, splits };
+  return { payee: existing.payee, occurredOn: existing.occurredOn, accountId: existing.accountId, amountCents: existing.amountCents, splits, note: existing.note };
 }
 
 type SplitLine = { categoryId: string; amountCents: number };
@@ -352,7 +354,7 @@ export async function amendHouseholdTransaction(
       await requireHouseholdTargets(tx, actor.householdId, next, { kind: "correction", currentAccountId: current.accountId });
       const updated = await tx
         .update(transaction)
-        .set({ accountId: next.accountId, occurredOn: next.occurredOn, payee: next.payee, amountCents: next.amountCents })
+        .set({ accountId: next.accountId, occurredOn: next.occurredOn, payee: next.payee, amountCents: next.amountCents, note: next.note })
         .where(and(eq(transaction.id, transactionId), eq(transaction.householdId, actor.householdId), isNull(transaction.deletedAt)))
         .returning({ id: transaction.id });
       if (updated.length === 0) throw new Error(NOT_HERE);

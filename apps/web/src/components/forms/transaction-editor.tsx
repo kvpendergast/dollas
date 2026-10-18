@@ -1,7 +1,7 @@
 "use client";
 
 import { FieldError } from "@/components/ui/field";
-import { type CategoryMenuEntry, type TransactionDirection } from "@dollas/domain";
+import { NOTE_MAX_LENGTH, type CategoryMenuEntry, type TransactionDirection } from "@dollas/domain";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { SplitControl, type SplitRow } from "./split-control";
 import { useActionToast } from "@/lib/use-action-toast";
 import { toast } from "@/lib/toast-store";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 type Option = { id: string; name: string; archived?: boolean };
 
@@ -37,6 +38,7 @@ export function TransactionEditor({
     occurredOn: string;
     amountCents: number;
     accountId: string;
+    note?: string | null;
     bankMatched?: boolean;
     recurring?: { id: string; name: string } | null;
     splits: Array<{ categoryId: string; amountCents: number }>;
@@ -189,6 +191,10 @@ export function TransactionEditor({
                 required
               />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`${field}-note`}>Note (optional)</Label>
+            <Textarea id={`${field}-note`} name="note" rows={2} maxLength={NOTE_MAX_LENGTH} defaultValue={transaction.note ?? ""} />
           </div>
           <SplitControl
             fieldId={field}
