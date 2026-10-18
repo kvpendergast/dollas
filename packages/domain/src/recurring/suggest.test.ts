@@ -103,4 +103,34 @@ describe("recurring suggestions", () => {
     expect(s.name).toBe("Unityai Payroll");
     expect(s.payeeMatch).toContain("PEO UNITYAI INC PAYROLL PPD ID");
   });
+
+  it("groups payee variants of one employer across accounts and allows a varying paycheck (PEN-323)", () => {
+    const [s, ...rest] = suggestRecurringItems({
+      today: "2026-10-10",
+      existingPayeeMatches: [],
+      transactions: [
+        row("PEO UNITYAI INC PAYROLL PPD ID 111", "2026-08-14", 210000, { accountId: "checking", categoryId: null }),
+        row("UNITYAI PAYROLL ACH", "2026-08-28", 260000, { accountId: "savings", categoryId: null }),
+        row("PEO UNITYAI INC PAYROLL PPD ID 222", "2026-09-11", 230000, { accountId: "checking", categoryId: null }),
+        row("UNITYAI PAYROLL ACH", "2026-09-25", 280000, { accountId: "checking", categoryId: null }),
+        row("PEO UNITYAI INC PAYROLL PPD ID 333", "2026-10-09", 240000, { accountId: "checking", categoryId: null }),
+      ],
+    });
+    expect(rest).toEqual([]);
+    expect(s.name).toBe("Unityai Payroll");
+    expect(s.payeeMatch.toLowerCase()).toBe("unityai");
+    expect(s.count).toBe(5);
+    expect(s.cadence).toBe("biweekly");
+    expect(s.accountId).toBeNull();
+    expect(s.variableAmount).toBe(true);
+    expect(s.tolerancePercent).toBeGreaterThan(10);
+    expect(s.tolerancePercent).toBeLessThanOrEqual(50);
+  });
+
+  it("keeps a fixed paycheck non-variable, and never treats a varying bill as variable", () => {
+    const pay = ["2026-08-14", "2026-08-28", "2026-09-11", "2026-09-25"].map((d) => row("ACME PAYROLL", d, 300000, { categoryId: null }));
+    expect(suggestRecurringItems({ today: "2026-10-01", existingPayeeMatches: [], transactions: pay })[0].variableAmount).toBe(false);
+    const bill = ["2026-07-03", "2026-08-03", "2026-09-03"].map((d, i) => row("Water Co", d, -4000 - i * 1500));
+    expect(suggestRecurringItems({ today: "2026-10-01", existingPayeeMatches: [], transactions: bill })).toEqual([]);
+  });
 });

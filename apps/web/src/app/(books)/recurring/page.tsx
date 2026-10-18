@@ -105,7 +105,7 @@ export default async function RecurringPage() {
                   <div className="min-w-0">
                     <p className="truncate font-medium">{suggestion.name}</p>
                     <p className="text-xs text-muted-foreground tabular-nums">
-                      {CADENCE_LABELS[suggestion.cadence]} · about {money(suggestion.amountCents)} · seen {suggestion.count} times
+                      {CADENCE_LABELS[suggestion.cadence]} · {suggestion.variableAmount ? "varies, around" : "about"} {money(suggestion.amountCents)} · seen {suggestion.count} times
                     </p>
                   </div>
                   <MakeRecurringButton
