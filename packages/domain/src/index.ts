@@ -453,6 +453,7 @@ export {
   inviteTokenFromPaste,
   inviteState,
   isInviteToken,
+  invitedEmailMatches,
   maskInviteEmail,
   planCreateInvite,
   planRevokeInvite,

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { InviteError } from "../errors";
 import { memberFacingMessage } from "../setup/config";
 import {
+  invitedEmailMatches,
   INVITE_MESSAGES,
   INVITE_TTL_DAYS,
   decideInviteAcceptance,
@@ -183,5 +184,14 @@ describe("member-facing copy", () => {
     expect(maskInviteEmail("ada@example.com")).toBe("a••@example.com");
     expect(maskInviteEmail("a@example.com")).toBe("a••@example.com");
     expect(maskInviteEmail("bartholomew@example.com")).toBe("b••••••@example.com");
+  });
+});
+
+describe("invitedEmailMatches", () => {
+  it("ignores case and spaces, and refuses other or empty addresses", () => {
+    expect(invitedEmailMatches("bea@example.com", "  BEA@Example.com ")).toBe(true);
+    expect(invitedEmailMatches("bea@example.com", "cam@example.com")).toBe(false);
+    expect(invitedEmailMatches("bea@example.com", "")).toBe(false);
+    expect(invitedEmailMatches("", "")).toBe(false);
   });
 });

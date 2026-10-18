@@ -20,6 +20,7 @@ import {
   createHouseholdInvite,
   listHouseholdPeople,
   previewHouseholdInvite,
+  resolveSignUpEmail,
   revokeHouseholdInvite,
   type InviteDeps,
 } from "./invites";
@@ -248,6 +249,16 @@ describe("household invites", () => {
       const stillHidden = await beaSees();
       assert.equal(stillHidden.houses.length + stillHidden.transactions.length + stillHidden.invites.length, 0);
 
+      // Sign-up email for an invite: only the invited address, any case. Anything else is refused.
+      assert.deepEqual(await resolveSignUpEmail(token, "", deps), { ok: true, email: emailOf(bea) });
+      assert.deepEqual(await resolveSignUpEmail(token, ` ${emailOf(bea).toUpperCase()} `, deps), { ok: true, email: emailOf(bea) });
+      const wrongSignUp = await resolveSignUpEmail(token, emailOf(cam), deps);
+      assert.equal(wrongSignUp.ok, false);
+      if (!wrongSignUp.ok) assert.match(wrongSignUp.error, /different email/);
+      assert.equal((await resolveSignUpEmail(token, "someone@else.test", deps)).ok, false);
+      assert.deepEqual(await resolveSignUpEmail(null, "free@typed.test", deps), { ok: true, email: "free@typed.test" });
+      assert.equal((await resolveSignUpEmail("x".repeat(43), "", deps)).ok, false);
+
       // Preview: signed out, wrong email, ready.
       const signedOut = await previewHouseholdInvite(token, null, deps);
       assert.equal(signedOut.kind, "signed_out");
@@ -335,6 +346,8 @@ describe("household invites", () => {
         assert.equal(!revokedTwice.ok && revokedTwice.memberMessage, INVITE_MESSAGES.not_pending);
         const fayAccept = await acceptHouseholdInvite(fay, tokenOf(fayInvite.value.link), deps);
         assert.equal(!fayAccept.ok && fayAccept.memberMessage, INVITE_MESSAGES.revoked);
+        // A revoked link cannot be used to sign up either, with the right address or any other.
+        assert.equal((await resolveSignUpEmail(tokenOf(fayInvite.value.link), emailOf(fay), deps)).ok, false);
         const relisted = await listHouseholdPeople(maple, deps);
         assert.equal(relisted.ok && relisted.value.invites.some((i) => i.id === fayInvite.value.id), false);
         // After a revoke the owner can invite the same address again.
