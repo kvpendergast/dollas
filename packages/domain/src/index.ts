@@ -208,6 +208,7 @@ export {
 export {
   amendTransactionEntry,
   defineTransactionEntry,
+  NOTE_MAX_LENGTH,
   PAYEE_MAX_LENGTH,
   type TransactionEntry,
   type TransactionEntryInput,

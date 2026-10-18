@@ -14,6 +14,8 @@ export type TransactionEntryInput = {
   accountId: string;
   amountCents: number;
   splits: ReadonlyArray<{ categoryId: string; amountCents: number }>;
+  /** Optional free-text note. Trimmed; blank means none. */
+  note?: string | null;
 };
 
 export type TransactionEntry = {
@@ -22,6 +24,7 @@ export type TransactionEntry = {
   accountId: string;
   amountCents: number;
   splits: BalancedSplit[];
+  note: string | null;
 };
 
 /**
@@ -31,6 +34,7 @@ export type TransactionEntry = {
 export type TransactionEntryPatch = Partial<TransactionEntryInput> & { categoryId?: string };
 
 export const PAYEE_MAX_LENGTH = 200;
+export const NOTE_MAX_LENGTH = 500;
 
 export function defineTransactionEntry(input: TransactionEntryInput): Result<TransactionEntry, TransactionError> {
   const payee = input.payee.trim();
@@ -41,9 +45,11 @@ export function defineTransactionEntry(input: TransactionEntryInput): Result<Tra
   if (!Number.isSafeInteger(input.amountCents) || input.amountCents === 0) {
     return err(new TransactionError("Enter an amount greater than zero."));
   }
+  const note = (input.note ?? "").trim();
+  if (note.length > NOTE_MAX_LENGTH) return err(new TransactionError(`Keep the note under ${NOTE_MAX_LENGTH} characters.`));
   const balanced = validateSplits(input.amountCents, input.splits);
   if (balanced.isErr()) return err(new TransactionError(balanced.error.message));
-  return ok({ payee, occurredOn: input.occurredOn, accountId: input.accountId, amountCents: input.amountCents, splits: balanced.value });
+  return ok({ payee, occurredOn: input.occurredOn, accountId: input.accountId, amountCents: input.amountCents, splits: balanced.value, note: note.length > 0 ? note : null });
 }
 
 /**
@@ -72,5 +78,6 @@ export function amendTransactionEntry(
     accountId: patch.accountId ?? current.accountId,
     amountCents,
     splits,
+    note: patch.note !== undefined ? patch.note : current.note,
   });
 }

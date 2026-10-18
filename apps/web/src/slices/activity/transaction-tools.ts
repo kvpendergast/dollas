@@ -1,4 +1,4 @@
-import { MAX_TRANSACTION_SPLITS, PAYEE_MAX_LENGTH, toIsoDate } from "@dollas/domain";
+import { MAX_TRANSACTION_SPLITS, NOTE_MAX_LENGTH, PAYEE_MAX_LENGTH, toIsoDate } from "@dollas/domain";
 import { and, eq, inArray } from "drizzle-orm";
 import { withActor } from "@/db/actor";
 import { category, ledgerAccount } from "@/db/schema";
@@ -130,6 +130,7 @@ function saved(value: NamedTransaction) {
     amount_cents: value.amountCents,
     account_id: value.accountId,
     account_name: value.accountName || null,
+    note: value.note,
     splits: value.splits.map((split) => ({
       category_id: split.categoryId,
       category_name: value.categoryNames[split.categoryId] ?? null,
@@ -142,13 +143,16 @@ function splitsFrom(splits: Array<{ category_id: string; amount_cents: number }>
   return splits.map((split) => ({ categoryId: split.category_id, amountCents: split.amount_cents }));
 }
 
+const NOTE_HELP = `note is optional plain text up to ${NOTE_MAX_LENGTH} characters, trimmed; an empty string clears it.`;
+const noteInput = z.string().max(NOTE_MAX_LENGTH).describe("A note on the transaction.");
+
 const SIGN = "amount_cents is signed integer cents: negative is money out (spending), positive is money in.";
 
 export const transactionTools = [
   tool({
     name: "list_transactions",
     title: "List transactions",
-    description: `Transactions in the household, newest first, with their category splits. ${SIGN} bank_backed means the bank reported the charge; bank_matched means sync matched it to a CSV or manual entry (see separate_bank_match). recurring_item is the bill or paycheck it is linked to, if any. sources is manual, or csv and/or bank; added_by and categorized_by are the members who added it and last set its categories (null: Unknown, from before this was recorded). ${FILTER_HELP} account_id and category_id (one each) and payee_contains still work. Activity in the web app uses the same filter.`,
+    description: `Transactions in the household, newest first, with their category splits. ${SIGN} bank_backed means the bank reported the charge; bank_matched means sync matched it to a CSV or manual entry (see separate_bank_match). recurring_item is the bill or paycheck it is linked to, if any. sources is manual, or csv and/or bank; added_by and categorized_by are the members who added it and last set its categories (null: Unknown, from before this was recorded). note is the free-text note on the transaction (null when none); the search filter matches payee and note. ${FILTER_HELP} account_id and category_id (one each) and payee_contains still work. Activity in the web app uses the same filter.`,
     access: "read",
     input: {
       ...filterInput,
@@ -220,7 +224,7 @@ export const transactionTools = [
   tool({
     name: "create_transaction",
     title: "Create transaction",
-    description: `Add a transaction to an account. ${SIGN} Give one category_id for the whole amount, or splits that add up to amount_cents.`,
+    description: `Add a transaction to an account. ${SIGN} Give one category_id for the whole amount, or splits that add up to amount_cents. ${NOTE_HELP}`,
     access: "write",
     input: {
       account_id: uuidInput("Account"),
@@ -229,13 +233,14 @@ export const transactionTools = [
       amount_cents: centsInput("Signed amount"),
       category_id: uuidInput("Category for the whole amount").optional(),
       splits: splitsInput.optional().describe("Category splits; use instead of category_id. They must add up to amount_cents."),
+      note: noteInput.optional(),
     },
     async run(args, { books }) {
       if (Boolean(args.category_id) === Boolean(args.splits)) return { ok: false, message: "Give either category_id or splits." };
       const splits = args.splits ? splitsFrom(args.splits) : [{ categoryId: args.category_id ?? "", amountCents: args.amount_cents }];
       const created = await createHouseholdTransaction(
         books,
-        { accountId: args.account_id, occurredOn: args.occurred_on, payee: args.payee, amountCents: args.amount_cents, splits },
+        { accountId: args.account_id, occurredOn: args.occurred_on, payee: args.payee, amountCents: args.amount_cents, splits, note: args.note },
         "mcp",
       );
       return answer(await named(books, created), (value) => `Added ${value.payee} for ${money(value.amountCents, books)} on ${value.occurredOn}.`, saved);
@@ -275,7 +280,7 @@ export const transactionTools = [
   tool({
     name: "update_transaction",
     title: "Update transaction",
-    description: `Edit a transaction. Only the fields you give change. ${SIGN} Changing the amount of a split transaction needs the splits again.`,
+    description: `Edit a transaction. Only the fields you give change. ${SIGN} Changing the amount of a split transaction needs the splits again. ${NOTE_HELP} Leaving note out keeps the current note.`,
     access: "write",
     idempotent: true,
     input: {
@@ -285,6 +290,7 @@ export const transactionTools = [
       payee: z.string().min(1).max(PAYEE_MAX_LENGTH).optional(),
       amount_cents: centsInput("Signed amount").optional(),
       splits: splitsInput.optional().describe("Replace the category splits. They must add up to the amount."),
+      note: noteInput.optional(),
     },
     async run(args, { books }) {
       const edited = await amendHouseholdTransaction(
@@ -296,6 +302,7 @@ export const transactionTools = [
           payee: args.payee,
           amountCents: args.amount_cents,
           splits: args.splits ? splitsFrom(args.splits) : undefined,
+          note: args.note,
         },
         "mcp",
       );
@@ -305,12 +312,12 @@ export const transactionTools = [
   tool({
     name: "categorize_transaction",
     title: "Categorize transaction",
-    description: "Put the whole transaction in one category, replacing any splits. Payee rules are not changed.",
+    description: `Put the whole transaction in one category, replacing any splits. Payee rules are not changed. Optionally set the transaction's note while you are at it; leaving note out keeps the current note. ${NOTE_HELP}`,
     access: "write",
     idempotent: true,
-    input: { transaction_id: uuidInput("Transaction"), category_id: uuidInput("Category") },
+    input: { transaction_id: uuidInput("Transaction"), category_id: uuidInput("Category"), note: noteInput.optional() },
     async run(args, { books }) {
-      const edited = await amendHouseholdTransaction(books, args.transaction_id, { categoryId: args.category_id }, "mcp");
+      const edited = await amendHouseholdTransaction(books, args.transaction_id, { categoryId: args.category_id, note: args.note }, "mcp");
       return answer(await named(books, edited), (value) => `Categorized ${value.payee} as ${value.categoryNames[args.category_id] ?? "that category"}.`, saved);
     },
   }),

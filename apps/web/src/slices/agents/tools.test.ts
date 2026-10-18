@@ -238,6 +238,17 @@ describe("Dollas MCP tools", () => {
         ],
       });
       assert.equal((await ada.call("update_transaction", { transaction_id: t1, amount_cents: -5000 })).isError, true, "split needs splits again");
+      // Notes (PEN-329): settable on create, update, and categorize; list returns them; omitted keeps; blank clears; 501 refused.
+      const noted = await ada.ok("create_transaction", { account_id: checking, occurred_on: "2026-09-22", payee: "Noted Cafe", amount_cents: -900, category_id: dining, note: "  team lunch  " });
+      assert.equal(noted.note, "team lunch");
+      const noteId = noted.id as string;
+      assert.equal((await ada.ok("update_transaction", { transaction_id: noteId, payee: "Noted Cafe 2" })).note, "team lunch");
+      assert.equal((await ada.ok("categorize_transaction", { transaction_id: noteId, category_id: groceries })).note, "team lunch");
+      assert.equal((await ada.ok("categorize_transaction", { transaction_id: noteId, category_id: dining, note: "birthday" })).note, "birthday");
+      const listedNote = await ada.ok("list_transactions", { payee_contains: "noted cafe" });
+      assert.equal((listedNote.items as Array<{ note: string | null }>)[0]?.note, "birthday");
+      assert.equal((await ada.ok("update_transaction", { transaction_id: noteId, note: "" })).note, null);
+      assert.equal((await ada.call("update_transaction", { transaction_id: noteId, note: "x".repeat(501) })).isError, true);
       const corner = await ada.ok("list_transactions", { payee_contains: "corner" });
       assert.equal(corner.total, 1);
       const paged = await ada.ok("list_transactions", { limit: 1 });

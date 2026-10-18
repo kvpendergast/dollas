@@ -157,6 +157,7 @@ export function ActivityLedger({
                 item.occurredOn,
                 item.accountId,
                 item.amountCents,
+                item.note ?? "",
                 item.bankMatched ? "matched" : "",
                 item.recurring?.id ?? "",
                 item.splits.map((part) => `${part.categoryId}:${part.amountCents}`).join(","),

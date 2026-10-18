@@ -1,4 +1,4 @@
-import { parseDollarInput, validateSplits, type BalancedSplit } from "@dollas/domain";
+import { NOTE_MAX_LENGTH, parseDollarInput, validateSplits, type BalancedSplit } from "@dollas/domain";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -8,6 +8,7 @@ export type TransactionDraft = {
   accountId: string;
   amountCents: number;
   splits: BalancedSplit[];
+  note: string | null;
 };
 
 /**
@@ -20,8 +21,10 @@ export function readTransactionDraft(formData: FormData): { error: string } | { 
   const accountId = String(formData.get("accountId") ?? "");
   const direction = String(formData.get("direction") ?? "expense") === "income" ? 1 : -1;
   const amount = parseDollarInput(String(formData.get("amount") ?? ""));
+  const note = String(formData.get("note") ?? "").trim();
   const categoryIds = formData.getAll("categoryId").map(String).filter(Boolean);
   const splitAmounts = formData.getAll("splitAmount").map(String);
+  if (note.length > NOTE_MAX_LENGTH) return { error: `Keep the note under ${NOTE_MAX_LENGTH} characters.` };
   if (payee.length < 1) return { error: "Enter a payee." };
   if (!ISO_DATE.test(occurredOn)) return { error: "Choose a date." };
   if (amount.isErr()) return { error: amount.error.message };
@@ -46,6 +49,7 @@ export function readTransactionDraft(formData: FormData): { error: string } | { 
       accountId,
       amountCents: total,
       splits: balanced.value,
+      note: note.length > 0 ? note : null,
     },
   };
 }
