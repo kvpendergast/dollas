@@ -133,4 +133,20 @@ describe("recurring suggestions", () => {
     const bill = ["2026-07-03", "2026-08-03", "2026-09-03"].map((d, i) => row("Water Co", d, -4000 - i * 1500));
     expect(suggestRecurringItems({ today: "2026-10-01", existingPayeeMatches: [], transactions: bill })).toEqual([]);
   });
+
+  it("is not tied to one account when the bill shows up on several (PEN-327)", () => {
+    const dates = ["2026-07-03", "2026-08-03", "2026-09-03", "2026-10-03"];
+    const [one] = suggestRecurringItems({ today: "2026-10-10", existingPayeeMatches: [], transactions: dates.map((d) => row("Gym Club", d, -4000, { accountId: "a" })) });
+    expect(one.accountId).toBe("a");
+    expect(one.accountIds).toEqual(["a"]);
+    const mixed = dates.map((d, i) => row("Gym Club", d, -4000, { accountId: i === 3 ? "b" : "a" }));
+    const [many] = suggestRecurringItems({ today: "2026-10-10", existingPayeeMatches: [], transactions: mixed });
+    expect(many.accountId).toBeNull();
+    expect(many.accountIds).toEqual(["a", "b"]);
+    // A matching charge outside the series on another account also counts.
+    const extra = [...dates.map((d) => row("Gym Club", d, -4000, { accountId: "a" })), row("Gym Club annual fee", "2026-09-20", -9900, { accountId: "b" })];
+    const [other] = suggestRecurringItems({ today: "2026-10-10", existingPayeeMatches: [], transactions: extra });
+    expect(other.accountIds).toEqual(["a", "b"]);
+    expect(other.accountId).toBeNull();
+  });
 });
