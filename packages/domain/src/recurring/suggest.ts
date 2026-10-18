@@ -1,5 +1,6 @@
 import type { Cents } from "../money/cents";
 import { payeeRuleKey } from "../rules/payee-category";
+import { RECURRING_LIMITS } from "./define";
 import { addDays, dayNumber, type Cadence } from "./schedule";
 
 /**
@@ -33,8 +34,10 @@ export type RecurringSuggestion = {
   secondDayOfMonth: number | null;
   accountId: string | null;
   categoryId: string | null;
-  /** Wide enough for the spread seen (5 or 10 percent). */
+  /** Wide enough for the spread seen (5 or 10 percent; up to 50 for a paycheck that varies). */
   tolerancePercent: number;
+  /** True when the amounts vary a lot (income only), so the item matches a range around the typical amount. */
+  variableAmount: boolean;
   /** Every live charge in the lookback this suggestion's payee text would link, not just the ones that formed the series. */
   count: number;
 };
@@ -68,7 +71,9 @@ export function suggestRecurringItems(input: {
   for (const row of input.transactions) {
     if (row.deleted || row.amountCents === 0 || row.occurredOn < since || row.occurredOn > input.today) continue;
     live.push(row);
-    const key = normalizedPayee(row.payee);
+    // Variants of one payer ("PEO ACME PAYROLL PPD ID 12", "ACME PAYROLL ACH") share the cleaned name.
+    const cleaned = cleanSuggestionName(row.payee).toLowerCase();
+    const key = cleaned.length >= 2 ? cleaned : normalizedPayee(row.payee);
     if (key.length < 2) continue;
     const lower = row.payee.toLowerCase();
     if (covered.some((match) => lower.includes(match))) continue;
@@ -89,10 +94,15 @@ export function suggestRecurringItems(input: {
     const amounts = rows.map((row) => row.amountCents).sort((a, b) => a - b);
     const median = amounts[Math.floor(amounts.length / 2)];
     const spread = Math.max(...amounts.map((amount) => Math.abs(amount - median) / Math.abs(median)));
-    if (spread > 0.1) continue;
+    // Pay that varies (hours, bonuses) is still a paycheck: income may swing up to 50% and is matched as a range.
+    const variableAmount = spread > 0.1 && Math.sign(median) > 0 && spread <= RECURRING_LIMITS.tolerancePercent / 100;
+    if (spread > 0.1 && !variableAmount) continue;
     const last = rows[rows.length - 1];
     if (dayNumber(input.today) - dayNumber(last.occurredOn) > band.max * 2) continue;
-    const payeeMatch = commonPrefix(rows.map((row) => row.payee)) || last.payee.trim();
+    const payees = rows.map((row) => row.payee);
+    const prefix = commonPrefix(payees);
+    const phrase = commonPhrase(payees);
+    const payeeMatch = (phrase.length > prefix.length ? phrase : prefix) || last.payee.trim();
     let secondDayOfMonth: number | null = null;
     if (band.cadence === "semimonthly") {
       const lastDay = Number(last.occurredOn.slice(8, 10));
@@ -103,7 +113,7 @@ export function suggestRecurringItems(input: {
     const sign = Math.sign(last.amountCents);
     const count = live.filter((row) => Math.sign(row.amountCents) === sign && row.payee.toLowerCase().includes(needle)).length;
     out.push({
-      name: cleanSuggestionName(payeeMatch),
+      name: cleanSuggestionName(last.payee),
       payeeMatch,
       amountCents: median,
       cadence: band.cadence,
@@ -111,7 +121,8 @@ export function suggestRecurringItems(input: {
       secondDayOfMonth,
       accountId: allSame(rows.map((row) => row.accountId)),
       categoryId: mostCommon(rows.map((row) => row.categoryId).filter((id): id is string => id != null)) ?? null,
-      tolerancePercent: spread > 0.05 ? 10 : 5,
+      tolerancePercent: variableAmount ? Math.min(RECURRING_LIMITS.tolerancePercent, Math.ceil((spread * 100) / 5) * 5) : spread > 0.05 ? 10 : 5,
+      variableAmount,
       count: Math.max(count, rows.length),
     });
   }
@@ -135,6 +146,23 @@ function isMonthlyByCalendar(rows: readonly SuggestionTransaction[]): boolean {
   // Month ends wrap: 30th and 2nd are four days apart.
   const apart = (day: number) => Math.min(Math.abs(day - median), 30 - Math.abs(day - median));
   return days.every((day) => apart(day) <= MONTHLY_DAY_WINDOW);
+}
+
+/**
+ * The longest run of whole words that every payee contains (case-insensitive), at least four
+ * letters. Lets variants like "PEO ACME INC PAYROLL" and "ACME PAYROLL ACH" share one match text.
+ */
+function commonPhrase(payees: readonly string[]): string {
+  const first = payees[0]?.trim().split(/\s+/) ?? [];
+  const lowered = payees.map((payee) => payee.toLowerCase());
+  for (let length = first.length; length >= 1; length -= 1) {
+    for (let start = 0; start + length <= first.length; start += 1) {
+      const phrase = first.slice(start, start + length).join(" ").replace(/[\s\W\d]+$/, "");
+      if (phrase.replace(/[^a-zA-Z]/g, "").length < 4) continue;
+      if (lowered.every((payee) => payee.includes(phrase.toLowerCase()))) return phrase;
+    }
+  }
+  return "";
 }
 
 /** The shared start of the payees, cut back to whole words, if it is at least three letters. */
