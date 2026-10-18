@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { expectedRecurringAmounts, itemOccurrences, nextExpectedDate, occurrenceStatus, type StatusItem, type StatusLink } from "./status";
+import { expectedRecurringAmounts, itemHealth, itemOccurrences, nextExpectedDate, occurrenceStatus, type StatusItem, type StatusLink } from "./status";
 
 const rent: StatusItem = {
   id: "rent",
@@ -68,5 +68,44 @@ describe("recurring occurrence status", () => {
     const late = expectedRecurringAmounts({ items: [rent], links: [], from: "2026-10-01", to: "2026-11-30", today: "2026-10-20" });
     expect(late.missed.expenseCents).toBe(150000);
     expect(late.expected.expenseCents).toBe(150000);
+  });
+});
+
+describe("item health (PEN-326)", () => {
+  const fixed = { ...rent, tolerancePercent: 5 };
+  const months = ["2026-04-01", "2026-05-01", "2026-06-01", "2026-07-01", "2026-08-01"];
+
+  it("flags a likely cancellation after two or more missed cycles, not one", () => {
+    const links = months.map((d) => link("rent", d, -150000));
+    expect(itemHealth(fixed, links, "2026-09-10").likelyCancelled).toBe(false);
+    expect(itemHealth(fixed, links, "2026-09-10").missedInARow).toBe(1);
+    const health = itemHealth(fixed, links, "2026-10-10");
+    expect(health.missedInARow).toBe(2);
+    expect(health.likelyCancelled).toBe(true);
+    expect(health.lastLinkedOn).toBe("2026-08-01");
+  });
+
+  it("does not flag paused items, items that never linked, or a missed cycle that is still inside its window", () => {
+    const links = months.map((d) => link("rent", d, -150000));
+    expect(itemHealth({ ...fixed, paused: true }, links, "2026-12-10").likelyCancelled).toBe(false);
+    expect(itemHealth(fixed, [], "2026-12-10").likelyCancelled).toBe(false);
+    expect(itemHealth(fixed, links, "2026-10-02").missedInARow).toBe(1);
+  });
+
+  it("reports a recent price increase and decrease, with old and new amounts", () => {
+    const up = [...months.slice(0, 4).map((d) => link("rent", d, -150000)), link("rent", "2026-08-01", -165000)];
+    const change = itemHealth(fixed, up, "2026-08-20").amountChange;
+    expect(change).toEqual({ fromCents: -150000, toCents: -165000, on: "2026-08-01", direction: "increase" });
+    const down = [...months.slice(0, 4).map((d) => link("rent", d, -150000)), link("rent", "2026-08-01", -140000)];
+    expect(itemHealth(fixed, down, "2026-08-20").amountChange?.direction).toBe("decrease");
+  });
+
+  it("ignores old changes, tiny changes, and items that vary by design", () => {
+    const up = [...months.slice(0, 4).map((d) => link("rent", d, -150000)), link("rent", "2026-08-01", -165000)];
+    expect(itemHealth(fixed, up, "2026-12-20").amountChange).toBeNull();
+    const tiny = [...months.slice(0, 4).map((d) => link("rent", d, -150000)), link("rent", "2026-08-01", -150050)];
+    expect(itemHealth(fixed, tiny, "2026-08-20").amountChange).toBeNull();
+    expect(itemHealth({ ...fixed, tolerancePercent: 30 }, up, "2026-08-20").amountChange).toBeNull();
+    expect(itemHealth(fixed, up.map((l) => ({ ...l, deleted: true })), "2026-08-20").amountChange).toBeNull();
   });
 });

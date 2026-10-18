@@ -54,6 +54,12 @@ function summary(item: RecurringItemSummary) {
     next_date: item.nextDate,
     month_status: item.monthStatus,
     this_month: item.thisMonth.map(occurrence),
+    likely_cancelled: item.likelyCancelled,
+    missed_in_a_row: item.missedInARow,
+    last_linked_on: item.lastLinkedOn,
+    amount_change: item.amountChange
+      ? { from_cents: item.amountChange.fromCents, to_cents: item.amountChange.toCents, on: item.amountChange.on, direction: item.amountChange.direction }
+      : null,
   };
 }
 
@@ -99,7 +105,7 @@ export const recurringTools = [
   tool({
     name: "list_recurring_items",
     title: "List recurring items",
-    description: `Known bills and paychecks with their schedule, next expected date, and this month's occurrences. ${STATUSES} month_status is the most urgent of this month's statuses ("none" when nothing falls this month, "paused" for a paused item).`,
+    description: `Known bills and paychecks with their schedule, next expected date, and this month's occurrences. ${STATUSES} month_status is the most urgent of this month's statuses ("none" when nothing falls this month, "paused" for a paused item). likely_cancelled is true when two or more expected charges in a row never came (missed_in_a_row counts them, last_linked_on is the last charge seen). amount_change is set when the newest linked charge differs by at least 1% and $1 from the usual one within the last 90 days (direction increase or decrease; from_cents is the usual amount); it is null for items with a tolerance above 10%.`,
     access: "read",
     input: { ...pageInput(100) },
     async run(args, { books }) {

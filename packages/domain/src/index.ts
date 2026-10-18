@@ -524,10 +524,13 @@ export {
 
 export {
   expectedRecurringAmounts,
+  itemHealth,
   itemOccurrences,
   nextExpectedDate,
   occurrenceStatus,
+  type AmountChange,
   type ExpectedRecurring,
+  type ItemHealth,
   type OccurrenceStatus,
   type RecurringOccurrence,
   type RecurringTotals,

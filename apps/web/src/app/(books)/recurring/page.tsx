@@ -77,6 +77,17 @@ export default async function RecurringPage() {
                         {CADENCE_LABELS[item.cadence]} · {item.paused ? "Paused" : `Next ${shortDate(item.nextDate)}`}
                         {item.categoryName ? ` · ${item.categoryName}` : ""}
                       </p>
+                      {item.amountChange ? (
+                        <p className={`text-xs font-semibold ${item.amountChange.direction === "increase" ? "text-over" : ""}`}>
+                          {item.amountChange.direction === "increase" ? "Price went up" : "Price went down"}: {money(item.amountChange.fromCents)} to{" "}
+                          {money(item.amountChange.toCents)} on {shortDate(item.amountChange.on)}
+                        </p>
+                      ) : null}
+                      {item.likelyCancelled ? (
+                        <p className="text-xs font-semibold">
+                          Maybe cancelled: nothing for {item.missedInARow} cycles{item.lastLinkedOn ? `, last on ${shortDate(item.lastLinkedOn)}` : ""}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       <span className={`font-heading text-lg tabular-nums ${item.amountCents > 0 ? "text-income" : ""}`}>
