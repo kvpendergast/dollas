@@ -248,7 +248,7 @@ export const recurringTools = [
     name: "suggest_recurring_items",
     title: "Suggest recurring items",
     description:
-      "Payees in the last 200 days that look like a weekly, every-2-weeks, twice-a-month, or monthly bill or paycheck and have no item yet: at least three charges, steady gaps, amounts within 10%. Pass a suggestion's fields to create_recurring_item to make it recurring.",
+      "Payees in the last 200 days that look like a weekly, every-2-weeks, twice-a-month, or monthly bill or paycheck and have no item yet: at least three charges, steady gaps (a monthly bill may move around the month: one charge per calendar month, day of month within 10 days), amounts within 10%. `name` is a cleaned label (processor words and ids dropped); `payeeMatch` keeps the raw text used for matching; `count` is every live charge in the window that the payee text matches. Pass a suggestion's fields to create_recurring_item to make it recurring.",
     access: "read",
     input: {},
     async run(_args, { books }) {
