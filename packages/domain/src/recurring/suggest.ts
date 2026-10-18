@@ -32,7 +32,10 @@ export type RecurringSuggestion = {
   cadence: Cadence;
   anchorDate: string;
   secondDayOfMonth: number | null;
+  /** The one account every matching charge is on, or null when the bill appears on several (the item then matches any account). */
   accountId: string | null;
+  /** Every account a matching charge appears on, sorted. */
+  accountIds: string[];
   categoryId: string | null;
   /** Wide enough for the spread seen (5 or 10 percent; up to 50 for a paycheck that varies). */
   tolerancePercent: number;
@@ -111,7 +114,9 @@ export function suggestRecurringItems(input: {
     }
     const needle = payeeMatch.toLowerCase();
     const sign = Math.sign(last.amountCents);
-    const count = live.filter((row) => Math.sign(row.amountCents) === sign && row.payee.toLowerCase().includes(needle)).length;
+    const matching = live.filter((row) => Math.sign(row.amountCents) === sign && row.payee.toLowerCase().includes(needle));
+    const count = matching.length;
+    const accountIds = [...new Set([...matching, ...rows].map((row) => row.accountId))].sort();
     out.push({
       name: cleanSuggestionName(last.payee),
       payeeMatch,
@@ -119,7 +124,8 @@ export function suggestRecurringItems(input: {
       cadence: band.cadence,
       anchorDate: last.occurredOn,
       secondDayOfMonth,
-      accountId: allSame(rows.map((row) => row.accountId)),
+      accountId: accountIds.length === 1 ? accountIds[0] : null,
+      accountIds,
       categoryId: mostCommon(rows.map((row) => row.categoryId).filter((id): id is string => id != null)) ?? null,
       tolerancePercent: variableAmount ? Math.min(RECURRING_LIMITS.tolerancePercent, Math.ceil((spread * 100) / 5) * 5) : spread > 0.05 ? 10 : 5,
       variableAmount,
@@ -210,8 +216,4 @@ function mostCommon<T>(values: readonly T[]): T | null {
     }
   }
   return best;
-}
-
-function allSame(values: readonly string[]): string | null {
-  return values.every((value) => value === values[0]) ? (values[0] ?? null) : null;
 }
