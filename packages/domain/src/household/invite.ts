@@ -224,3 +224,9 @@ export function inviteTokenFromPaste(raw: string): string | null {
 export function inviteLinkPath(token: string): string {
   return `/invite/${token}`;
 }
+
+/** Same address, ignoring case and surrounding spaces. The invite binds to exactly one address. */
+export function invitedEmailMatches(invited: string, submitted: string): boolean {
+  const a = invited.trim().toLowerCase();
+  return a !== "" && a === submitted.trim().toLowerCase();
+}

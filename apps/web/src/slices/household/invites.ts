@@ -9,6 +9,7 @@ import {
   inviteError,
   inviteErrorFromText,
   inviteLinkPath,
+  invitedEmailMatches,
   isInviteToken,
   maskInviteEmail,
   memberFacingMessage,
@@ -417,6 +418,42 @@ export async function previewHouseholdInvite(
     return { kind: "blocked", preview, reason: decided.error.reason, message: decided.error.message };
   }
   return { kind: "ready", preview };
+}
+
+/**
+ * UI-only (never an MCP tool: it reveals the full invited address to whoever holds the link).
+ * The address an open invite is bound to, lower-cased, or null when the link is invalid,
+ * expired, revoked or used. Sign-up uses it so a login for an invite is created with that
+ * address and no other.
+ */
+export async function openInviteEmail(token: string, deps: InviteDeps = {}): Promise<string | null> {
+  if (!isInviteToken(token)) return null;
+  try {
+    const row = await readPreview(token, "", deps.database ?? getDb());
+    if (!row || stateOf(row.state) !== "pending") return null;
+    return row.email.trim().toLowerCase();
+  } catch (error) {
+    logError(error, { action: "open-invite-email" });
+    return null;
+  }
+}
+
+export type SignUpEmail = { ok: true; email: string } | { ok: false; error: string };
+
+/**
+ * UI-only. Which email a sign-up may use. Without an invite: whatever was typed. With one: the
+ * invited address only. A different typed address is refused, an empty one (the locked field)
+ * takes the invited address, and a link that is no longer open is refused.
+ */
+export async function resolveSignUpEmail(inviteToken: string | null, submitted: string, deps: InviteDeps = {}): Promise<SignUpEmail> {
+  const typed = submitted.trim();
+  if (!inviteToken) return { ok: true, email: typed };
+  const invited = await openInviteEmail(inviteToken, deps);
+  if (!invited) return { ok: false, error: "That invite link is not open any more. Ask for a new one." };
+  if (typed !== "" && !invitedEmailMatches(invited, typed)) {
+    return { ok: false, error: "This invite is for a different email. Use the address it was sent to." };
+  }
+  return { ok: true, email: invited };
 }
 
 /**

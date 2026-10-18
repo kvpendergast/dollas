@@ -22,6 +22,7 @@ import { isAgentAuthorizePath } from "@/lib/agent-oauth";
 import { getAuth } from "@/lib/auth";
 import { AUTH_LIMITS, consumeAll, rateKey, tooManyAttempts } from "@/lib/rate-limit";
 import { logError, logInfo } from "@/lib/telemetry";
+import { resolveSignUpEmail } from "@/slices/household/invites";
 import { clientAddress, readAuthError } from "@/slices/auth/auth-error";
 
 export type AuthFormState = {
@@ -177,7 +178,7 @@ export async function resetPasswordAction(_state: AuthFormState, formData: FormD
  */
 export async function signUpAction(_state: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const name = String(formData.get("name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
+  const submittedEmail = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const path = formData.get("path") === "join" ? "join" : "start";
   const householdName = String(formData.get("householdName") ?? "").trim();
@@ -188,6 +189,10 @@ export async function signUpAction(_state: AuthFormState, formData: FormData): P
   if (path === "start" && householdName.length < 2) return { error: "Name the household you are starting." };
   const limited = await consumeAll([{ key: rateKey("signup-ip", clientAddress(await headers())), rule: AUTH_LIMITS.signUpIp }]);
   if (limited) return { error: tooManyAttempts(limited.retryAfterSeconds), retryAfterSeconds: limited.retryAfterSeconds };
+  // An invite binds to one address. The login for it is created with that address only, whatever the form sent.
+  const resolved = await resolveSignUpEmail(inviteToken, submittedEmail);
+  if (!resolved.ok) return { error: resolved.error };
+  const email = resolved.email;
   try {
     await getAuth().api.signUpEmail({
       // The verification link signs them in and returns to the invite page.

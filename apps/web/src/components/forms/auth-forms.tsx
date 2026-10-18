@@ -112,9 +112,14 @@ export function SignUpForm({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={id("email")}>Email</Label>
-          <Input id={id("email")} name="email" type="email" autoComplete="email" required />
           {invite ? (
-            <p className="text-xs text-muted-foreground">Use the address the invite was sent to ({invite.maskedEmail}).</p>
+            // Locked: no name, so it is never submitted. The server signs the login up with the invited address.
+            <Input id={id("email")} type="text" value={invite.maskedEmail} readOnly aria-readonly="true" autoComplete="off" />
+          ) : (
+            <Input id={id("email")} name="email" type="email" autoComplete="email" required />
+          )}
+          {invite ? (
+            <p className="text-xs text-muted-foreground">This invite is for {invite.maskedEmail}. The login is created with that address and it can&apos;t be changed.</p>
           ) : path === "join" ? (
             <p className="text-xs text-muted-foreground">Use the address your invite was sent to.</p>
           ) : null}
