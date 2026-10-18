@@ -3,6 +3,7 @@ import {
   addDays,
   defineRecurringItem,
   expectedRecurringAmounts,
+  itemHealth,
   itemOccurrences,
   nextExpectedDate,
   nextOccurrences,
@@ -15,6 +16,7 @@ import {
   type RecurringItemInput,
   type RecurringOccurrence,
   type RecurringSuggestion,
+  type AmountChange,
 } from "@dollas/domain";
 import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
 import { withActor } from "@/db/actor";
@@ -64,6 +66,12 @@ export type RecurringItemSummary = {
   /** The worst status among this month's occurrences: missed, then expected, upcoming, then paid/received. */
   monthStatus: MonthStatus;
   thisMonth: RecurringOccurrence[];
+  /** Two or more expected charges in a row never came (PEN-326). */
+  likelyCancelled: boolean;
+  missedInARow: number;
+  lastLinkedOn: string | null;
+  /** Newest charge vs the usual one, when it changed recently. */
+  amountChange: AmountChange | null;
 };
 
 export type RecurringItemDetail = RecurringItemSummary & {
@@ -103,6 +111,7 @@ function summarize(row: LoadedItem, links: Awaited<ReturnType<typeof loadStatusL
   const month = monthBounds(today);
   const mine = links.filter((link) => link.itemId === item.id);
   const thisMonth = itemOccurrences(schedule, mine, month.from, month.to, today);
+  const health = itemHealth({ ...schedule, tolerancePercent: item.tolerancePercent }, mine, today);
   return {
     id: item.id,
     name: item.name,
@@ -127,6 +136,10 @@ function summarize(row: LoadedItem, links: Awaited<ReturnType<typeof loadStatusL
     nextDate: nextExpectedDate(schedule, mine, today),
     monthStatus: monthStatusOf(thisMonth, schedule.paused),
     thisMonth,
+    likelyCancelled: health.likelyCancelled,
+    missedInARow: health.missedInARow,
+    lastLinkedOn: health.lastLinkedOn,
+    amountChange: health.amountChange,
   };
 }
 

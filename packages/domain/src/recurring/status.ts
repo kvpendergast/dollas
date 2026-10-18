@@ -123,3 +123,53 @@ export function expectedRecurringAmounts(input: {
   }
   return { occurrences, paid, expected, missed };
 }
+
+export type AmountChange = { fromCents: Cents; toCents: Cents; on: string; direction: "increase" | "decrease" };
+
+export type ItemHealth = {
+  /** Unlinked occurrences in a row, newest back, each already past its window. */
+  missedInARow: number;
+  /** Not paused, at least two in a row missed, and something was linked before. */
+  likelyCancelled: boolean;
+  lastLinkedOn: string | null;
+  /** The newest charge differs from the typical earlier ones (a price change). Null for items that vary by design or when the change is old. */
+  amountChange: AmountChange | null;
+};
+
+/** A change older than this is history, not news. */
+export const AMOUNT_CHANGE_RECENT_DAYS = 90;
+/** Items with a wide tolerance vary by design (hourly pay, usage bills): no price-change flag. */
+export const AMOUNT_CHANGE_MAX_TOLERANCE_PERCENT = 10;
+
+/**
+ * Two signals for an existing item (PEN-326): a likely cancellation (the last two or more
+ * expected charges never came) and a recent amount change (the newest linked charge is not
+ * the usual one: at least 1 percent and 100 cents off the median of the up to three before it).
+ */
+export function itemHealth(item: StatusItem & { tolerancePercent: number }, links: readonly StatusLink[], today: string): ItemHealth {
+  const mine = links.filter((link) => link.itemId === item.id && !link.deleted).sort((a, b) => (a.occurredOn < b.occurredOn ? -1 : a.occurredOn > b.occurredOn ? 1 : 0));
+  const linkedDates = new Set(mine.map((link) => link.occurrenceDate));
+  const past = occurrencesBetween(item, addDays(today, -800), addDays(today, -item.windowDays - 1)).reverse();
+  let missedInARow = 0;
+  for (const date of past) {
+    if (linkedDates.has(date)) break;
+    missedInARow += 1;
+  }
+  const lastLinkedOn = mine.length > 0 ? mine[mine.length - 1].occurredOn : null;
+  const likelyCancelled = !item.paused && missedInARow >= 2 && lastLinkedOn !== null;
+
+  let amountChange: AmountChange | null = null;
+  if (mine.length >= 2 && item.tolerancePercent <= AMOUNT_CHANGE_MAX_TOLERANCE_PERCENT) {
+    const latest = mine[mine.length - 1];
+    const earlier = mine.slice(Math.max(0, mine.length - 4), mine.length - 1).map((link) => link.amountCents).sort((a, b) => a - b);
+    const typical = earlier[Math.floor(earlier.length / 2)];
+    const diff = latest.amountCents - typical;
+    const recent = latest.occurredOn >= addDays(today, -AMOUNT_CHANGE_RECENT_DAYS);
+    if (recent && Math.abs(diff) >= 100 && Math.abs(diff) * 100 >= Math.abs(typical)) {
+      // Bills are negative: a more negative amount is an increase in what is paid.
+      const grew = Math.abs(latest.amountCents) > Math.abs(typical);
+      amountChange = { fromCents: typical, toCents: latest.amountCents, on: latest.occurredOn, direction: grew ? "increase" : "decrease" };
+    }
+  }
+  return { missedInARow, likelyCancelled, lastLinkedOn, amountChange };
+}
