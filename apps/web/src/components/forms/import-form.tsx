@@ -2,7 +2,7 @@
 
 import { FieldError } from "@/components/ui/field";
 
-import type { ColumnMapping } from "@dollas/domain";
+import { splitUndoWarning, type ColumnMapping } from "@dollas/domain";
 import * as React from "react";
 import { useActionState, useState, startTransition } from "react";
 import { StatusPill } from "@/components/app/status-pill";
@@ -621,12 +621,26 @@ function UndoImport({
 }) {
   const count = batch.addedCount === 1 ? "1 transaction" : `${batch.addedCount} transactions`;
   const when = batch.createdAt.slice(0, 10);
+  const warning = splitUndoWarning(batch.splitCount, batch.replacedCount);
   return (
-    <form action={action} className="flex flex-wrap items-center justify-between gap-3">
+    <form
+      action={action}
+      className="flex flex-wrap items-center justify-between gap-3"
+      onSubmit={(event) => {
+        if (warning && !window.confirm(`${warning} Undo this import?`)) event.preventDefault();
+      }}
+    >
       <input type="hidden" name="batchId" value={batch.id} />
-      <p className="text-sm">
-        {count} · {when}
-      </p>
+      <div className="min-w-0 space-y-1">
+        <p className="text-sm">
+          {count} · {when}
+        </p>
+        {warning ? (
+          <p role="note" className="text-sm font-semibold text-over">
+            {warning}
+          </p>
+        ) : null}
+      </div>
       <Button type="submit" variant="outline" disabled={pending}>
         {pending ? "Undoing" : "Undo import"}
       </Button>

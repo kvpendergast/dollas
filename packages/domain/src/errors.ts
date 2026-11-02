@@ -253,3 +253,17 @@ export class InvalidFilterError extends DomainError {
     super("invalid_filter", message);
   }
 }
+
+/**
+ * A split transaction (PEN-348) that does not hold together. When the lines
+ * simply do not add up, differenceCents says by how much: positive means that
+ * much of the parent is still unassigned, negative means the lines are over.
+ */
+export class SplitGroupError extends DomainError {
+  readonly differenceCents: number | null;
+
+  constructor(message: string, differenceCents: number | null = null) {
+    super("split_group", message);
+    this.differenceCents = differenceCents;
+  }
+}

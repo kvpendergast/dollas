@@ -3,6 +3,7 @@ import { withActor } from "@/db/actor";
 import type { AppTx } from "@/db/client";
 import { category, transaction, transactionSplit } from "@/db/schema";
 import { logInfo } from "@/lib/telemetry";
+import { isSplitRow } from "@/slices/splits/counted";
 import { UUID, failure, refuse, succeed, type ServiceActor, type ServiceResult, type Via } from "@/lib/service-result";
 
 /**
@@ -28,12 +29,12 @@ export type BulkCategorizeOutcome = {
   samples: Array<{ id: string; payee: string; amountCents: number }>;
 };
 
-type Candidate = { id: string; payee: string; amountCents: number; splits: { categoryId: string; amountCents: number }[] };
+type Candidate = { id: string; payee: string; amountCents: number; splitGroup: boolean; splits: { categoryId: string; amountCents: number }[] };
 
 async function loadCandidates(tx: AppTx, householdId: string, ids: readonly string[]): Promise<Candidate[]> {
   if (ids.length === 0) return [];
   const rows = await tx
-    .select({ id: transaction.id, payee: transaction.payee, amountCents: transaction.amountCents })
+    .select({ id: transaction.id, payee: transaction.payee, amountCents: transaction.amountCents, splitGroup: isSplitRow() })
     .from(transaction)
     .where(and(eq(transaction.householdId, householdId), isNull(transaction.deletedAt), inArray(transaction.id, [...ids])))
     .for("update");
@@ -63,7 +64,8 @@ async function applyCategory(
   let skippedSplit = 0;
   let skippedWithoutCategory = 0;
   for (const item of candidates) {
-    if (item.splits.length > 1) skippedSplit += 1;
+    // A split transaction (PEN-348) is changed with Edit split, never in bulk.
+    if (item.splits.length > 1 || item.splitGroup) skippedSplit += 1;
     else if (item.splits.length === 0) skippedWithoutCategory += 1;
     else if (item.splits[0]?.categoryId === categoryId) alreadyThere += 1;
     else move.push(item);

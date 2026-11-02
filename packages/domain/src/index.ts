@@ -24,6 +24,7 @@ export {
   ProviderNetworkError,
   ProviderSyncError,
   RateLimitedError,
+  SplitGroupError,
   SplitImbalanceError,
   TokenEncryptionError,
   TransactionError,
@@ -197,6 +198,25 @@ export {
   type BalancedSplit,
   type SplitDraft,
 } from "./activity/splits";
+
+export {
+  describeSplitDifference,
+  divideByPercent,
+  MAX_SPLIT_LINES,
+  planSplit,
+  SPLIT_GROUP_COPY,
+  SPLIT_LIMIT,
+  splitCounts,
+  splitDifferenceCents,
+  splitKindFor,
+  type SplitCategoryKind,
+  type SplitKind,
+  type SplitLine,
+  type SplitLineDraft,
+  type SplitParent,
+  type SplitPlan,
+  splitUndoWarning,
+} from "./activity/split-group";
 
 export {
   directionCategoryNotice,

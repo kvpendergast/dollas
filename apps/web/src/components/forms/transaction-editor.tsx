@@ -1,7 +1,7 @@
 "use client";
 
 import { FieldError } from "@/components/ui/field";
-import { NOTE_MAX_LENGTH, type CategoryMenuEntry, type TransactionDirection } from "@dollas/domain";
+import { NOTE_MAX_LENGTH, SPLIT_GROUP_COPY, type CategoryMenuEntry, type TransactionDirection } from "@dollas/domain";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,9 @@ import { Label } from "@/components/ui/label";
 import { deleteTransactionAction, separateBankMatchAction, updateTransactionAction } from "@/slices/activity/actions";
 import { RecurringLinkControl } from "@/components/recurring/recurring-forms";
 import { SplitControl, type SplitRow } from "./split-control";
+import { SplitEditor } from "./split-editor";
+import { unsplitAction } from "@/slices/splits/actions";
+import type { ListedSplit } from "@/slices/activity/transactions";
 import { useActionToast } from "@/lib/use-action-toast";
 import { toast } from "@/lib/toast-store";
 import { Select } from "@/components/ui/select";
@@ -42,6 +45,7 @@ export function TransactionEditor({
     bankMatched?: boolean;
     recurring?: { id: string; name: string } | null;
     splits: Array<{ categoryId: string; amountCents: number }>;
+    splitGroup?: ListedSplit | null;
   };
   accounts: Option[];
   categories: CategoryMenuEntry[];
@@ -59,6 +63,9 @@ export function TransactionEditor({
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState("");
   const [separating, setSeparating] = useState(false);
+  const [splitting, setSplitting] = useState(false);
+  const [unsplitting, setUnsplitting] = useState(false);
+  const group = transaction.splitGroup ?? null;
   const direction: TransactionDirection = transaction.amountCents > 0 ? "income" : "expense";
   const initialRows: SplitRow[] = (
     transaction.splits.length > 0
@@ -91,6 +98,70 @@ export function TransactionEditor({
     else toast("Split into two transactions: yours and the bank's.");
   }
 
+  async function onUnsplit() {
+    if (!window.confirm(`Unsplit ${transaction.payee}? Its lines are removed and it counts on its own again.`)) return;
+    setUnsplitting(true);
+    setRemoveError("");
+    const result = await unsplitAction(transaction.id);
+    setUnsplitting(false);
+    if (result.error) setRemoveError(result.error);
+    else toast(`Unsplit ${transaction.payee}.`);
+  }
+
+  // A line or deposit of a split is changed from its parent.
+  if (group && group.role !== "parent") {
+    return (
+      <p className="mt-2 text-xs text-muted-foreground" data-split-locked>
+        {SPLIT_GROUP_COPY.locked}
+      </p>
+    );
+  }
+
+  if (group?.role === "parent") {
+    return (
+      <div className="mt-3 space-y-3 border-t-2 border-dashed border-border-soft pt-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Button
+            type="button"
+            variant="link"
+            className="h-11 px-0"
+            aria-expanded={splitting}
+            aria-controls={`split-${transaction.id}-panel`}
+            aria-label={`${SPLIT_GROUP_COPY.edit}: ${transaction.payee}`}
+            onClick={() => setSplitting((value) => !value)}
+          >
+            {SPLIT_GROUP_COPY.edit}
+          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" disabled={unsplitting} aria-label={`${SPLIT_GROUP_COPY.unsplit} ${transaction.payee}`} onClick={() => void onUnsplit()}>
+              {unsplitting ? "Unsplitting" : SPLIT_GROUP_COPY.unsplit}
+            </Button>
+            <Button type="button" variant="destructive" disabled={removing} aria-label={`Delete ${transaction.payee}`} onClick={() => void onDelete()}>
+              {removing ? "Deleting" : "Delete"}
+            </Button>
+          </div>
+        </div>
+        {removeError ? <FieldError>{removeError}</FieldError> : null}
+        {splitting ? (
+          <SplitEditor
+            transaction={transaction}
+            parentCategoryIds={transaction.splits.map((part) => part.categoryId)}
+            lines={group.view.lines.map((line) => ({
+              payee: line.payee,
+              categoryId: line.categoryId ?? "",
+              amountCents: line.amountCents,
+              reimbursed: line.reimbursed,
+              deposit: line.deposit ? { accountId: line.deposit.accountId } : null,
+            }))}
+            categories={categories}
+            accounts={accounts.filter((account) => !account.archived)}
+            onClose={() => setSplitting(false)}
+          />
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="mt-3 space-y-3 border-t-2 border-dashed border-border-soft pt-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -101,11 +172,27 @@ export function TransactionEditor({
           aria-expanded={open}
           aria-controls={`${field}-panel`}
           aria-label={`Edit ${transaction.payee}`}
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => {
+            setOpen((value) => !value);
+            setSplitting(false);
+          }}
         >
           Edit
         </Button>
         <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          aria-expanded={splitting}
+          aria-controls={`split-${transaction.id}-panel`}
+          aria-label={`${SPLIT_GROUP_COPY.action}: ${transaction.payee}`}
+          onClick={() => {
+            setSplitting((value) => !value);
+            setOpen(false);
+          }}
+        >
+          {SPLIT_GROUP_COPY.action}
+        </Button>
         {transaction.bankMatched ? (
           <Button
             type="button"
@@ -135,6 +222,15 @@ export function TransactionEditor({
         <FieldError>
           {removeError}
         </FieldError>
+      ) : null}
+      {splitting ? (
+        <SplitEditor
+          transaction={transaction}
+          parentCategoryIds={transaction.splits.map((part) => part.categoryId)}
+          categories={categories}
+          accounts={accounts.filter((account) => !account.archived)}
+          onClose={() => setSplitting(false)}
+        />
       ) : null}
       {open ? (
         <form id={`${field}-panel`} action={action} className="space-y-3">

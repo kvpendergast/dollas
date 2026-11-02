@@ -79,7 +79,7 @@ export async function linkRecurringMatches(tx: AppTx, householdId: string, scope
     candidates = await tx
       .select(candidateColumns)
       .from(transaction)
-      .where(and(eq(transaction.householdId, householdId), inArray(transaction.id, [...scope.transactionIds]), isNull(transaction.deletedAt)));
+      .where(and(eq(transaction.householdId, householdId), inArray(transaction.id, [...scope.transactionIds]), isNull(transaction.deletedAt), isNull(transaction.splitParentId)));
   } else {
     const item = items[0];
     const lookback = addDays(scope.today, -BACKFILL_DAYS);
@@ -92,6 +92,8 @@ export async function linkRecurringMatches(tx: AppTx, householdId: string, scope
         and(
           eq(transaction.householdId, householdId),
           isNull(transaction.deletedAt),
+          // A split's lines and deposits are parts of one event; the parent stands for it (PEN-348).
+          isNull(transaction.splitParentId),
           isNull(recurringLink.id),
           gte(transaction.occurredOn, addDays(from, -item.windowDays)),
           lte(transaction.occurredOn, addDays(scope.today, item.windowDays)),

@@ -14,11 +14,20 @@ import {
   type CsvInspection,
   type MappedPreviewRow,
 } from "@dollas/domain";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+export { splitUndoWarning } from "@dollas/domain";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { withActor } from "@/db/actor";
 import { csvImport, transaction } from "@/db/schema";
 import { logInfo } from "@/lib/telemetry";
-import { UUID, failure, refuse, succeed, type ServiceActor, type ServiceResult, type Via } from "@/lib/service-result";
+import {
+  UUID,
+  failure,
+  refuse,
+  succeed,
+  type ServiceActor,
+  type ServiceResult,
+  type Via,
+} from "@/lib/service-result";
 import { csvImportStore } from "./csv-import-store";
 
 /**
@@ -29,7 +38,10 @@ import { csvImportStore } from "./csv-import-store";
 
 const FALLBACK = "Could not import that CSV.";
 
-export type CsvPreviewRow = Pick<MappedPreviewRow, "line" | "status" | "amountCents" | "cells"> & {
+export type CsvPreviewRow = Pick<
+  MappedPreviewRow,
+  "line" | "status" | "amountCents" | "cells"
+> & {
   /** Set on duplicates: "bank" means the bank already synced this charge (PEN-203). */
   duplicateOf: "import" | "bank" | null;
   /** Why a ready row looks like a transfer or card payment (PEN-280), else null. */
@@ -56,9 +68,23 @@ export type CsvPreviewOutcome =
   | { kind: "preview"; inspection: CsvInspection; preview: CsvPreview }
   | { kind: "mapping_error"; inspection: CsvInspection; message: string };
 
-export type CsvCommitOutcome = { batchId: string | null; added: number; errorCount: number; duplicateCount: number; message: string };
+export type CsvCommitOutcome = {
+  batchId: string | null;
+  added: number;
+  errorCount: number;
+  duplicateCount: number;
+  message: string;
+};
 
-export type OpenCsvImport = { id: string; addedCount: number; createdAt: string };
+export type OpenCsvImport = {
+  id: string;
+  addedCount: number;
+  createdAt: string;
+  /** Split transactions (PEN-348) whose parent came from this import; undo removes them. */
+  splitCount: number;
+  /** Rows from this import a split stands in for; undo removes them and the split stays. */
+  replacedCount: number;
+};
 
 export type CsvImportList = { open: OpenCsvImport[]; undoneNotice: string };
 
@@ -68,7 +94,13 @@ export function checkCsvText(csv: string): string | null {
   return null;
 }
 
-function presentable(outcome: { readyCount: number; errorCount: number; duplicateCount: number; possibleTransferCount: number; rows: MappedPreviewRow[] }): CsvPreview {
+function presentable(outcome: {
+  readyCount: number;
+  errorCount: number;
+  duplicateCount: number;
+  possibleTransferCount: number;
+  rows: MappedPreviewRow[];
+}): CsvPreview {
   return {
     readyCount: outcome.readyCount,
     errorCount: outcome.errorCount,
@@ -100,16 +132,41 @@ export async function inspectCsvImport(
     return succeed(
       await withActor(actor.userId, async (tx) => {
         const store = csvImportStore(tx);
-        const proposed = await proposeCsvMapping(store, { householdId: actor.householdId, csv: input.csv, hasHeader: input.hasHeader });
+        const proposed = await proposeCsvMapping(store, {
+          householdId: actor.householdId,
+          csv: input.csv,
+          hasHeader: input.hasHeader,
+        });
         if (proposed.isErr()) throw proposed.error;
-        if (!proposed.value.reusedSavedMapping) return { inspection: proposed.value, preview: null, previewError: "" };
-        const validated = await previewMappedImport(store, { householdId: actor.householdId, csv: input.csv, mapping: proposed.value.mapping });
-        if (validated.isErr()) return { inspection: proposed.value, preview: null, previewError: shownImportError(validated.error) };
-        return { inspection: proposed.value, preview: presentable(validated.value), previewError: "" };
+        if (!proposed.value.reusedSavedMapping)
+          return {
+            inspection: proposed.value,
+            preview: null,
+            previewError: "",
+          };
+        const validated = await previewMappedImport(store, {
+          householdId: actor.householdId,
+          csv: input.csv,
+          mapping: proposed.value.mapping,
+        });
+        if (validated.isErr())
+          return {
+            inspection: proposed.value,
+            preview: null,
+            previewError: shownImportError(validated.error),
+          };
+        return {
+          inspection: proposed.value,
+          preview: presentable(validated.value),
+          previewError: "",
+        };
       }),
     );
   } catch (error) {
-    return failure(error, FALLBACK, { action: "inspect-csv", householdId: actor.householdId });
+    return failure(error, FALLBACK, {
+      action: "inspect-csv",
+      householdId: actor.householdId,
+    });
   }
 }
 
@@ -124,15 +181,36 @@ export async function previewCsvImport(
     return succeed(
       await withActor(actor.userId, async (tx): Promise<CsvPreviewOutcome> => {
         const store = csvImportStore(tx);
-        const proposed = await proposeCsvMapping(store, { householdId: actor.householdId, csv: input.csv, hasHeader: input.mapping.hasHeader });
+        const proposed = await proposeCsvMapping(store, {
+          householdId: actor.householdId,
+          csv: input.csv,
+          hasHeader: input.mapping.hasHeader,
+        });
         if (proposed.isErr()) throw proposed.error;
-        const validated = await previewMappedImport(store, { householdId: actor.householdId, csv: input.csv, mapping: input.mapping, categories: input.categories });
-        if (validated.isErr()) return { kind: "mapping_error", inspection: proposed.value, message: shownImportError(validated.error) };
-        return { kind: "preview", inspection: proposed.value, preview: presentable(validated.value) };
+        const validated = await previewMappedImport(store, {
+          householdId: actor.householdId,
+          csv: input.csv,
+          mapping: input.mapping,
+          categories: input.categories,
+        });
+        if (validated.isErr())
+          return {
+            kind: "mapping_error",
+            inspection: proposed.value,
+            message: shownImportError(validated.error),
+          };
+        return {
+          kind: "preview",
+          inspection: proposed.value,
+          preview: presentable(validated.value),
+        };
       }),
     );
   } catch (error) {
-    return failure(error, FALLBACK, { action: "preview-csv", householdId: actor.householdId });
+    return failure(error, FALLBACK, {
+      action: "preview-csv",
+      householdId: actor.householdId,
+    });
   }
 }
 
@@ -156,16 +234,22 @@ export async function csvCategoryLabels(
       }),
     );
   } catch (error) {
-    return failure(error, FALLBACK, { action: "csv-category-labels", householdId: actor.householdId });
+    return failure(error, FALLBACK, {
+      action: "csv-category-labels",
+      householdId: actor.householdId,
+    });
   }
 }
 
 export function commitMessage(added: number, errorCount: number): string {
-  if (added === 0 && errorCount === 0) return "That CSV was already imported. No new transactions.";
-  if (added === 0) return "Nothing new to import. Those rows have errors or are already here.";
+  if (added === 0 && errorCount === 0)
+    return "That CSV was already imported. No new transactions.";
+  if (added === 0)
+    return "Nothing new to import. Those rows have errors or are already here.";
   const label = added === 1 ? "transaction" : "transactions";
   if (errorCount === 0) return `Imported ${added} ${label}.`;
-  const skipped = errorCount === 1 ? "1 row with errors" : `${errorCount} rows with errors`;
+  const skipped =
+    errorCount === 1 ? "1 row with errors" : `${errorCount} rows with errors`;
   return `Imported ${added} ${label}. Skipped ${skipped}.`;
 }
 
@@ -189,7 +273,12 @@ export async function commitCsvImport(
       if (outcome.isErr()) throw outcome.error;
       return outcome.value;
     });
-    logInfo("CSV imported", { action: "import-csv", via, householdId: actor.householdId, added: String(inserted.added) });
+    logInfo("CSV imported", {
+      action: "import-csv",
+      via,
+      householdId: actor.householdId,
+      added: String(inserted.added),
+    });
     return succeed({
       batchId: inserted.batchId,
       added: inserted.added,
@@ -198,7 +287,11 @@ export async function commitCsvImport(
       message: commitMessage(inserted.added, inserted.errorCount),
     });
   } catch (error) {
-    return failure(error, FALLBACK, { action: "import-csv", via, householdId: actor.householdId });
+    return failure(error, FALLBACK, {
+      action: "import-csv",
+      via,
+      householdId: actor.householdId,
+    });
   }
 }
 
@@ -207,11 +300,24 @@ export function removedImportMessage(count: number): string {
   return `Removed ${count} ${label} from that import. You can import that file again.`;
 }
 
-export function undoMessage(removed: number, kept: number): string {
+export function undoMessage(
+  removed: number,
+  kept: number,
+  removedSplits = 0,
+): string {
   const keptNote =
-    kept === 0 ? "" : ` Kept ${kept} ${kept === 1 ? "transaction" : "transactions"} your bank also reported.`;
-  if (removed === 0) return kept === 0 ? "That import had no transactions left to remove." : `Nothing removed.${keptNote}`;
-  return `${removedImportMessage(removed)}${keptNote}`;
+    kept === 0
+      ? ""
+      : ` Kept ${kept} ${kept === 1 ? "transaction" : "transactions"} your bank also reported.`;
+  const splitNote =
+    removedSplits === 0
+      ? ""
+      : ` That removed ${removedSplits === 1 ? "1 split" : `${removedSplits} splits`} built on it.`;
+  if (removed === 0)
+    return kept === 0
+      ? "That import had no transactions left to remove."
+      : `Nothing removed.${keptNote}`;
+  return `${removedImportMessage(removed)}${splitNote}${keptNote}`;
 }
 
 /**
@@ -222,16 +328,31 @@ export async function undoCsvImport(
   actor: ServiceActor,
   batchId: string,
   via: Via = "web",
-): Promise<ServiceResult<{ removed: number; kept: number; message: string }>> {
-  if (!UUID.test(batchId)) return refuse("That import is not in this household.");
+): Promise<
+  ServiceResult<{
+    removed: number;
+    kept: number;
+    removedSplits: number;
+    message: string;
+  }>
+> {
+  if (!UUID.test(batchId))
+    return refuse("That import is not in this household.");
   try {
     const outcome = await withActor(actor.userId, async (tx) => {
       const [batch] = await tx
         .select({ id: csvImport.id, undoneAt: csvImport.undoneAt })
         .from(csvImport)
-        .where(and(eq(csvImport.id, batchId), eq(csvImport.householdId, actor.householdId)));
-      if (!batch) throw new CsvImportError("That import is not in this household.");
-      if (batch.undoneAt) throw new CsvImportError("That import was already undone.");
+        .where(
+          and(
+            eq(csvImport.id, batchId),
+            eq(csvImport.householdId, actor.householdId),
+          ),
+        );
+      if (!batch)
+        throw new CsvImportError("That import is not in this household.");
+      if (batch.undoneAt)
+        throw new CsvImportError("That import was already undone.");
       const candidates = await tx
         .select({
           id: transaction.id,
@@ -240,15 +361,32 @@ export async function undoCsvImport(
           importFingerprint: transaction.importFingerprint,
           deletedAt: transaction.deletedAt,
           bankTransactionId: transaction.bankTransactionId,
+          splitKind: transaction.splitKind,
         })
         .from(transaction)
-        .where(and(eq(transaction.householdId, actor.householdId), eq(transaction.importBatchId, batchId)));
-      const rows = candidates.map(({ bankTransactionId, ...row }) => ({
-        ...row,
-        deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
-        bankBacked: bankTransactionId != null,
-      }));
-      const victims = transactionsRemovedByUndo(rows, actor.householdId, batchId);
+        .where(
+          and(
+            eq(transaction.householdId, actor.householdId),
+            eq(transaction.importBatchId, batchId),
+          ),
+        );
+      const splitParents = new Set(
+        candidates.filter((row) => row.splitKind != null).map((row) => row.id),
+      );
+      const rows = candidates.map(({ bankTransactionId, ...rest }) => {
+        const { splitKind, ...row } = rest;
+        void splitKind;
+        return {
+          ...row,
+          deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
+          bankBacked: bankTransactionId != null,
+        };
+      });
+      const victims = transactionsRemovedByUndo(
+        rows,
+        actor.householdId,
+        batchId,
+      );
       const kept = transactionsKeptByUndo(rows, actor.householdId, batchId);
       if (kept.length > 0) {
         // The bank backs these charges; keep them (and their fingerprints) and detach them from the batch.
@@ -279,10 +417,21 @@ export async function undoCsvImport(
       const undone = await tx
         .update(csvImport)
         .set({ undoneAt: new Date() })
-        .where(and(eq(csvImport.id, batchId), eq(csvImport.householdId, actor.householdId), isNull(csvImport.undoneAt)))
+        .where(
+          and(
+            eq(csvImport.id, batchId),
+            eq(csvImport.householdId, actor.householdId),
+            isNull(csvImport.undoneAt),
+          ),
+        )
         .returning({ id: csvImport.id });
-      if (undone.length === 0) throw new CsvImportError("That import was already undone.");
-      return { removed: victims.length, kept: kept.length };
+      if (undone.length === 0)
+        throw new CsvImportError("That import was already undone.");
+      return {
+        removed: victims.length,
+        kept: kept.length,
+        removedSplits: victims.filter((row) => splitParents.has(row.id)).length,
+      };
     });
     logInfo("CSV import undone", {
       action: "undo-csv-import",
@@ -291,35 +440,99 @@ export async function undoCsvImport(
       removed: String(outcome.removed),
       kept: String(outcome.kept),
     });
-    return succeed({ removed: outcome.removed, kept: outcome.kept, message: undoMessage(outcome.removed, outcome.kept) });
+    return succeed({
+      removed: outcome.removed,
+      kept: outcome.kept,
+      removedSplits: outcome.removedSplits,
+      message: undoMessage(
+        outcome.removed,
+        outcome.kept,
+        outcome.removedSplits,
+      ),
+    });
   } catch (error) {
-    return failure(error, "Could not undo that import.", { action: "undo-csv-import", via, householdId: actor.householdId });
+    return failure(error, "Could not undo that import.", {
+      action: "undo-csv-import",
+      via,
+      householdId: actor.householdId,
+    });
   }
 }
 
 /** Imports that can still be undone, newest first, and a notice when the latest one was undone. */
-export async function listCsvImports(actor: ServiceActor): Promise<ServiceResult<CsvImportList>> {
+export async function listCsvImports(
+  actor: ServiceActor,
+): Promise<ServiceResult<CsvImportList>> {
   try {
     const rows = await withActor(actor.userId, async (tx) => {
       const open = await tx
-        .select({ id: csvImport.id, addedCount: csvImport.addedCount, createdAt: csvImport.createdAt })
+        .select({
+          id: csvImport.id,
+          addedCount: csvImport.addedCount,
+          createdAt: csvImport.createdAt,
+        })
         .from(csvImport)
-        .where(and(eq(csvImport.householdId, actor.householdId), isNull(csvImport.undoneAt)))
+        .where(
+          and(
+            eq(csvImport.householdId, actor.householdId),
+            isNull(csvImport.undoneAt),
+          ),
+        )
         .orderBy(desc(csvImport.createdAt))
         .limit(100);
       const [latest] = await tx
-        .select({ addedCount: csvImport.addedCount, undoneAt: csvImport.undoneAt })
+        .select({
+          addedCount: csvImport.addedCount,
+          undoneAt: csvImport.undoneAt,
+        })
         .from(csvImport)
         .where(eq(csvImport.householdId, actor.householdId))
         .orderBy(desc(csvImport.createdAt))
         .limit(1);
-      return { open, latest: latest ?? null };
+      const ids = open.map((row) => row.id);
+      const built =
+        ids.length === 0
+          ? []
+          : await tx
+              .select({
+                batchId: transaction.importBatchId,
+                splits:
+                  sql<number>`count(*) filter (where ${transaction.splitKind} is not null and ${transaction.bankTransactionId} is null)`.mapWith(
+                    Number,
+                  ),
+                replaced:
+                  sql<number>`count(*) filter (where ${transaction.splitReplacedBy} is not null and ${transaction.bankTransactionId} is null)`.mapWith(
+                    Number,
+                  ),
+              })
+              .from(transaction)
+              .where(
+                and(
+                  eq(transaction.householdId, actor.householdId),
+                  inArray(transaction.importBatchId, ids),
+                  sql`(${transaction.splitKind} is not null or ${transaction.splitReplacedBy} is not null)`,
+                ),
+              )
+              .groupBy(transaction.importBatchId);
+      return { open, latest: latest ?? null, built };
     });
+    const builtOn = new Map(rows.built.map((row) => [row.batchId, row]));
     return succeed({
-      open: rows.open.map((row) => ({ id: row.id, addedCount: row.addedCount, createdAt: row.createdAt.toISOString() })),
-      undoneNotice: rows.latest?.undoneAt ? removedImportMessage(rows.latest.addedCount) : "",
+      open: rows.open.map((row) => ({
+        id: row.id,
+        addedCount: row.addedCount,
+        createdAt: row.createdAt.toISOString(),
+        splitCount: builtOn.get(row.id)?.splits ?? 0,
+        replacedCount: builtOn.get(row.id)?.replaced ?? 0,
+      })),
+      undoneNotice: rows.latest?.undoneAt
+        ? removedImportMessage(rows.latest.addedCount)
+        : "",
     });
   } catch (error) {
-    return failure(error, "Could not load imports.", { action: "list-csv-imports", householdId: actor.householdId });
+    return failure(error, "Could not load imports.", {
+      action: "list-csv-imports",
+      householdId: actor.householdId,
+    });
   }
 }

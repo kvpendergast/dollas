@@ -11,6 +11,7 @@ import {
   listCsvImports,
   previewCsvImport,
   undoCsvImport,
+  splitUndoWarning,
   type CsvPreview,
 } from "./csv-import-service";
 
@@ -293,7 +294,14 @@ export const csvImportTools = [
         (value) => `${plural(value.open.length, "import")} can be undone.`,
         (value) => ({
           ...paginate(
-            value.open.map((item) => ({ import_id: item.id, added: item.addedCount, created_at: item.createdAt })),
+            value.open.map((item) => ({
+              import_id: item.id,
+              added: item.addedCount,
+              created_at: item.createdAt,
+              splits_built_on: item.splitCount,
+              replaced_by_splits: item.replacedCount,
+              undo_warning: splitUndoWarning(item.splitCount, item.replacedCount) || null,
+            })),
             readPage(args, 25),
           ),
           notice: value.undoneNotice || null,
@@ -304,12 +312,16 @@ export const csvImportTools = [
   tool({
     name: "undo_csv_import",
     title: "Undo CSV import",
-    description: "Remove the transactions an import added and mark it undone. Transactions a bank sync has since matched are kept (the bank backs them) and detached from the import. The file can be imported again.",
+    description: "Remove the transactions an import added and mark it undone. Transactions a bank sync has since matched are kept (the bank backs them) and detached from the import. Splits built on rows of that import are removed with them; check splits_built_on in list_csv_imports first. The file can be imported again.",
     access: "write",
     destructive: true,
     input: { import_id: uuidInput("Import"), confirm: confirmInput("remove the transactions this import added") },
     async run(args, { books }) {
-      return answer(await undoCsvImport(books, args.import_id, "mcp"), (value) => value.message);
+      return answer(await undoCsvImport(books, args.import_id, "mcp"), (value) => value.message, (value) => ({
+        removed: value.removed,
+        kept: value.kept,
+        removed_splits: value.removedSplits,
+      }));
     },
   }),
 ];

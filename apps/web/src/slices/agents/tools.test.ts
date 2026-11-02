@@ -643,9 +643,59 @@ describe("Dollas MCP tools", () => {
       assert.equal((await ada.ok("get_onboarding_status")).state, mapleSetup.state, "skipping is per household");
       assert.notEqual((await birchAgent.ok("resume_onboarding")).state, "dismissed");
 
+      // Split transactions (PEN-348): a paycheck (income split) and a Costco run (allocation split), retries, splitBulk.
+      const salary = (await ada.ok("create_category", { name: "Salary", kind: "income", group_id: everyday })).id as string;
+      const taxes = (await ada.ok("create_category", { name: "Taxes", kind: "expense", group_id: everyday })).id as string;
+      const netPay = (await ada.ok("create_category", { name: "Net pay", kind: "transfer", group_id: everyday })).id as string;
+      const payroll = (await ada.ok("create_account", { name: "Payroll", type: "checking" })).id as string;
+      const savings = (await ada.ok("create_account", { name: "Split Savings", type: "savings" })).id as string;
+      const paycheck = (await ada.ok("create_transaction", { account_id: payroll, occurred_on: "2026-09-15", payee: "Acme Payroll", amount_cents: 500000, category_id: salary })).id as string;
+      const short = await ada.call("create_split", { transaction_id: paycheck, lines: [{ category_id: taxes, amount_cents: 100000 }, { category_id: netPay, amount_cents: 300000 }] });
+      assert.equal(short.isError, true, "lines must add up");
+      assert.match(short.text, /left to assign.*difference_cents: 100000/);
+      const splitPaycheck = await ada.ok("create_split", {
+        transaction_id: paycheck,
+        client_key: "tools-pay-1",
+        lines: [
+          { category_id: taxes, amount_cents: 100000, payee: "Federal tax" },
+          { category_id: netPay, amount_cents: 400000, payee: "Net pay", to_account_id: savings },
+        ],
+      });
+      assert.equal(splitPaycheck.status, "created");
+      assert.equal(splitPaycheck.kind, "income");
+      assert.deepEqual((splitPaycheck.lines as Array<{ amount_cents: number }>).map((line) => line.amount_cents), [-100000, -400000]);
+      assert.equal((splitPaycheck.lines as Array<{ deposit: { amount_cents: number } | null }>)[1]?.deposit?.amount_cents, 400000);
+      assert.equal((await ada.ok("create_split", { transaction_id: paycheck, client_key: "tools-pay-1", lines: [{ category_id: taxes, amount_cents: 500000 }] })).status, "exists", "a retry with the key is a no-op");
+      const listedSplit = await ada.ok("list_transactions", { payee_contains: "acme payroll" });
+      assert.deepEqual((listedSplit.items as Array<{ split: { role: string } | null }>)[0]?.split?.role, "parent");
+      assert.equal((await ada.call("update_transaction", { transaction_id: paycheck, payee: "Nope" })).isError, true, "a split parent changes through update_split");
+      const edited = await ada.ok("update_split", { transaction_id: paycheck, payee: "Acme Inc Payroll" });
+      assert.equal(edited.payee, "Acme Inc Payroll");
+      assert.equal((await ada.ok("get_split", { transaction_id: paycheck })).payee, "Acme Inc Payroll");
+      const costco = (await ada.ok("create_transaction", { account_id: payroll, occurred_on: "2026-09-16", payee: "Costco", amount_cents: -15000, category_id: groceries })).id as string;
+      const costco2 = (await ada.ok("create_transaction", { account_id: payroll, occurred_on: "2026-09-17", payee: "Costco", amount_cents: -2000, category_id: groceries })).id as string;
+      const splitBulk = await ada.ok("create_splits", {
+        items: [
+          { client_key: "tools-costco-1", transaction_id: costco, lines: [{ category_id: groceries, amount_cents: 10000 }, { category_id: dining, amount_cents: 5000, reimbursed: true }] },
+          { client_key: "tools-costco-2", transaction_id: costco2, lines: [{ category_id: groceries, amount_cents: 1000 }] },
+        ],
+      });
+      assert.deepEqual([splitBulk.created, splitBulk.existing, splitBulk.failed], [1, 0, 1]);
+      const bulkResults = splitBulk.results as Array<{ client_key: string; status: string; difference_cents: number | null }>;
+      assert.deepEqual(bulkResults.map((row) => [row.client_key, row.status, row.difference_cents]), [["tools-costco-1", "created", null], ["tools-costco-2", "error", 1000]]);
+      const splitAgain = await ada.ok("create_splits", { items: [{ client_key: "tools-costco-1", transaction_id: costco, lines: [{ category_id: groceries, amount_cents: 15000 }] }], mode: "atomic" });
+      assert.deepEqual([splitAgain.created, splitAgain.existing], [0, 1]);
+      const splitsPage = await ada.ok("list_splits", { client_key_prefix: "tools-" });
+      assert.equal(splitsPage.total, 2);
+      assert.equal((await ada.ok("list_splits", { kind: "income" })).total, 1);
+      assert.equal((await ada.call("unsplit_transaction", { transaction_id: costco })).isError, true, "unsplit needs confirm");
+      const unsplit = await ada.ok("unsplit_transaction", { transaction_id: costco, confirm: true });
+      assert.equal(unsplit.removed_lines, 2);
+      assert.equal((await ada.ok("list_splits", {})).total, 1);
+
       // Scope: a read grant runs every read tool and no write tool.
       const reader = await clientFor(ids.ada, maple, "read");
-      for (const name of ["whoami", "list_accounts", "list_transactions", "list_categories", "get_plan", "get_profit_and_loss", "get_month_summary", "list_household", "get_spending_breakdown", "list_saved_filters", "get_onboarding_status"]) {
+      for (const name of ["whoami", "list_accounts", "list_transactions", "list_categories", "get_plan", "get_profit_and_loss", "get_month_summary", "list_household", "get_spending_breakdown", "list_saved_filters", "get_onboarding_status", "list_splits"]) {
         await reader.ok(name);
       }
       const sneaky = await reader.call("create_transaction", {

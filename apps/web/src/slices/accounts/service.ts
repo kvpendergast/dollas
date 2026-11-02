@@ -26,6 +26,7 @@ import {
 } from "@/lib/service-result";
 import type { BooksContext } from "@/slices/access/member";
 import { loadAccounts, type AccountListItem } from "@/slices/books/queries";
+import { countsInBalances } from "@/slices/splits/counted";
 
 /**
  * Account services shared by the Accounts page actions and MCP tools.
@@ -113,7 +114,7 @@ async function loadLedgerAccount(tx: AppTx, householdId: string, accountId: stri
     .select({ amountCents: transaction.amountCents })
     .from(transaction)
     .where(
-      and(eq(transaction.accountId, accountId), eq(transaction.householdId, householdId), isNull(transaction.deletedAt)),
+      and(eq(transaction.accountId, accountId), eq(transaction.householdId, householdId), isNull(transaction.deletedAt), countsInBalances()),
     );
   let movementCents = 0;
   for (const movement of movements) movementCents += movement.amountCents;

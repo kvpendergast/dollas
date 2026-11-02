@@ -12,7 +12,7 @@ import {
   type HistoryColumn,
   type SpendingFilter,
 } from "@dollas/domain";
-import { and, asc, count, eq, gte, isNull, lte } from "drizzle-orm";
+import { and, asc, count, eq, gte, lte } from "drizzle-orm";
 import { withActor } from "@/db/actor";
 import {
   category,
@@ -26,13 +26,10 @@ import {
 import type { BooksContext } from "@/slices/access/guard";
 import { listPayeeRules } from "@/slices/activity/payee-rule-service";
 import { listHouseholdTransactions } from "@/slices/activity/transactions";
+import { postedForBalances, postedForBooks } from "@/slices/splits/counted";
 import { loadSpendEstimate } from "./estimate";
 
 
-/** Posted rows only. A deleted transaction keeps its fingerprint but leaves the books. */
-function postedInHousehold(householdId: string) {
-  return and(eq(transaction.householdId, householdId), isNull(transaction.deletedAt));
-}
 
 function effectOf(kind: string, amountCents: number) {
   const effect = categoryBooksEffect(kind, amountCents);
@@ -104,7 +101,7 @@ export async function loadHomeFor(books: BooksContext, month: { year: number; mo
       .leftJoin(categoryGroup, eq(categoryGroup.id, category.groupId))
       .where(
         and(
-          postedInHousehold(books.householdId),
+          postedForBooks(books.householdId),
           gte(transaction.occurredOn, start),
           lte(transaction.occurredOn, end),
         ),
@@ -140,7 +137,7 @@ export async function loadHomeFor(books: BooksContext, month: { year: number; mo
     const accountMovements = await tx
       .select({ accountId: transaction.accountId, amountCents: transaction.amountCents })
       .from(transaction)
-      .where(postedInHousehold(books.householdId));
+      .where(postedForBalances(books.householdId));
     return { transactions, budgets, accountRows, accountMovements };
   });
   const accounts = rollupAccounts(rows.accountRows, rows.accountMovements);
@@ -330,7 +327,7 @@ export async function loadAccounts(books: BooksContext) {
     const movements = await tx
       .select({ accountId: transaction.accountId, amountCents: transaction.amountCents })
       .from(transaction)
-      .where(postedInHousehold(books.householdId));
+      .where(postedForBalances(books.householdId));
     return rollupAccounts(accounts, movements);
   });
 }
@@ -346,7 +343,7 @@ export async function loadHistory(books: BooksContext): Promise<HistoryColumn[]>
       .from(transaction)
       .innerJoin(transactionSplit, eq(transactionSplit.transactionId, transaction.id))
       .innerJoin(category, eq(category.id, transactionSplit.categoryId))
-      .where(postedInHousehold(books.householdId)),
+      .where(postedForBooks(books.householdId)),
   );
   const expenses = rows.flatMap((row) => {
     const spentCents = effectOf(row.kind, row.amountCents).spentCents;

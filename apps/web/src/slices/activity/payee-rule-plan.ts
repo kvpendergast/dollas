@@ -32,6 +32,8 @@ export type PayeeRuleApplyCandidate = {
   payee: string;
   deletedAt: Date | string | null;
   splits: readonly { categoryId: string }[];
+  /** Part of a split transaction (PEN-348): skipped like a multi-category row. */
+  splitGroup?: boolean;
 };
 
 export type PayeeRuleApplyPlan = {
@@ -53,7 +55,7 @@ export function planPayeeRuleApply(
     if (transaction.householdId !== rule.householdId) continue;
     if (transaction.deletedAt != null) continue;
     if (matchingPayeeRule(transaction.payee, [needle]) == null) continue;
-    if (transaction.splits.length > 1) {
+    if (transaction.splits.length > 1 || transaction.splitGroup) {
       skippedSplitIds.push(transaction.id);
       continue;
     }
