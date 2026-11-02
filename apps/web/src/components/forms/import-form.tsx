@@ -621,7 +621,7 @@ function UndoImport({
 }) {
   const count = batch.addedCount === 1 ? "1 transaction" : `${batch.addedCount} transactions`;
   const when = batch.createdAt.slice(0, 10);
-  const warning = splitUndoWarning(batch.splitCount, batch.replacedCount);
+  const warning = splitUndoWarning(batch.splitCount, batch.replacedCount, batch.linkedCount ?? 0);
   return (
     <form
       action={action}

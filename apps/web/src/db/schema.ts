@@ -625,6 +625,44 @@ export const transactionSplit = pgTable(
   ],
 ).enableRLS();
 
+/**
+ * A transfer pair (PEN-349): a paycheck's net-pay line linked to the real
+ * deposit that bank sync or a CSV already put in the destination account. The
+ * deposit takes the line's transfer category, so it stops counting as income
+ * and the destination balance counts the money once. priorCategories keeps the
+ * deposit's category lines; deleting the pair (unlink, unsplit, or a cascade)
+ * puts them back. Triggers keep both rows in one household and the amounts
+ * mirrored. Each row is in one pair at most.
+ */
+export const transferPair = pgTable(
+  "transfer_pair",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    lineId: uuid("line_id")
+      .notNull()
+      .references(() => transaction.id, { onDelete: "cascade" }),
+    depositId: uuid("deposit_id")
+      .notNull()
+      .references(() => transaction.id, { onDelete: "cascade" }),
+    priorCategories: jsonb("prior_categories").$type<{ categoryId: string; amountCents: number }[]>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("transfer_pair_line_idx").on(table.lineId),
+    uniqueIndex("transfer_pair_deposit_idx").on(table.depositId),
+    index("transfer_pair_household_idx").on(table.householdId),
+    check("transfer_pair_distinct_chk", sql`${table.lineId} <> ${table.depositId}`),
+    pgPolicy("transfer_pair_all", {
+      for: "all",
+      using: sql`app_can_access_household(${table.householdId})`,
+      withCheck: sql`app_can_access_household(${table.householdId})`,
+    }),
+  ],
+).enableRLS();
+
 /*
  * OAuth authorization server tables for agent (MCP) access, owned by the
  * @better-auth/oauth-provider plugin. Like session and account, the plugin
@@ -1000,6 +1038,7 @@ export const schema = {
   csvColumnMapping,
   transaction,
   transactionSplit,
+  transferPair,
   bankConnection,
   bankAccount,
   oauthClient,

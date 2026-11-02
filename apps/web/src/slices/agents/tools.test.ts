@@ -693,6 +693,37 @@ describe("Dollas MCP tools", () => {
       assert.equal(unsplit.removed_lines, 2);
       assert.equal((await ada.ok("list_splits", {})).total, 1);
 
+      // Transfer pairs (PEN-349): link net pay to the deposit already in the bank; suggest never links.
+      const payday = (await ada.ok("create_transaction", { account_id: payroll, occurred_on: "2026-09-30", payee: "Acme Payroll", amount_cents: 500000, category_id: salary })).id as string;
+      const landed = (await ada.ok("create_transaction", { account_id: savings, occurred_on: "2026-10-01", payee: "ACME DIRECT DEP", amount_cents: 400000, category_id: salary })).id as string;
+      const unlinkedPay = await ada.ok("create_split", { transaction_id: payday, lines: [{ category_id: taxes, amount_cents: 100000 }, { category_id: netPay, amount_cents: 400000 }] });
+      const netLine = (unlinkedPay.lines as Array<{ id: string }>)[1]?.id ?? "";
+      const suggestedLinks = await ada.ok("suggest_transfer_links", { transaction_id: payday });
+      const suggestedLine = (suggestedLinks.lines as Array<{ line_transaction_id: string; candidates: Array<{ deposit_transaction_id: string; days_apart: number }> }>)[0];
+      assert.deepEqual([suggestedLine?.line_transaction_id, suggestedLine?.candidates.map((row) => [row.deposit_transaction_id, row.days_apart])], [netLine, [[landed, 1]]]);
+      assert.equal((await owner`select 1 from transfer_pair where deposit_id = ${landed}`).length, 0, "suggest_transfer_links never links");
+      const linkedPair = await ada.ok("link_transfer", { line_transaction_id: netLine, deposit_transaction_id: landed });
+      assert.deepEqual([linkedPair.status, linkedPair.account_name], ["linked", "Split Savings"]);
+      assert.equal((await ada.ok("link_transfer", { line_transaction_id: netLine, deposit_transaction_id: landed })).status, "exists");
+      assert.equal((await ada.ok("get_split", { transaction_id: payday }) as { lines: Array<{ linked_deposit: { id: string } | null }> }).lines[1]?.linked_deposit?.id, landed);
+      const landedListed = await ada.ok("list_transactions", { payee_contains: "ACME DIRECT DEP" });
+      assert.deepEqual((landedListed.items as Array<{ splits: Array<{ category_id: string }> }>)[0]?.splits.map((row) => row.category_id), [netPay], "the deposit is now the transfer");
+      const mismatch = await ada.call("link_transfer", { line_transaction_id: (unlinkedPay.lines as Array<{ id: string }>)[0]?.id ?? "", deposit_transaction_id: landed });
+      assert.equal(mismatch.isError, true);
+      const unlinkedPair = await ada.ok("unlink_transfer", { transaction_id: landed });
+      assert.deepEqual([unlinkedPair.line_transaction_id, unlinkedPair.restored_categories], [netLine, true]);
+      assert.equal((await ada.call("unlink_transfer", { transaction_id: landed })).isError, true, "not linked anymore");
+      assert.ok((await ada.ok("unsplit_transaction", { transaction_id: payday, confirm: true })).removed_lines);
+      const bulkLinked = await ada.ok("create_splits", {
+        items: [{ client_key: "tools-pay-0930", transaction_id: payday, lines: [{ category_id: taxes, amount_cents: 100000 }, { category_id: netPay, amount_cents: 400000, deposit_transaction_id: landed }] }],
+      });
+      assert.equal(bulkLinked.created, 1);
+      assert.equal((await owner`select 1 from transfer_pair where deposit_id = ${landed}`).length, 1, "create_splits links the net pay");
+      const bulkRetry = await ada.ok("create_splits", {
+        items: [{ client_key: "tools-pay-0930", transaction_id: payday, lines: [{ category_id: taxes, amount_cents: 100000 }, { category_id: netPay, amount_cents: 400000, deposit_transaction_id: landed }] }],
+      });
+      assert.deepEqual([bulkRetry.existing, (await owner`select 1 from transfer_pair where deposit_id = ${landed}`).length], [1, 1]);
+
       // Scope: a read grant runs every read tool and no write tool.
       const reader = await clientFor(ids.ada, maple, "read");
       for (const name of ["whoami", "list_accounts", "list_transactions", "list_categories", "get_plan", "get_profit_and_loss", "get_month_summary", "list_household", "get_spending_breakdown", "list_saved_filters", "get_onboarding_status", "list_splits"]) {

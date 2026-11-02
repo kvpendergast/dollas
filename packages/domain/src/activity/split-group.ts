@@ -2,6 +2,7 @@ import { err, ok, type Result } from "neverthrow";
 import { SplitGroupError } from "../errors";
 import { formatCents } from "../money/cents";
 import { NOTE_MAX_LENGTH, PAYEE_MAX_LENGTH } from "./entry";
+import { linkedDepositUndoWarning } from "./transfer-pair";
 
 /**
  * Split transactions (PEN-347/348): one bank row divided into child
@@ -198,7 +199,7 @@ export function splitCounts(row: { splitKind: SplitKind | null; reimbursed: bool
 }
 
 /** The warning next to Undo when splits are built on an import, or "" when none are. */
-export function splitUndoWarning(splitCount: number, replacedCount: number): string {
+export function splitUndoWarning(splitCount: number, replacedCount: number, linkedCount = 0): string {
   const parts: string[] = [];
   if (splitCount > 0) {
     parts.push(
@@ -208,5 +209,7 @@ export function splitUndoWarning(splitCount: number, replacedCount: number): str
   if (replacedCount > 0) {
     parts.push(`${replacedCount === 1 ? "1 transaction" : `${replacedCount} transactions`} from it ${replacedCount === 1 ? "is" : "are"} replaced by a split; undo removes ${replacedCount === 1 ? "it" : "them"} for good and the split stays.`);
   }
+  const linked = linkedDepositUndoWarning(linkedCount);
+  if (linked) parts.push(linked);
   return parts.join(" ");
 }

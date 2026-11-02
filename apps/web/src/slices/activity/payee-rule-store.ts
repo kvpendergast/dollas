@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { AppTx } from "@/db/client";
 import { category, categoryGroup, payeeCategoryRule, transaction, transactionSplit } from "@/db/schema";
-import { isSplitRow } from "@/slices/splits/counted";
+import { isLockedRow } from "@/slices/splits/counted";
 import {
   payeeRulePreviewDetails,
   planPayeeRuleApply,
@@ -53,7 +53,7 @@ export async function loadPayeeRuleApply(
       householdId: transaction.householdId,
       payee: transaction.payee,
       deletedAt: transaction.deletedAt,
-      splitGroup: isSplitRow(),
+      splitGroup: isLockedRow(),
     })
     .from(transaction)
     .where(eq(transaction.householdId, householdId))

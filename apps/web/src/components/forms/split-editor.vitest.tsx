@@ -36,8 +36,8 @@ const view = {
   deleted: false,
   replaced: [],
   lines: [
-    { id: "tax", position: 0, payee: "IRS", amountCents: -100000, categoryId: taxes, categoryName: "Taxes", categoryKind: "expense" as const, reimbursed: false, note: null, deposit: null },
-    { id: "net", position: 1, payee: "Net pay", amountCents: -400000, categoryId: netPay, categoryName: "Net pay", categoryKind: "transfer" as const, reimbursed: false, note: null, deposit: { id: "dep", accountId: bank, accountName: "Bank", amountCents: 400000 } },
+    { id: "tax", position: 0, payee: "IRS", amountCents: -100000, categoryId: taxes, categoryName: "Taxes", categoryKind: "expense" as const, reimbursed: false, note: null, deposit: null, linked: null },
+    { id: "net", position: 1, payee: "Net pay", amountCents: -400000, categoryId: netPay, categoryName: "Net pay", categoryKind: "transfer" as const, reimbursed: false, note: null, deposit: { id: "dep", accountId: bank, accountName: "Bank", amountCents: 400000 }, linked: null },
   ],
 };
 
@@ -121,5 +121,68 @@ describe("split editor (PEN-348)", () => {
     expect(out).toContain("Deposit to Bank");
     expect(out).toContain("data-split-orphan");
     expect(out).toContain("Part of a split: Costco");
+  });
+});
+
+describe("transfer pairs (PEN-349)", () => {
+  const deposit = { id: "real-dep", accountId: bank, accountName: "Bank", occurredOn: "2026-10-16", payee: "ACME DIRECT DEP", amountCents: 400000, deleted: false };
+  const linkedView = { ...view, lines: view.lines.map((line) => (line.id === "net" ? { ...line, deposit: null, linked: deposit } : line)) };
+
+  it("shows a linked line's deposit under the paycheck and a badge on the deposit itself", () => {
+    const row = (id: string, payee: string, amountCents: number, extra: Record<string, unknown>, accountId = payroll) => ({
+      id,
+      occurredOn: "2026-10-15",
+      payee,
+      amountCents,
+      accountId,
+      accountName: accountId === bank ? "Bank" : "Payroll",
+      accountArchived: false,
+      splits: [{ categoryId: netPay, categoryName: "Net pay", amountCents }],
+      accounts,
+      ...extra,
+    });
+    const out = renderToStaticMarkup(
+      <ActivityLedger
+        categories={categories}
+        transactions={[
+          row("pay", "Acme Payroll", 500000, { splitGroup: { role: "parent", kind: "income", view: linkedView } }),
+          row("real-dep", "ACME DIRECT DEP", 400000, { linkedTo: { lineId: "net", parentId: "pay", parentPayee: "Acme Payroll" } }, bank),
+        ]}
+      />,
+    );
+    expect(out).toContain("Linked deposit: Bank · 2026-10-16");
+    expect(out).toContain("Net pay from Acme Payroll");
+    expect(out).toContain("Unlink deposit");
+    expect(out).not.toContain("Deposit to Bank");
+  });
+
+  it("locks a linked deposit to Unlink", () => {
+    const out = renderToStaticMarkup(
+      <TransactionEditor
+        transaction={{ id: "real-dep", payee: "ACME DIRECT DEP", occurredOn: "2026-10-16", amountCents: 400000, accountId: bank, splits: [{ categoryId: netPay, amountCents: 400000 }], linkedTo: { lineId: "net", parentId: "pay", parentPayee: "Acme Payroll" } }}
+        accounts={accounts}
+        categories={categories}
+        onDeleted={() => {}}
+      />,
+    );
+    expect(out).toContain("data-transfer-linked");
+    expect(out).toContain("Unlink it to change the amount");
+    expect(out).not.toContain("Split into transactions");
+  });
+
+  it("keeps the deposit field on a linked net-pay line", () => {
+    const out = renderToStaticMarkup(
+      <SplitEditor
+        transaction={{ id: "pay", payee: "Acme Payroll", amountCents: 500000 }}
+        parentCategoryIds={[salary]}
+        lines={linkedView.lines.map((line) => ({ payee: line.payee, categoryId: line.categoryId, amountCents: line.amountCents, reimbursed: false, deposit: null, linked: line.linked }))}
+        categories={categories}
+        accounts={accounts}
+        onClose={() => {}}
+      />,
+    );
+    // The menu itself renders on open; the linked deposit keeps the line's deposit field and the sums.
+    expect(out).toContain("Deposit to (optional)");
+    expect(out).toContain("The lines add up.");
   });
 });

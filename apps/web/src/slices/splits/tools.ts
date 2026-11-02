@@ -14,10 +14,11 @@ import {
   updateSplit,
   type SplitLineInput,
 } from "./service";
+import { linkTransfer, suggestTransferLinks, unlinkTransfer } from "./pairs";
 import type { SplitView } from "./store";
 
 const KIND_HELP =
-  "A paycheck (positive, income-category parent) is an income split: the parent stays gross income and the lines are negative taxes (expense categories) and 401(k) / net pay (transfer categories); a net-pay line can set to_account_id to put the same amount into a bank account. Any other parent (a Costco run, a Venmo payment) is an allocation split: the parent leaves every total and the lines count instead. Different from split_transaction, which only divides one transaction across categories.";
+  "A paycheck (positive, income-category parent) is an income split: the parent stays gross income and the lines are negative taxes (expense categories) and 401(k) / net pay (transfer categories); a net-pay line can set to_account_id to put the same amount into a bank account, or deposit_transaction_id to link the deposit the bank already has there (see suggest_transfer_links), so net pay counts once. Any other parent (a Costco run, a Venmo payment) is an allocation split: the parent leaves every total and the lines count instead. Different from split_transaction, which only divides one transaction across categories.";
 
 const lineInput = z.object({
   category_id: uuidInput("Category"),
@@ -25,6 +26,11 @@ const lineInput = z.object({
   remainder_percent: z.number().positive().max(100).optional().describe("Share of what the fixed lines leave, 0-100; percent lines must add up to 100."),
   payee: z.string().max(PAYEE_MAX_LENGTH).optional().describe("Defaults to the parent's payee."),
   to_account_id: uuidInput("Deposit account").optional().describe("Income splits only, on a transfer line: also add this amount to that account (net pay into checking)."),
+  deposit_transaction_id: uuidInput("Existing deposit")
+    .optional()
+    .describe(
+      "Income splits only, on a transfer line, instead of to_account_id: link the deposit already in another account (from bank sync or a CSV) for the same amount. It takes the line's transfer category, so it stops counting as income. On update_split, leaving it out of a line unlinks that line.",
+    ),
   reimbursed: z.boolean().optional().describe("Allocation splits on a charge only: someone pays this part back, so it stays on the account but leaves spending."),
   note: z.string().max(NOTE_MAX_LENGTH).optional(),
 });
@@ -40,6 +46,7 @@ function linesFrom(lines: readonly LineArgs[]): SplitLineInput[] {
     remainderPercent: line.remainder_percent ?? null,
     payee: line.payee ?? null,
     toAccountId: line.to_account_id ?? null,
+    depositTransactionId: line.deposit_transaction_id ?? null,
     reimbursed: line.reimbursed ?? false,
     note: line.note ?? null,
   }));
@@ -66,6 +73,17 @@ export function splitOut(view: SplitView) {
       reimbursed: line.reimbursed,
       note: line.note,
       deposit: line.deposit ? { id: line.deposit.id, account_id: line.deposit.accountId, account_name: line.deposit.accountName, amount_cents: line.deposit.amountCents } : null,
+      linked_deposit: line.linked
+        ? {
+            id: line.linked.id,
+            account_id: line.linked.accountId,
+            account_name: line.linked.accountName,
+            occurred_on: line.linked.occurredOn,
+            payee: line.linked.payee,
+            amount_cents: line.linked.amountCents,
+            deleted: line.linked.deleted,
+          }
+        : null,
     })),
     replaced_transactions: view.replaced.map((row) => ({ id: row.id, payee: row.payee, occurred_on: row.occurredOn, amount_cents: row.amountCents })),
   };
@@ -164,7 +182,7 @@ export const splitTools = [
     name: "update_split",
     title: "Edit split",
     description:
-      "Change a split: replace its lines, and optionally the parent's date, payee, note, account or amount (amount only when the parent has one category). Lines move with the parent's date and account. Without lines, the current lines are kept and re-checked.",
+      "Change a split: replace its lines (give each linked net-pay line its deposit_transaction_id to keep the link), and optionally the parent's date, payee, note, account or amount (amount only when the parent has one category). Lines move with the parent's date and account. Without lines, the current lines are kept and re-checked.",
     access: "write",
     idempotent: true,
     input: {
@@ -241,6 +259,76 @@ export const splitTools = [
     input: { transaction_id: uuidInput("Split parent") },
     async run(args, { books }) {
       return answer(await getSplit(books, args.transaction_id), (value) => `${value.payee}: ${plural(value.lines.length, "line")}.`, splitOut);
+    },
+  }),
+  tool({
+    name: "suggest_transfer_links",
+    title: "Suggest deposits to link",
+    description: `For a paycheck split (or one of its transfer lines): deposits already in other accounts for the same amount within a few days, nearest first, that could be the net pay. Read-only: nothing is linked until you call link_transfer.`,
+    access: "read",
+    input: { transaction_id: uuidInput("Paycheck split or one of its lines") },
+    async run(args, { books }) {
+      return answer(
+        await suggestTransferLinks(books, args.transaction_id),
+        (value) => `${plural(value.lines.reduce((total, line) => total + line.candidates.length, 0), "possible deposit")} for ${plural(value.lines.length, "transfer line")}.`,
+        (value) => ({
+          parent_transaction_id: value.parentId,
+          lines: value.lines.map((line) => ({
+            line_transaction_id: line.lineId,
+            payee: line.linePayee,
+            amount_cents: line.lineAmountCents,
+            occurred_on: line.occurredOn,
+            linked_deposit_id: line.linked?.id ?? null,
+            candidates: line.candidates.map((row) => ({
+              deposit_transaction_id: row.id,
+              account_id: row.accountId,
+              account_name: row.accountName,
+              occurred_on: row.occurredOn,
+              payee: row.payee,
+              amount_cents: row.amountCents,
+              days_apart: row.daysApart,
+            })),
+          })),
+        }),
+      );
+    },
+  }),
+  tool({
+    name: "link_transfer",
+    title: "Link deposit",
+    description:
+      "Link a paycheck's net-pay line to the deposit already in another account (same amount, opposite sign). The deposit takes the line's transfer category, so it stops counting as income and the account counts the money once; its old categories come back on unlink_transfer. One link per row. Linking the same pair again is a no-op.",
+    access: "write",
+    idempotent: true,
+    input: { line_transaction_id: uuidInput("Net-pay line"), deposit_transaction_id: uuidInput("Deposit") },
+    async run(args, { books }) {
+      return answer(
+        withDifference(await linkTransfer(books, { lineTransactionId: args.line_transaction_id, depositTransactionId: args.deposit_transaction_id }, "mcp")),
+        (value) => (value.status === "exists" ? "That deposit was already linked." : `Linked ${value.parentPayee}'s net pay to the deposit in ${value.deposit.accountName}.`),
+        (value) => ({
+          status: value.status,
+          line_transaction_id: value.lineId,
+          parent_transaction_id: value.parentId,
+          deposit_transaction_id: value.deposit.id,
+          account_name: value.deposit.accountName,
+          amount_cents: value.deposit.amountCents,
+        }),
+      );
+    },
+  }),
+  tool({
+    name: "unlink_transfer",
+    title: "Unlink deposit",
+    description: "Unlink a net-pay line from its deposit, by either side. The deposit gets back the categories it had before it was linked.",
+    access: "write",
+    idempotent: true,
+    input: { transaction_id: uuidInput("Net-pay line or linked deposit") },
+    async run(args, { books }) {
+      return answer(
+        await unlinkTransfer(books, args.transaction_id, "mcp"),
+        (value) => (value.restoredCategories ? "Unlinked; the deposit has its old categories back." : "Unlinked."),
+        (value) => ({ line_transaction_id: value.lineId, deposit_transaction_id: value.depositId, restored_categories: value.restoredCategories }),
+      );
     },
   }),
 ];

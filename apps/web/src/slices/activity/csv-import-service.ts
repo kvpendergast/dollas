@@ -15,9 +15,10 @@ import {
   type MappedPreviewRow,
 } from "@dollas/domain";
 export { splitUndoWarning } from "@dollas/domain";
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, count as countRows, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { withActor } from "@/db/actor";
-import { csvImport, transaction } from "@/db/schema";
+import { csvImport, transaction, transferPair } from "@/db/schema";
+import { isLinkedDeposit } from "@/slices/splits/counted";
 import { logInfo } from "@/lib/telemetry";
 import {
   UUID,
@@ -82,6 +83,8 @@ export type OpenCsvImport = {
   createdAt: string;
   /** Split transactions (PEN-348) whose parent came from this import; undo removes them. */
   splitCount: number;
+  /** Deposits from this import linked to a paycheck's net pay (PEN-349). */
+  linkedCount: number;
   /** Rows from this import a split stands in for; undo removes them and the split stays. */
   replacedCount: number;
 };
@@ -304,6 +307,7 @@ export function undoMessage(
   removed: number,
   kept: number,
   removedSplits = 0,
+  unlinkedDeposits = 0,
 ): string {
   const keptNote =
     kept === 0
@@ -313,11 +317,15 @@ export function undoMessage(
     removedSplits === 0
       ? ""
       : ` That removed ${removedSplits === 1 ? "1 split" : `${removedSplits} splits`} built on it.`;
+  const linkNote =
+    unlinkedDeposits === 0
+      ? ""
+      : ` Unlinked ${unlinkedDeposits === 1 ? "1 paycheck deposit" : `${unlinkedDeposits} paycheck deposits`}.`;
   if (removed === 0)
     return kept === 0
       ? "That import had no transactions left to remove."
       : `Nothing removed.${keptNote}`;
-  return `${removedImportMessage(removed)}${splitNote}${keptNote}`;
+  return `${removedImportMessage(removed)}${splitNote}${linkNote}${keptNote}`;
 }
 
 /**
@@ -333,6 +341,7 @@ export async function undoCsvImport(
     removed: number;
     kept: number;
     removedSplits: number;
+    unlinkedDeposits: number;
     message: string;
   }>
 > {
@@ -403,6 +412,24 @@ export async function undoCsvImport(
             ),
           );
       }
+      const victimIds = victims.map((row) => row.id);
+      const unlinked =
+        victimIds.length === 0
+          ? 0
+          : Number(
+              (
+                await tx
+                  .select({ value: countRows() })
+                  .from(transferPair)
+                  .innerJoin(transaction, eq(transaction.id, transferPair.lineId))
+                  .where(
+                    and(
+                      eq(transferPair.householdId, actor.householdId),
+                      or(inArray(transferPair.depositId, victimIds), inArray(transaction.splitParentId, victimIds)),
+                    ),
+                  )
+              )[0]?.value ?? 0,
+            );
       if (victims.length > 0) {
         await tx.delete(transaction).where(
           and(
@@ -431,6 +458,7 @@ export async function undoCsvImport(
         removed: victims.length,
         kept: kept.length,
         removedSplits: victims.filter((row) => splitParents.has(row.id)).length,
+        unlinked,
       };
     });
     logInfo("CSV import undone", {
@@ -444,10 +472,12 @@ export async function undoCsvImport(
       removed: outcome.removed,
       kept: outcome.kept,
       removedSplits: outcome.removedSplits,
+      unlinkedDeposits: outcome.unlinked,
       message: undoMessage(
         outcome.removed,
         outcome.kept,
         outcome.removedSplits,
+        outcome.unlinked,
       ),
     });
   } catch (error) {
@@ -504,13 +534,17 @@ export async function listCsvImports(
                   sql<number>`count(*) filter (where ${transaction.splitReplacedBy} is not null and ${transaction.bankTransactionId} is null)`.mapWith(
                     Number,
                   ),
+                linked:
+                  sql<number>`count(*) filter (where ${isLinkedDeposit()} and ${transaction.bankTransactionId} is null)`.mapWith(
+                    Number,
+                  ),
               })
               .from(transaction)
               .where(
                 and(
                   eq(transaction.householdId, actor.householdId),
                   inArray(transaction.importBatchId, ids),
-                  sql`(${transaction.splitKind} is not null or ${transaction.splitReplacedBy} is not null)`,
+                  sql`(${transaction.splitKind} is not null or ${transaction.splitReplacedBy} is not null or ${isLinkedDeposit()})`,
                 ),
               )
               .groupBy(transaction.importBatchId);
@@ -524,6 +558,7 @@ export async function listCsvImports(
         createdAt: row.createdAt.toISOString(),
         splitCount: builtOn.get(row.id)?.splits ?? 0,
         replacedCount: builtOn.get(row.id)?.replaced ?? 0,
+        linkedCount: builtOn.get(row.id)?.linked ?? 0,
       })),
       undoneNotice: rows.latest?.undoneAt
         ? removedImportMessage(rows.latest.addedCount)

@@ -189,6 +189,7 @@ describe("pendingMigrationTags", () => {
     "0034_rate_limit",
     "0035_staged_csv_upload",
     "0036_split_transactions",
+    "0037_transfer_pair",
     ]);
   });
 

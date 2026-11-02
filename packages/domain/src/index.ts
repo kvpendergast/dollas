@@ -219,6 +219,18 @@ export {
 } from "./activity/split-group";
 
 export {
+  decideTransferLink,
+  linkedDepositUndoWarning,
+  MAX_TRANSFER_SUGGESTIONS,
+  rankTransferCandidates,
+  TRANSFER_PAIR_COPY,
+  TRANSFER_PAIR_WINDOW_DAYS,
+  type TransferCandidate,
+  type TransferDepositFacts,
+  type TransferLineFacts,
+} from "./activity/transfer-pair";
+
+export {
   directionCategoryNotice,
   directionDefaultForKind,
   type DirectionCategoryNotice,
