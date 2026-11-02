@@ -253,6 +253,13 @@
       "when": 1792248094559,
       "tag": "0035_staged_csv_upload",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793626612865,
+      "tag": "0036_split_transactions",
+      "breakpoints": true
     }
   ]
 }

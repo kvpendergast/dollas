@@ -49,13 +49,27 @@ function shown(item: ListedTransaction) {
     categorized_by: item.categorizedBy,
     note: item.note,
     splits: item.splits.map((split) => ({ category_id: split.categoryId, category_name: split.categoryName, amount_cents: split.amountCents })),
+    split: splitShown(item),
+  };
+}
+
+/** Split transactions (PEN-348): role parent, line or deposit; null for an ordinary transaction. */
+function splitShown(item: ListedTransaction) {
+  const group = item.splitGroup;
+  if (!group) return null;
+  if (group.role === "parent") return { role: "parent", kind: group.kind, line_count: group.view.lines.length, client_key: group.view.clientKey };
+  return {
+    role: group.role,
+    parent_id: group.parentId,
+    parent_payee: group.parentPayee,
+    reimbursed: group.role === "line" ? group.reimbursed : false,
   };
 }
 
 const COMPACT_FIELDS = ["id", "occurred_on", "payee", "amount_cents", "account_name", "category", "category_id"] as const;
 const ALL_FIELDS = [
   "id", "occurred_on", "payee", "amount_cents", "account_id", "account_name", "account_archived", "deleted", "bank_backed",
-  "bank_matched", "recurring_item", "sources", "added_by", "categorized_by", "note", "splits", "category", "category_id",
+  "bank_matched", "recurring_item", "sources", "added_by", "categorized_by", "note", "splits", "split", "category", "category_id",
 ] as const;
 
 /** A listed transaction with its fields trimmed to what the caller asked for (PEN-282). id is always kept. */
@@ -364,7 +378,7 @@ export const transactionTools = [
   tool({
     name: "split_transaction",
     title: "Split transaction",
-    description: `Divide a transaction across categories. The splits replace the current categories and must add up to the transaction's amount_cents, with the same sign.`,
+    description: `Divide a transaction across categories. The splits replace the current categories and must add up to the transaction's amount_cents, with the same sign. To turn it into separate child transactions (a paycheck, a Costco run), use create_split.`,
     access: "write",
     idempotent: true,
     input: { transaction_id: uuidInput("Transaction"), splits: splitsInput.min(2).describe("Two or more category splits.") },

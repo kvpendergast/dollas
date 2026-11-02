@@ -21,6 +21,7 @@ import {
 import { and, eq, gte, inArray, isNull, like, lte, or } from "drizzle-orm";
 import type { AppTx } from "@/db/client";
 import { bankAccount, bankConnection, category, ledgerAccount, payeeCategoryRule, transaction, transactionSplit } from "@/db/schema";
+import { notSplitRow } from "@/slices/splits/counted";
 
 export async function applyBankSync(
   tx: AppTx,
@@ -325,6 +326,8 @@ async function loadSyncBooks(
         and(
           eq(transaction.householdId, householdId),
           isNull(transaction.bankTransactionId),
+          // A split's parent, lines and deposits are never matched to a bank charge (PEN-348).
+          notSplitRow(),
           inArray(transaction.amountCents, amounts),
           gte(transaction.occurredOn, shiftCivilDate(dates[0] ?? "", -BANK_MATCH_WINDOW_DAYS)),
           lte(transaction.occurredOn, shiftCivilDate(dates[dates.length - 1] ?? "", BANK_MATCH_WINDOW_DAYS)),
@@ -497,8 +500,16 @@ async function updatePlanned(
       bankTransactionId: update.providerTransactionId,
       ...(update.clearLegacyFingerprint ? { importFingerprint: null } : {}),
     };
+    const [state] = await tx
+      .select({ splitKind: transaction.splitKind, splitParentId: transaction.splitParentId })
+      .from(transaction)
+      .where(and(eq(transaction.householdId, householdId), eq(transaction.id, update.transactionId)));
+    // A split keeps the member's amount, date and payee: its lines add up to them (PEN-348).
+    const split = state != null && (state.splitKind != null || state.splitParentId != null);
     const values = update.deleted
       ? identity
+      : split
+        ? { ...identity, ...(update.matched ? { bankOccurredOn: update.occurredOn, bankPayee: update.payee } : {}) }
       : update.matched
         ? { ...identity, amountCents: update.amountCents, bankOccurredOn: update.occurredOn, bankPayee: update.payee }
         : { ...identity, occurredOn: update.occurredOn, payee: update.payee, amountCents: update.amountCents };
@@ -508,7 +519,7 @@ async function updatePlanned(
       .where(and(eq(transaction.householdId, householdId), eq(transaction.id, update.transactionId)))
       .returning({ id: transaction.id });
     if (!row) continue;
-    if (!update.deleted) await rebalanceSplits(tx, row.id, update.amountCents);
+    if (!update.deleted && !split) await rebalanceSplits(tx, row.id, update.amountCents);
     ids.push(row.id);
   }
   return ids;
@@ -553,6 +564,13 @@ async function removePlanned(tx: AppTx, householdId: string, removals: readonly 
         and(eq(transaction.householdId, householdId), eq(transaction.id, removal.transactionId), isNull(transaction.deletedAt)),
       )
       .returning({ id: transaction.id });
+    if (!removal.matched && changed.length > 0) {
+      // A hidden split parent hides its lines and deposits with it.
+      await tx
+        .update(transaction)
+        .set({ deletedAt })
+        .where(and(eq(transaction.householdId, householdId), eq(transaction.splitParentId, removal.transactionId), isNull(transaction.deletedAt)));
+    }
     if (!removal.matched) count += changed.length;
   }
   return count;

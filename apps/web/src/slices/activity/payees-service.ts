@@ -40,7 +40,8 @@ export async function listHouseholdPayees(
       rows: await tx
         .select({ id: transaction.id, payee: transaction.payee, amountCents: transaction.amountCents })
         .from(transaction)
-        .where(and(eq(transaction.householdId, actor.householdId), isNull(transaction.deletedAt))),
+        // One row per real payment: a split counts once, as its parent (PEN-348).
+        .where(and(eq(transaction.householdId, actor.householdId), isNull(transaction.deletedAt), isNull(transaction.splitParentId))),
       splits: await tx
         .select({ transactionId: transactionSplit.transactionId, name: category.name, kind: category.kind })
         .from(transactionSplit)

@@ -2,6 +2,7 @@ import type { BudgetCategory, BudgetMonth, BudgetStore, SpendSplit, StoredBudget
 import { and, eq, gte, isNull, lte } from "drizzle-orm";
 import type { AppTx } from "@/db/client";
 import { category, categoryBudget, categoryGroup, transaction, transactionSplit } from "@/db/schema";
+import { countsInBooks } from "@/slices/splits/counted";
 
 /** Drizzle access for the budget service. Runs inside `withActor`, which assumes dollas_app. */
 export function drizzleBudgetStore(tx: AppTx): BudgetStore {
@@ -71,6 +72,7 @@ export function drizzleBudgetStore(tx: AppTx): BudgetStore {
             eq(transaction.householdId, householdId),
             eq(transactionSplit.householdId, householdId),
             isNull(transaction.deletedAt),
+            countsInBooks(),
             gte(transaction.occurredOn, range.start),
             lte(transaction.occurredOn, range.end),
           ),

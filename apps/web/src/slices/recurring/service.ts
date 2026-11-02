@@ -401,7 +401,15 @@ export async function linkRecurringTransaction(
       const [txn] = await tx
         .select({ id: transaction.id, occurredOn: transaction.occurredOn })
         .from(transaction)
-        .where(and(eq(transaction.id, transactionId), eq(transaction.householdId, actor.householdId), isNull(transaction.deletedAt)))
+        .where(
+          and(
+            eq(transaction.id, transactionId),
+            eq(transaction.householdId, actor.householdId),
+            isNull(transaction.deletedAt),
+            // A split stands for its event through its parent (PEN-348).
+            isNull(transaction.splitParentId),
+          ),
+        )
         .for("update");
       if (!txn) throw new Error(TXN_NOT_HERE);
       await tx.delete(recurringLink).where(and(eq(recurringLink.transactionId, transactionId), eq(recurringLink.householdId, actor.householdId)));
@@ -479,7 +487,7 @@ export async function suggestRecurring(actor: ServiceActor, today: string): Prom
           accountId: transaction.accountId,
         })
         .from(transaction)
-        .where(and(eq(transaction.householdId, actor.householdId), isNull(transaction.deletedAt), gte(transaction.occurredOn, addDays(today, -200))))
+        .where(and(eq(transaction.householdId, actor.householdId), isNull(transaction.deletedAt), isNull(transaction.splitParentId), gte(transaction.occurredOn, addDays(today, -200))))
         .orderBy(desc(transaction.occurredOn))
         .limit(5000);
       const splits =

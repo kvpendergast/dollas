@@ -36,6 +36,8 @@ export const ACTION_PARITY: Record<string, Parity> = {
   deleteTransactionAction: { tools: ["delete_transaction"] },
   restoreTransactionAction: { tools: ["restore_transaction"] },
   separateBankMatchAction: { tools: ["separate_bank_match"] },
+  saveSplitAction: { tools: ["create_split", "update_split"] },
+  unsplitAction: { tools: ["unsplit_transaction"] },
   // payee rules
   createPayeeRuleAction: { tools: ["create_payee_rule"] },
   updatePayeeRuleAction: { tools: ["update_payee_rule"] },
@@ -113,7 +115,7 @@ export const PAGE_PARITY: Record<string, Parity> = {
   "/": { tools: ["get_month_summary", "get_onboarding_status"] },
   "/accounts": { tools: ["list_accounts", "list_bank_connections"] },
   "/activity": {
-    tools: ["list_transactions", "list_payees", "list_saved_filters", "list_recurring_items", "list_payee_rules", "list_csv_imports", "list_accounts", "list_categories"],
+    tools: ["list_transactions", "list_payees", "list_saved_filters", "list_recurring_items", "list_payee_rules", "list_csv_imports", "list_accounts", "list_categories", "list_splits", "get_split"],
   },
   "/categories": { tools: ["list_categories", "get_onboarding_status"] },
   "/history": { tools: ["get_spending_breakdown", "get_spending_history", "list_saved_filters"] },
@@ -138,4 +140,5 @@ export const PAGE_PARITY: Record<string, Parity> = {
 /** Tools with no page or action counterpart, because only an agent needs them. */
 export const AGENT_ONLY_TOOLS: Record<string, string> = {
   whoami: "Tells the agent who it acts as and with what access; the web app shows this in its chrome.",
+  create_splits: "Bulk, retry-safe conversion of many transactions (e.g. a year of paychecks); a member splits one at a time with saveSplitAction.",
 };

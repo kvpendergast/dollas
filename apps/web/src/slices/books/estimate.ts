@@ -4,6 +4,7 @@ import { withActor } from "@/db/actor";
 import { category, categoryBudget, categoryGroup, recurringItem, recurringLink, transaction, transactionSplit } from "@/db/schema";
 import type { BooksContext } from "@/slices/access/member";
 import { loadStatusLinks, scheduleOf } from "@/slices/recurring/store";
+import { countsInBooks } from "@/slices/splits/counted";
 
 /**
  * Loads what the spend estimate needs (PEN-205) and runs the domain model.
@@ -34,6 +35,7 @@ export async function loadSpendEstimate(books: BooksContext): Promise<SpendEstim
         and(
           eq(transaction.householdId, books.householdId),
           isNull(transaction.deletedAt),
+          countsInBooks(),
           gte(transaction.occurredOn, windowStart),
           lte(transaction.occurredOn, today),
         ),

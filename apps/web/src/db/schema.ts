@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -409,8 +410,43 @@ export const transaction = pgTable(
      */
     createdByUserId: text("created_by_user_id").references(() => user.id, { onDelete: "set null" }),
     categorizedByUserId: text("categorized_by_user_id").references(() => user.id, { onDelete: "set null" }),
+    /**
+     * Split transactions (PEN-347/348). A split parent carries splitKind:
+     * "income" (a paycheck: the parent counts as gross income, its lines are
+     * negative taxes, deductions and net pay) or "allocation" (a Costco or
+     * Venmo charge divided into parts: the parent leaves every total, its
+     * lines count). Lines and the deposits net-pay lines put into another
+     * account point at the parent with splitParentId; a deposit also points at
+     * its line with splitLineId. A database trigger keeps lines adding up.
+     */
+    splitKind: text("split_kind"),
+    /** The caller's idempotency key for a split (create_splits). Unique per household. */
+    splitClientKey: text("split_client_key"),
+    splitParentId: uuid("split_parent_id"),
+    splitLineId: uuid("split_line_id"),
+    /** Display order of a split's lines. */
+    splitPosition: integer("split_position"),
+    /** A line someone pays back (a friend's share): it stays on the account but leaves spending. */
+    splitReimbursed: boolean("split_reimbursed").notNull().default(false),
+    /** Set on rows a split replaced (soft-deleted when the split was made); unsplit restores them. */
+    splitReplacedBy: uuid("split_replaced_by"),
   },
   (table) => [
+    foreignKey({ name: "transaction_split_parent_fk", columns: [table.splitParentId], foreignColumns: [table.id] }).onDelete("cascade"),
+    foreignKey({ name: "transaction_split_line_fk", columns: [table.splitLineId], foreignColumns: [table.id] }).onDelete("cascade"),
+    foreignKey({ name: "transaction_split_replaced_by_fk", columns: [table.splitReplacedBy], foreignColumns: [table.id] }).onDelete("set null"),
+    index("transaction_split_parent_idx").on(table.splitParentId),
+    index("transaction_split_replaced_by_idx").on(table.splitReplacedBy),
+    uniqueIndex("transaction_split_client_key_idx")
+      .on(table.householdId, table.splitClientKey)
+      .where(sql`${table.splitClientKey} is not null`),
+    check("transaction_split_kind_chk", sql`${table.splitKind} is null or ${table.splitKind} in ('income', 'allocation')`),
+    check("transaction_split_role_chk", sql`${table.splitKind} is null or ${table.splitParentId} is null`),
+    check("transaction_split_key_chk", sql`${table.splitClientKey} is null or (${table.splitKind} is not null and char_length(${table.splitClientKey}) between 1 and 100)`),
+    check("transaction_split_line_chk", sql`${table.splitLineId} is null or ${table.splitParentId} is not null`),
+    check("transaction_split_position_chk", sql`(${table.splitParentId} is null) = (${table.splitPosition} is null)`),
+    check("transaction_split_reimbursed_chk", sql`not ${table.splitReimbursed} or (${table.splitParentId} is not null and ${table.splitLineId} is null)`),
+    check("transaction_split_identity_chk", sql`${table.splitParentId} is null or (${table.importFingerprint} is null and ${table.bankTransactionId} is null and ${table.importBatchId} is null)`),
     index("transaction_household_date_idx").on(table.householdId, table.occurredOn),
     index("transaction_import_batch_idx").on(table.importBatchId),
     index("transaction_household_created_by_idx").on(table.householdId, table.createdByUserId),

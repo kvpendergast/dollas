@@ -1,6 +1,6 @@
 "use client";
 
-import { formatCents, type CategoryMenuEntry } from "@dollas/domain";
+import { SPLIT_GROUP_COPY, formatCents, type CategoryMenuEntry } from "@dollas/domain";
 import { Repeat } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { UndoBar } from "@/components/app/undo-bar";
 import { toast } from "@/lib/toast-store";
 import { restoreTransactionAction } from "@/slices/activity/actions";
+import type { ListedSplit } from "@/slices/activity/transactions";
 import { TransactionEditor } from "./transaction-editor";
 
 const UNDO_MS = 8_000;
@@ -31,6 +32,7 @@ type LedgerTransaction = {
   categorizedBy?: { id: string; name: string } | null;
   note?: string | null;
   splits: Array<{ categoryId: string; categoryName: string; amountCents: number }>;
+  splitGroup?: ListedSplit | null;
   accounts: AccountChoice[];
 };
 
@@ -96,12 +98,19 @@ export function ActivityLedger({
     setUndo(null);
   }
 
-  const visible = transactions.filter((item) => !hidden.has(item.id));
+  // Lines and deposits of a split on this page nest under it; a line whose parent is on another page stands alone.
+  const parentsHere = new Set(transactions.filter((item) => item.splitGroup?.role === "parent").map((item) => item.id));
+  const visible = transactions.filter(
+    (item) => !hidden.has(item.id) && !(item.splitGroup && item.splitGroup.role !== "parent" && parentsHere.has(item.splitGroup.parentId)),
+  );
 
   return (
     <div className="overflow-hidden rounded-md border-2 border-foreground bg-card shadow-soft">
       {visible.map((item) => {
-        const split = item.splits.length > 1;
+        const group = item.splitGroup ?? null;
+        const parent = group?.role === "parent" ? group : null;
+        const child = group && group.role !== "parent" ? group : null;
+        const split = item.splits.length > 1 && !parent;
         return (
           <article
             key={item.id}
@@ -115,6 +124,12 @@ export function ActivityLedger({
                   {item.accountArchived ? " · Archived" : ""}
                   {split ? "" : ` · ${item.splits[0]?.categoryName ?? "Uncategorized"}`}
                 </p>
+                {child ? (
+                  <p className="text-xs text-muted-foreground" data-split-orphan>
+                    {SPLIT_GROUP_COPY.partOf}: {child.parentPayee}
+                    {child.role === "line" && child.reimbursed ? ` · ${SPLIT_GROUP_COPY.reimbursed}` : ""}
+                  </p>
+                ) : null}
                 {item.note ? <p className="text-xs text-muted-foreground">{item.note}</p> : null}
                 {item.sources ? <p className="text-xs text-muted-foreground">{attributionLine(item)}</p> : null}
               </div>
@@ -137,6 +152,11 @@ export function ActivityLedger({
                     </Badge>
                   ) : null}
                   {split ? <Badge variant="secondary">Split</Badge> : null}
+                  {parent ? (
+                    <Badge variant="secondary" title={parent.kind === "income" ? SPLIT_GROUP_COPY.incomeHint : SPLIT_GROUP_COPY.allocationHint}>
+                      {parent.kind === "income" ? "Income split" : "Split"}
+                    </Badge>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -146,6 +166,34 @@ export function ActivityLedger({
                   <li key={`${part.categoryId}-${index}`} className="flex justify-between gap-3">
                     <span>{part.categoryName}</span>
                     <span className="tabular-nums">{formatCents(part.amountCents)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {parent ? (
+              <ul aria-label={`Lines of ${item.payee}`} className="mt-3 space-y-1 border-l-4 border-border-soft pl-3 text-sm">
+                {parent.view.lines.map((line) => (
+                  <li key={line.id} data-split-line>
+                    <div className="flex justify-between gap-3">
+                      <span className="min-w-0 break-words">
+                        {line.payee}
+                        <span className="text-xs text-muted-foreground"> · {line.categoryName ?? "Uncategorized"}</span>
+                        {line.reimbursed ? (
+                          <Badge variant="outline" className="ml-1" title={SPLIT_GROUP_COPY.reimbursedHint}>
+                            {SPLIT_GROUP_COPY.reimbursed}
+                          </Badge>
+                        ) : null}
+                      </span>
+                      <span className="shrink-0 tabular-nums">{formatCents(line.amountCents)}</span>
+                    </div>
+                    {line.deposit ? (
+                      <div className="flex justify-between gap-3 text-xs text-muted-foreground">
+                        <span>
+                          {SPLIT_GROUP_COPY.toAccount} {line.deposit.accountName}
+                        </span>
+                        <span className="tabular-nums text-income">{formatCents(line.deposit.amountCents)}</span>
+                      </div>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -161,6 +209,7 @@ export function ActivityLedger({
                 item.bankMatched ? "matched" : "",
                 item.recurring?.id ?? "",
                 item.splits.map((part) => `${part.categoryId}:${part.amountCents}`).join(","),
+                parent ? parent.view.lines.map((line) => `${line.categoryId}:${line.amountCents}:${line.reimbursed}:${line.deposit?.accountId ?? ""}`).join(",") : group?.role ?? "",
               ].join("|")}
               transaction={item}
               accounts={item.accounts}

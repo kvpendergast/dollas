@@ -14,6 +14,7 @@ import { category, categoryGroup, ledgerAccount, savedFilter, transaction, trans
 import { logInfo } from "@/lib/telemetry";
 import { UUID, failure, refuse, succeed, type ServiceActor, type ServiceResult, type Via } from "@/lib/service-result";
 import { lineCondition, transactionConditions } from "./filter-sql";
+import { countsInBooks } from "@/slices/splits/counted";
 
 /**
  * Spending dashboard and saved filters (PEN-212), shared by the History page,
@@ -43,7 +44,7 @@ export async function getSpendingBreakdown(actor: ServiceActor, input: unknown, 
   try {
     const loaded = await withActor(actor.userId, async (tx) => {
       const where = transactionConditions(actor.householdId, filter, today);
-      where.push(sql`${transaction.deletedAt} is null`);
+      where.push(sql`${transaction.deletedAt} is null`, countsInBooks());
       const line = lineCondition(filter);
       const lines = await tx
         .select({

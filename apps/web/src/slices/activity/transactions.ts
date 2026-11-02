@@ -13,6 +13,9 @@ import {
   type TransactionEntryInput,
   type TransactionEntryPatch,
   type SpendingFilter,
+  SPLIT_GROUP_COPY,
+  SplitGroupError,
+  type SplitKind,
 } from "@dollas/domain";
 import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -22,6 +25,7 @@ import { category, categoryGroup, ledgerAccount, payeeCategoryRule, recurringIte
 import { sourceOf, transactionConditions } from "@/slices/spending/filter-sql";
 import { ensureFallbackCategory } from "@/slices/connections/apply";
 import { linkRecurringMatches } from "@/slices/recurring/store";
+import { loadSplitViews, type SplitView } from "@/slices/splits/store";
 import { logInfo } from "@/lib/telemetry";
 import { UUID, failure, refuse, succeed, type ServiceActor, type ServiceResult, type Via } from "@/lib/service-result";
 
@@ -55,7 +59,14 @@ export type ListedTransaction = {
   categorizedBy: { id: string; name: string } | null;
   note: string | null;
   splits: Array<{ categoryId: string; categoryName: string; amountCents: number }>;
+  /** Split transactions (PEN-348): the parent carries its lines; a line or deposit names its parent. */
+  splitGroup: ListedSplit | null;
 };
+
+export type ListedSplit =
+  | { role: "parent"; kind: SplitKind; view: SplitView }
+  | { role: "line"; parentId: string; parentPayee: string; reimbursed: boolean }
+  | { role: "deposit"; parentId: string; parentPayee: string };
 
 export type TransactionFilter = {
   limit: number;
@@ -127,6 +138,10 @@ export async function listHouseholdTransactions(
             recurringName: recurringItem.name,
             importFingerprint: transaction.importFingerprint,
             note: transaction.note,
+            splitKind: transaction.splitKind,
+            splitParentId: transaction.splitParentId,
+            splitLineId: transaction.splitLineId,
+            splitReimbursed: transaction.splitReimbursed,
             addedById: addedBy.id,
             addedByName: addedBy.name,
             categorizedById: categorizedBy.id,
@@ -168,6 +183,27 @@ export async function listHouseholdTransactions(
           });
           byTransaction.set(split.transactionId, list);
         }
+        const parentIds = [...new Set(rows.flatMap((row) => (row.splitKind ? [row.id] : row.splitParentId ? [row.splitParentId] : [])))];
+        const views = await loadSplitViews(tx, actor.householdId, parentIds);
+        const parentPayees = parentIds.length === 0
+          ? new Map<string, string>()
+          : new Map(
+              (
+                await tx
+                  .select({ id: transaction.id, payee: transaction.payee })
+                  .from(transaction)
+                  .where(and(eq(transaction.householdId, actor.householdId), inArray(transaction.id, parentIds)))
+              ).map((row) => [row.id, row.payee]),
+            );
+        const splitOf = (row: (typeof rows)[number]): ListedSplit | null => {
+          const view = views.get(row.id);
+          if (row.splitKind && view) return { role: "parent", kind: view.kind, view };
+          if (!row.splitParentId) return null;
+          const parentPayee = parentPayees.get(row.splitParentId) ?? "";
+          return row.splitLineId
+            ? { role: "deposit", parentId: row.splitParentId, parentPayee }
+            : { role: "line", parentId: row.splitParentId, parentPayee, reimbursed: row.splitReimbursed };
+        };
         return {
           total: Number(counted?.value ?? 0),
           items: rows.map((row) => ({
@@ -187,6 +223,7 @@ export async function listHouseholdTransactions(
             categorizedBy: row.categorizedById && row.categorizedByName != null ? { id: row.categorizedById, name: row.categorizedByName } : null,
             note: row.note,
             splits: byTransaction.get(row.id) ?? [],
+            splitGroup: splitOf(row),
           })),
         };
       }),
@@ -284,11 +321,15 @@ async function loadEntry(tx: AppTx, householdId: string, transactionId: string):
       amountCents: transaction.amountCents,
       note: transaction.note,
       deletedAt: transaction.deletedAt,
+      splitKind: transaction.splitKind,
+      splitParentId: transaction.splitParentId,
     })
     .from(transaction)
     .where(and(eq(transaction.id, transactionId), eq(transaction.householdId, householdId)))
     .for("update");
   if (!existing || existing.deletedAt) throw new Error(NOT_HERE);
+  if (existing.splitParentId) throw new SplitGroupError(SPLIT_GROUP_COPY.locked);
+  if (existing.splitKind) throw new SplitGroupError(SPLIT_GROUP_COPY.parentLocked);
   const splits = await tx
     .select({ categoryId: transactionSplit.categoryId, amountCents: transactionSplit.amountCents })
     .from(transactionSplit)
@@ -383,11 +424,17 @@ async function loadStored(tx: AppTx, householdId: string, transactionId: string)
       importFingerprint: transaction.importFingerprint,
       deletedAt: transaction.deletedAt,
       payee: transaction.payee,
+      splitKind: transaction.splitKind,
+      splitParentId: transaction.splitParentId,
+      splitReplacedBy: transaction.splitReplacedBy,
     })
     .from(transaction)
     .where(and(eq(transaction.id, transactionId), eq(transaction.householdId, householdId)));
   if (!row) return null;
+  if (row.splitParentId) throw new SplitGroupError(SPLIT_GROUP_COPY.locked);
   return {
+    split: row.splitKind != null,
+    replacedBy: row.splitReplacedBy,
     id: row.id,
     householdId: row.householdId,
     importFingerprint: row.importFingerprint,
@@ -414,6 +461,13 @@ export async function deleteHouseholdTransaction(
         .update(transaction)
         .set({ deletedAt: new Date(stamp) })
         .where(and(eq(transaction.id, transactionId), eq(transaction.householdId, actor.householdId)));
+      if (current.split) {
+        // A split's lines and deposits leave with it (PEN-348).
+        await tx
+          .update(transaction)
+          .set({ deletedAt: new Date(stamp) })
+          .where(and(eq(transaction.splitParentId, transactionId), eq(transaction.householdId, actor.householdId)));
+      }
       return current.payee;
     });
     logInfo("Transaction deleted", { action: "delete-transaction", via, householdId: actor.householdId });
@@ -434,10 +488,17 @@ export async function restoreHouseholdTransaction(
       const current = await loadStored(tx, actor.householdId, transactionId);
       const decision = restoreTransaction(current, actor.householdId);
       if (decision.isErr()) throw decision.error;
+      if (current?.replacedBy) throw new SplitGroupError("A split stands in for this transaction. Unsplit that split to bring it back.");
       await tx
         .update(transaction)
         .set({ deletedAt: null })
         .where(and(eq(transaction.id, transactionId), eq(transaction.householdId, actor.householdId)));
+      if (current?.split) {
+        await tx
+          .update(transaction)
+          .set({ deletedAt: null })
+          .where(and(eq(transaction.splitParentId, transactionId), eq(transaction.householdId, actor.householdId)));
+      }
       await linkRecurringMatches(tx, actor.householdId, { transactionIds: [transactionId] });
       return current?.payee ?? "";
     });

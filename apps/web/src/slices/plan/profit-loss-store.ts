@@ -2,6 +2,7 @@ import type { PnlStore } from "@dollas/domain";
 import { and, eq, gte, isNull, lte, or, gt, lt } from "drizzle-orm";
 import type { AppTx } from "@/db/client";
 import { category, categoryBudget, categoryGroup, transaction, transactionSplit } from "@/db/schema";
+import { countsInBooks } from "@/slices/splits/counted";
 
 /** Drizzle reads for the profit and loss report. Runs inside `withActor` (dollas_app, household RLS). */
 export function drizzleProfitLossStore(tx: AppTx): PnlStore {
@@ -51,6 +52,7 @@ export function drizzleProfitLossStore(tx: AppTx): PnlStore {
             eq(transaction.householdId, householdId),
             eq(transactionSplit.householdId, householdId),
             isNull(transaction.deletedAt),
+            countsInBooks(),
             gte(transaction.occurredOn, range.start),
             lte(transaction.occurredOn, range.end),
           ),
