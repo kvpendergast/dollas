@@ -3,7 +3,7 @@ import { withActor } from "@/db/actor";
 import type { AppTx } from "@/db/client";
 import { category, transaction, transactionSplit } from "@/db/schema";
 import { logInfo } from "@/lib/telemetry";
-import { isSplitRow } from "@/slices/splits/counted";
+import { isLockedRow } from "@/slices/splits/counted";
 import { UUID, failure, refuse, succeed, type ServiceActor, type ServiceResult, type Via } from "@/lib/service-result";
 
 /**
@@ -34,7 +34,7 @@ type Candidate = { id: string; payee: string; amountCents: number; splitGroup: b
 async function loadCandidates(tx: AppTx, householdId: string, ids: readonly string[]): Promise<Candidate[]> {
   if (ids.length === 0) return [];
   const rows = await tx
-    .select({ id: transaction.id, payee: transaction.payee, amountCents: transaction.amountCents, splitGroup: isSplitRow() })
+    .select({ id: transaction.id, payee: transaction.payee, amountCents: transaction.amountCents, splitGroup: isLockedRow() })
     .from(transaction)
     .where(and(eq(transaction.householdId, householdId), isNull(transaction.deletedAt), inArray(transaction.id, [...ids])))
     .for("update");

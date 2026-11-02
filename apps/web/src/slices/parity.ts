@@ -38,6 +38,9 @@ export const ACTION_PARITY: Record<string, Parity> = {
   separateBankMatchAction: { tools: ["separate_bank_match"] },
   saveSplitAction: { tools: ["create_split", "update_split"] },
   unsplitAction: { tools: ["unsplit_transaction"] },
+  linkTransferAction: { tools: ["link_transfer"] },
+  unlinkTransferAction: { tools: ["unlink_transfer"] },
+  depositChoicesAction: { tools: ["suggest_transfer_links"] },
   // payee rules
   createPayeeRuleAction: { tools: ["create_payee_rule"] },
   updatePayeeRuleAction: { tools: ["update_payee_rule"] },
@@ -115,7 +118,7 @@ export const PAGE_PARITY: Record<string, Parity> = {
   "/": { tools: ["get_month_summary", "get_onboarding_status"] },
   "/accounts": { tools: ["list_accounts", "list_bank_connections"] },
   "/activity": {
-    tools: ["list_transactions", "list_payees", "list_saved_filters", "list_recurring_items", "list_payee_rules", "list_csv_imports", "list_accounts", "list_categories", "list_splits", "get_split"],
+    tools: ["list_transactions", "list_payees", "list_saved_filters", "list_recurring_items", "list_payee_rules", "list_csv_imports", "list_accounts", "list_categories", "list_splits", "get_split", "suggest_transfer_links"],
   },
   "/categories": { tools: ["list_categories", "get_onboarding_status"] },
   "/history": { tools: ["get_spending_breakdown", "get_spending_history", "list_saved_filters"] },

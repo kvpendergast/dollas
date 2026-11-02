@@ -17,6 +17,7 @@ import type { AppTx } from "@/db/client";
 import { category, ledgerAccount, transaction, transactionSplit } from "@/db/schema";
 import { logInfo } from "@/lib/telemetry";
 import { UUID, failure, refuse, succeed, type ServiceActor, type ServiceResult, type Via } from "@/lib/service-result";
+import { PAIR_KNOWN, PAIR_LINE_HAS_DEPOSIT, linkInTx, translatePairError } from "./pairs";
 import { loadSplitViews, type SplitView } from "./store";
 
 /**
@@ -36,7 +37,7 @@ export const SPLIT_KEY_TAKEN = "That client key already belongs to another split
 const CATEGORY_NOT_HERE = "Choose categories from this household.";
 const ACCOUNT_NOT_HERE = "Choose a deposit account in this household.";
 export const MAX_BULK_SPLITS = 50;
-const KNOWN = [SPLIT_NOT_HERE, SPLIT_ALREADY, SPLIT_NOT_SPLIT, SPLIT_RESTORE_FIRST, SPLIT_KEY_TAKEN, CATEGORY_NOT_HERE, ACCOUNT_NOT_HERE];
+const KNOWN = [SPLIT_NOT_HERE, SPLIT_ALREADY, SPLIT_NOT_SPLIT, SPLIT_RESTORE_FIRST, SPLIT_KEY_TAKEN, CATEGORY_NOT_HERE, ACCOUNT_NOT_HERE, ...PAIR_KNOWN];
 
 export type SplitLineInput = {
   payee?: string | null;
@@ -45,6 +46,8 @@ export type SplitLineInput = {
   amountCents?: number | null;
   remainderPercent?: number | null;
   toAccountId?: string | null;
+  /** PEN-349: link this net-pay line to a deposit already in another account (instead of toAccountId). */
+  depositTransactionId?: string | null;
   reimbursed?: boolean;
   note?: string | null;
 };
@@ -97,7 +100,7 @@ function translate(error: unknown): unknown {
   if (text.includes("split lines must add up")) return new SplitGroupError("The lines must add up to the transaction.");
   if (text.includes("category splits must add up")) return new SplitGroupError("Each line needs one category for its full amount.");
   if (text.includes("a split stays in one household")) return new SplitGroupError(SPLIT_NOT_HERE);
-  return error;
+  return translatePairError(error);
 }
 
 function differenceOf(error: unknown): number | null {
@@ -151,6 +154,7 @@ async function draftsFor(tx: AppTx, householdId: string, lines: readonly SplitLi
           .where(and(eq(category.householdId, householdId), inArray(category.id, ids)));
   const kinds = new Map(known.map((row) => [row.id, row.kind as SplitCategoryKind]));
   return lines.map((line, index) => {
+    if (line.toAccountId && line.depositTransactionId) throw new SplitGroupError(PAIR_LINE_HAS_DEPOSIT);
     const kind = kinds.get(line.categoryId);
     if (!kind) throw new SplitGroupError(line.categoryId ? CATEGORY_NOT_HERE : `Line ${index + 1} needs a category.`);
     return {
@@ -197,8 +201,9 @@ async function planFor(tx: AppTx, householdId: string, parent: ParentRow, lines:
 }
 
 /** Inserts the lines (each with one category line for its amount) and each line's deposit. */
-async function writeLines(tx: AppTx, householdId: string, parent: ParentRow, plan: SplitPlan): Promise<void> {
+async function writeLines(tx: AppTx, householdId: string, parent: ParentRow, plan: SplitPlan, inputs: readonly SplitLineInput[]): Promise<void> {
   for (const line of plan.lines) {
+    const linkTo = inputs[line.position]?.depositTransactionId ?? null;
     const [row] = await tx
       .insert(transaction)
       .values({
@@ -232,6 +237,7 @@ async function writeLines(tx: AppTx, householdId: string, parent: ParentRow, pla
       if (!deposit) throw new Error("split deposit insert returned no row");
       await tx.insert(transactionSplit).values({ transactionId: deposit.id, householdId, categoryId: line.categoryId, amountCents: -line.amountCents });
     }
+    if (linkTo) await linkInTx(tx, householdId, row.id, linkTo);
   }
 }
 
@@ -301,7 +307,7 @@ async function createInTx(tx: AppTx, householdId: string, input: CreateSplitInpu
     .update(transaction)
     .set({ splitKind: plan.kind, splitClientKey: key })
     .where(and(eq(transaction.householdId, householdId), eq(transaction.id, parent.id)));
-  await writeLines(tx, householdId, parent, plan);
+  await writeLines(tx, householdId, parent, plan, input.lines);
   await replaceRows(tx, householdId, parent, input.replacesTransactionIds ?? []);
   return { status: "created", view: await viewOf(tx, householdId, parent.id) };
 }
@@ -360,6 +366,7 @@ export async function updateSplit(actor: ServiceActor, input: UpdateSplitInput, 
           categoryId: line.categoryId ?? "",
           amountCents: Math.abs(line.amountCents),
           toAccountId: line.deposit?.accountId ?? null,
+          depositTransactionId: line.linked?.id ?? null,
           reimbursed: line.reimbursed,
           note: line.note,
         }));
@@ -379,7 +386,7 @@ export async function updateSplit(actor: ServiceActor, input: UpdateSplitInput, 
         .update(transaction)
         .set({ splitKind: plan.kind })
         .where(and(eq(transaction.householdId, actor.householdId), eq(transaction.id, parent.id)));
-      await writeLines(tx, actor.householdId, parent, plan);
+      await writeLines(tx, actor.householdId, parent, plan, lines);
       return viewOf(tx, actor.householdId, parent.id);
     });
     logInfo("Split edited", { action: "update-split", via, householdId: actor.householdId, kind: view.kind });

@@ -13,6 +13,9 @@ import { transaction } from "@/db/schema";
  *   payees): the same rows minus lines marked reimbursed (a friend's share).
  *
  * Bank sync and bulk recategorizing leave split rows alone: see isSplitRow.
+ * A deposit linked to a paycheck's net pay (PEN-349) is an ordinary row that
+ * counts everywhere under its transfer category; isLockedRow adds it to the
+ * rows that rules and bulk edits skip.
  */
 export function countsInBalances(): SQL {
   return sql`${transaction.splitKind} is distinct from 'allocation'`;
@@ -39,4 +42,14 @@ export function isSplitRow(): SQL<boolean> {
 
 export function notSplitRow(): SQL {
   return sql`(${transaction.splitKind} is null and ${transaction.splitParentId} is null)`;
+}
+
+/** A deposit linked to a paycheck's net-pay line (PEN-349). */
+export function isLinkedDeposit(): SQL<boolean> {
+  return sql<boolean>`exists (select 1 from transfer_pair where transfer_pair.deposit_id = ${transaction.id})`;
+}
+
+/** Rows that bulk recategorizing and payee rules leave alone: split rows and linked deposits. */
+export function isLockedRow(): SQL<boolean> {
+  return sql<boolean>`(${isSplitRow()} or ${isLinkedDeposit()})`;
 }

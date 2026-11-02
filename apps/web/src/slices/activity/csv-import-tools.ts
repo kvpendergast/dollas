@@ -299,8 +299,9 @@ export const csvImportTools = [
               added: item.addedCount,
               created_at: item.createdAt,
               splits_built_on: item.splitCount,
+              linked_deposits: item.linkedCount,
               replaced_by_splits: item.replacedCount,
-              undo_warning: splitUndoWarning(item.splitCount, item.replacedCount) || null,
+              undo_warning: splitUndoWarning(item.splitCount, item.replacedCount, item.linkedCount) || null,
             })),
             readPage(args, 25),
           ),
@@ -321,6 +322,7 @@ export const csvImportTools = [
         removed: value.removed,
         kept: value.kept,
         removed_splits: value.removedSplits,
+        unlinked_deposits: value.unlinkedDeposits,
       }));
     },
   }),

@@ -3,6 +3,7 @@
 import {
   MAX_SPLIT_LINES,
   SPLIT_GROUP_COPY,
+  TRANSFER_PAIR_COPY,
   categoryMenuSections,
   describeSplitDifference,
   formatCents,
@@ -13,7 +14,7 @@ import {
   type SplitCategoryKind,
   type SplitKind,
 } from "@dollas/domain";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FieldError } from "@/components/ui/field";
@@ -21,7 +22,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { toast } from "@/lib/toast-store";
-import { saveSplitAction } from "@/slices/splits/actions";
+import { depositChoicesAction, saveSplitAction } from "@/slices/splits/actions";
+import type { DepositChoice } from "@/slices/splits/pairs";
 
 /** "17.94" for -1794 or 1794. */
 function unsignedDollarInput(cents: number): string {
@@ -37,9 +39,24 @@ export type SplitEditorLine = {
   amountCents: number;
   reimbursed: boolean;
   deposit: { accountId: string } | null;
+  /** The real deposit this line is linked to (PEN-349). */
+  linked?: { id: string; accountId: string; accountName: string; occurredOn: string; payee: string; amountCents: number } | null;
 };
 
-type Row = { key: string; payee: string; categoryId: string; amount: string; reimbursed: boolean; toAccountId: string };
+/** A line's deposit choice: "" none, "account:<id>" a new deposit, "link:<id>" an existing deposit. */
+type Row = { key: string; payee: string; categoryId: string; amount: string; reimbursed: boolean; deposit: string };
+
+function depositValue(line: SplitEditorLine): string {
+  if (line.linked) return `link:${line.linked.id}`;
+  return line.deposit ? `account:${line.deposit.accountId}` : "";
+}
+
+/** "Bank · Oct 16 · $3,500.00" for an existing-deposit option. */
+function choiceLabel(choice: DepositChoice): string {
+  const [year, month, day] = choice.occurredOn.split("-").map(Number);
+  const date = new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, day ?? 1)).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  return `${choice.accountName} · ${date} · ${formatCents(choice.amountCents)} · ${choice.payee}`;
+}
 
 function asKind(kind: string): SplitCategoryKind {
   return kind === "income" || kind === "transfer" ? kind : "expense";
@@ -89,15 +106,29 @@ export function SplitEditor({
           categoryId: line.categoryId,
           amount: unsignedDollarInput(line.amountCents),
           reimbursed: line.reimbursed,
-          toAccountId: line.deposit?.accountId ?? "",
+          deposit: depositValue(line),
         }))
       : [
-          { key: crypto.randomUUID(), payee: transaction.payee, categoryId: "", amount: "", reimbursed: false, toAccountId: "" },
-          { key: crypto.randomUUID(), payee: transaction.payee, categoryId: "", amount: "", reimbursed: false, toAccountId: "" },
+          { key: crypto.randomUUID(), payee: transaction.payee, categoryId: "", amount: "", reimbursed: false, deposit: "" },
+          { key: crypto.randomUUID(), payee: transaction.payee, categoryId: "", amount: "", reimbursed: false, deposit: "" },
         ],
   );
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  // The linked deposits show at once; the open ones arrive from the server.
+  const [choices, setChoices] = useState<DepositChoice[]>(() =>
+    (lines ?? []).flatMap((line) => (line.linked ? [{ ...line.linked, linkedLineId: null }] : [])),
+  );
+  useEffect(() => {
+    if (kind !== "income") return;
+    let live = true;
+    void depositChoicesAction(transaction.id).then((result) => {
+      if (live && !result.error) setChoices(result.choices);
+    });
+    return () => {
+      live = false;
+    };
+  }, [kind, transaction.id]);
   const menu = categoryMenuSections(categories);
   const magnitudes = rows.map((row) => rowCents(row) ?? 0);
   const difference = splitDifferenceCents(transaction.amountCents, magnitudes);
@@ -120,7 +151,8 @@ export function SplitEditor({
         categoryId: row.categoryId,
         amountCents: rowCents(row),
         remainderPercent: null,
-        toAccountId: kind === "income" && row.toAccountId ? row.toAccountId : null,
+        toAccountId: kind === "income" && row.deposit.startsWith("account:") ? row.deposit.slice("account:".length) : null,
+        depositTransactionId: kind === "income" && row.deposit.startsWith("link:") ? row.deposit.slice("link:".length) : null,
         reimbursed: kind === "allocation" && charge ? row.reimbursed : false,
         note: null,
       })),
@@ -140,6 +172,10 @@ export function SplitEditor({
       <ol className="space-y-3">
         {rows.map((row, index) => {
           const transfer = kindOf.get(row.categoryId) === "transfer";
+          const cents = rowCents(row);
+          const picked = row.deposit.startsWith("link:") ? row.deposit.slice("link:".length) : "";
+          const taken = new Set(rows.filter((other) => other.key !== row.key && other.deposit.startsWith("link:")).map((other) => other.deposit.slice("link:".length)));
+          const offered = choices.filter((choice) => choice.id === picked || (!taken.has(choice.id) && cents != null && choice.amountCents === cents));
           return (
             <li key={row.key} className="space-y-2 rounded-md border-2 border-dashed border-border-soft p-2">
               <div className="grid gap-2 md:grid-cols-[1fr_1fr_8rem_auto] md:items-end">
@@ -189,14 +225,26 @@ export function SplitEditor({
               {kind === "income" && transfer ? (
                 <div className="space-y-1">
                   <Label htmlFor={`${field}-deposit-${index}`}>{SPLIT_GROUP_COPY.toAccount} (optional)</Label>
-                  <Select id={`${field}-deposit-${index}`} value={row.toAccountId} onChange={(event) => change(row.key, { toAccountId: event.target.value })}>
-                    <option value="">No deposit</option>
-                    {accounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name}
-                      </option>
-                    ))}
+                  <Select id={`${field}-deposit-${index}`} value={row.deposit} onChange={(event) => change(row.key, { deposit: event.target.value })}>
+                    <option value="">{TRANSFER_PAIR_COPY.noDeposit}</option>
+                    {offered.length > 0 ? (
+                      <optgroup label={TRANSFER_PAIR_COPY.existing}>
+                        {offered.map((choice) => (
+                          <option key={choice.id} value={`link:${choice.id}`}>
+                            {choiceLabel(choice)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
+                    <optgroup label={TRANSFER_PAIR_COPY.newDeposit}>
+                      {accounts.map((account) => (
+                        <option key={account.id} value={`account:${account.id}`}>
+                          {account.name}
+                        </option>
+                      ))}
+                    </optgroup>
                   </Select>
+                  {offered.length > 0 && !picked ? <p className="text-xs text-muted-foreground">{TRANSFER_PAIR_COPY.hint}</p> : null}
                 </div>
               ) : null}
               {kind === "allocation" && charge ? (
@@ -218,7 +266,7 @@ export function SplitEditor({
           type="button"
           variant="outline"
           disabled={rows.length >= MAX_SPLIT_LINES}
-          onClick={() => setRows((current) => [...current, { key: crypto.randomUUID(), payee: transaction.payee, categoryId: "", amount: "", reimbursed: false, toAccountId: "" }])}
+          onClick={() => setRows((current) => [...current, { key: crypto.randomUUID(), payee: transaction.payee, categoryId: "", amount: "", reimbursed: false, deposit: "" }])}
         >
           {SPLIT_GROUP_COPY.addLine}
         </Button>

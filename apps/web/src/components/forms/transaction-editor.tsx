@@ -1,7 +1,7 @@
 "use client";
 
 import { FieldError } from "@/components/ui/field";
-import { NOTE_MAX_LENGTH, SPLIT_GROUP_COPY, type CategoryMenuEntry, type TransactionDirection } from "@dollas/domain";
+import { NOTE_MAX_LENGTH, SPLIT_GROUP_COPY, TRANSFER_PAIR_COPY, type CategoryMenuEntry, type TransactionDirection } from "@dollas/domain";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { deleteTransactionAction, separateBankMatchAction, updateTransactionActi
 import { RecurringLinkControl } from "@/components/recurring/recurring-forms";
 import { SplitControl, type SplitRow } from "./split-control";
 import { SplitEditor } from "./split-editor";
-import { unsplitAction } from "@/slices/splits/actions";
+import { unlinkTransferAction, unsplitAction } from "@/slices/splits/actions";
 import type { ListedSplit } from "@/slices/activity/transactions";
 import { useActionToast } from "@/lib/use-action-toast";
 import { toast } from "@/lib/toast-store";
@@ -46,6 +46,8 @@ export function TransactionEditor({
     recurring?: { id: string; name: string } | null;
     splits: Array<{ categoryId: string; amountCents: number }>;
     splitGroup?: ListedSplit | null;
+    /** Set when this deposit is a paycheck's linked net pay (PEN-349). */
+    linkedTo?: { lineId: string; parentId: string; parentPayee: string } | null;
   };
   accounts: Option[];
   categories: CategoryMenuEntry[];
@@ -65,6 +67,7 @@ export function TransactionEditor({
   const [separating, setSeparating] = useState(false);
   const [splitting, setSplitting] = useState(false);
   const [unsplitting, setUnsplitting] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
   const group = transaction.splitGroup ?? null;
   const direction: TransactionDirection = transaction.amountCents > 0 ? "income" : "expense";
   const initialRows: SplitRow[] = (
@@ -106,6 +109,30 @@ export function TransactionEditor({
     setUnsplitting(false);
     if (result.error) setRemoveError(result.error);
     else toast(`Unsplit ${transaction.payee}.`);
+  }
+
+  async function onUnlink() {
+    setUnlinking(true);
+    setRemoveError("");
+    const result = await unlinkTransferAction(transaction.id);
+    setUnlinking(false);
+    if (result.error) setRemoveError(result.error);
+    else toast(`Unlinked ${transaction.payee}; it has its old category back.`);
+  }
+
+  // A deposit linked to a paycheck's net pay: unlink it before changing it.
+  if (transaction.linkedTo && !group) {
+    return (
+      <div className="mt-3 space-y-2 border-t-2 border-dashed border-border-soft pt-2" data-transfer-linked>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">{TRANSFER_PAIR_COPY.depositLocked}</p>
+          <Button type="button" variant="outline" disabled={unlinking} aria-label={`${TRANSFER_PAIR_COPY.unlink}: ${transaction.payee}`} onClick={() => void onUnlink()}>
+            {unlinking ? "Unlinking" : TRANSFER_PAIR_COPY.unlink}
+          </Button>
+        </div>
+        {removeError ? <FieldError>{removeError}</FieldError> : null}
+      </div>
+    );
   }
 
   // A line or deposit of a split is changed from its parent.
@@ -152,6 +179,7 @@ export function TransactionEditor({
               amountCents: line.amountCents,
               reimbursed: line.reimbursed,
               deposit: line.deposit ? { accountId: line.deposit.accountId } : null,
+              linked: line.linked,
             }))}
             categories={categories}
             accounts={accounts.filter((account) => !account.archived)}

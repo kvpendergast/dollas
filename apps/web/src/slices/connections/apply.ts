@@ -20,7 +20,7 @@ import {
 } from "@dollas/domain";
 import { and, eq, gte, inArray, isNull, like, lte, or } from "drizzle-orm";
 import type { AppTx } from "@/db/client";
-import { bankAccount, bankConnection, category, ledgerAccount, payeeCategoryRule, transaction, transactionSplit } from "@/db/schema";
+import { bankAccount, bankConnection, category, ledgerAccount, payeeCategoryRule, transaction, transactionSplit, transferPair } from "@/db/schema";
 import { notSplitRow } from "@/slices/splits/counted";
 
 export async function applyBankSync(
@@ -326,7 +326,9 @@ async function loadSyncBooks(
         and(
           eq(transaction.householdId, householdId),
           isNull(transaction.bankTransactionId),
-          // A split's parent, lines and deposits are never matched to a bank charge (PEN-348).
+          // A split's parent, lines and deposits are never matched to a bank charge (PEN-348),
+          // so a linked net-pay line is never a candidate either (PEN-349). A deposit linked to one
+          // stays a candidate: its bank charge then attaches to it instead of adding a second deposit.
           notSplitRow(),
           inArray(transaction.amountCents, amounts),
           gte(transaction.occurredOn, shiftCivilDate(dates[0] ?? "", -BANK_MATCH_WINDOW_DAYS)),
@@ -504,8 +506,13 @@ async function updatePlanned(
       .select({ splitKind: transaction.splitKind, splitParentId: transaction.splitParentId })
       .from(transaction)
       .where(and(eq(transaction.householdId, householdId), eq(transaction.id, update.transactionId)));
+    const [paired] = await tx
+      .select({ id: transferPair.id })
+      .from(transferPair)
+      .where(and(eq(transferPair.householdId, householdId), eq(transferPair.depositId, update.transactionId)));
     // A split keeps the member's amount, date and payee: its lines add up to them (PEN-348).
-    const split = state != null && (state.splitKind != null || state.splitParentId != null);
+    // So does a deposit linked to a paycheck's net pay: it mirrors that line (PEN-349).
+    const split = paired != null || (state != null && (state.splitKind != null || state.splitParentId != null));
     const values = update.deleted
       ? identity
       : split
@@ -570,6 +577,10 @@ async function removePlanned(tx: AppTx, householdId: string, removals: readonly 
         .update(transaction)
         .set({ deletedAt })
         .where(and(eq(transaction.householdId, householdId), eq(transaction.splitParentId, removal.transactionId), isNull(transaction.deletedAt)));
+    }
+    if (!removal.matched && changed.length > 0) {
+      // A hidden deposit is no longer the paycheck's net pay: unlink it so the member can link the one that replaces it.
+      await tx.delete(transferPair).where(and(eq(transferPair.householdId, householdId), eq(transferPair.depositId, removal.transactionId)));
     }
     if (!removal.matched) count += changed.length;
   }

@@ -260,6 +260,13 @@
       "when": 1793626612865,
       "tag": "0036_split_transactions",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1793628477971,
+      "tag": "0037_transfer_pair",
+      "breakpoints": true
     }
   ]
 }

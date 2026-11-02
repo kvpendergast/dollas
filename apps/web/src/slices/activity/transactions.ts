@@ -15,16 +15,18 @@ import {
   type SpendingFilter,
   SPLIT_GROUP_COPY,
   SplitGroupError,
+  TRANSFER_PAIR_COPY,
   type SplitKind,
 } from "@dollas/domain";
 import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { withActor } from "@/db/actor";
 import type { AppTx } from "@/db/client";
-import { category, categoryGroup, ledgerAccount, payeeCategoryRule, recurringItem, recurringLink, transaction, transactionSplit, user } from "@/db/schema";
+import { category, categoryGroup, ledgerAccount, payeeCategoryRule, recurringItem, recurringLink, transaction, transactionSplit, transferPair, user } from "@/db/schema";
 import { sourceOf, transactionConditions } from "@/slices/spending/filter-sql";
 import { ensureFallbackCategory } from "@/slices/connections/apply";
 import { linkRecurringMatches } from "@/slices/recurring/store";
+import { translatePairError } from "@/slices/splits/pairs";
 import { loadSplitViews, type SplitView } from "@/slices/splits/store";
 import { logInfo } from "@/lib/telemetry";
 import { UUID, failure, refuse, succeed, type ServiceActor, type ServiceResult, type Via } from "@/lib/service-result";
@@ -61,6 +63,8 @@ export type ListedTransaction = {
   splits: Array<{ categoryId: string; categoryName: string; amountCents: number }>;
   /** Split transactions (PEN-348): the parent carries its lines; a line or deposit names its parent. */
   splitGroup: ListedSplit | null;
+  /** PEN-349: this deposit is linked to a paycheck's net-pay line. */
+  linkedTo: { lineId: string; parentId: string; parentPayee: string } | null;
 };
 
 export type ListedSplit =
@@ -195,6 +199,30 @@ export async function listHouseholdTransactions(
                   .where(and(eq(transaction.householdId, actor.householdId), inArray(transaction.id, parentIds)))
               ).map((row) => [row.id, row.payee]),
             );
+        const rowIds = rows.map((row) => row.id);
+        const pairs =
+          rowIds.length === 0
+            ? []
+            : await tx
+                .select({ depositId: transferPair.depositId, lineId: transferPair.lineId, parentId: transaction.splitParentId })
+                .from(transferPair)
+                .innerJoin(transaction, eq(transaction.id, transferPair.lineId))
+                .where(and(eq(transferPair.householdId, actor.householdId), inArray(transferPair.depositId, rowIds)));
+        const pairParents = [...new Set(pairs.flatMap((pair) => (pair.parentId ? [pair.parentId] : [])))];
+        const pairPayees =
+          pairParents.length === 0
+            ? new Map<string, string>()
+            : new Map(
+                (
+                  await tx
+                    .select({ id: transaction.id, payee: transaction.payee })
+                    .from(transaction)
+                    .where(and(eq(transaction.householdId, actor.householdId), inArray(transaction.id, pairParents)))
+                ).map((row) => [row.id, row.payee]),
+              );
+        const linkedOf = new Map(
+          pairs.map((pair) => [pair.depositId, { lineId: pair.lineId, parentId: pair.parentId ?? "", parentPayee: pairPayees.get(pair.parentId ?? "") ?? "" }]),
+        );
         const splitOf = (row: (typeof rows)[number]): ListedSplit | null => {
           const view = views.get(row.id);
           if (row.splitKind && view) return { role: "parent", kind: view.kind, view };
@@ -224,6 +252,7 @@ export async function listHouseholdTransactions(
             note: row.note,
             splits: byTransaction.get(row.id) ?? [],
             splitGroup: splitOf(row),
+            linkedTo: linkedOf.get(row.id) ?? null,
           })),
         };
       }),
@@ -266,7 +295,7 @@ function correctionMessage(error: unknown, fallback: string, attributes: Record<
   if (`${message} ${cause}`.includes("category splits must add up")) {
     return refuse("Category splits must add up to the transaction amount.", error);
   }
-  return failure(error, fallback, attributes, KNOWN);
+  return failure(translatePairError(error), fallback, attributes, KNOWN);
 }
 
 export type SavedTransaction = TransactionEntry & { id: string };
@@ -339,6 +368,25 @@ async function loadEntry(tx: AppTx, householdId: string, transactionId: string):
 
 type SplitLine = { categoryId: string; amountCents: number };
 
+type PairedFields = { amountCents: number; accountId: string; splits: readonly SplitLine[] };
+
+/** PEN-349: a deposit linked to a paycheck keeps its amount, account and transfer category; payee, date and note can change. */
+async function refuseLinkedDepositChange(tx: AppTx, householdId: string, transactionId: string, current: PairedFields, next: PairedFields) {
+  const [pair] = await tx
+    .select({ id: transferPair.id })
+    .from(transferPair)
+    .where(and(eq(transferPair.householdId, householdId), eq(transferPair.depositId, transactionId)));
+  if (!pair) return;
+  const key = (lines: readonly SplitLine[]) =>
+    lines
+      .map((line) => `${line.categoryId}:${line.amountCents}`)
+      .sort()
+      .join("|");
+  if (next.amountCents !== current.amountCents || next.accountId !== current.accountId || key(next.splits) !== key(current.splits)) {
+    throw new SplitGroupError(TRANSFER_PAIR_COPY.depositLocked);
+  }
+}
+
 /**
  * Writes a transaction's new category lines inside the caller's transaction, so
  * the deferred balance trigger sees the final set. Same categories (only
@@ -392,6 +440,7 @@ export async function amendHouseholdTransaction(
       const amended = amendTransactionEntry(current, patch);
       if (amended.isErr()) throw amended.error;
       const next = amended.value;
+      await refuseLinkedDepositChange(tx, actor.householdId, transactionId, current, next);
       await requireHouseholdTargets(tx, actor.householdId, next, { kind: "correction", currentAccountId: current.accountId });
       const updated = await tx
         .update(transaction)

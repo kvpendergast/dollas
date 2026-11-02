@@ -1,12 +1,16 @@
 import type { SplitCategoryKind, SplitKind } from "@dollas/domain";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import type { AppTx } from "@/db/client";
-import { category, categoryGroup, ledgerAccount, transaction, transactionSplit } from "@/db/schema";
+import { category, categoryGroup, ledgerAccount, transaction, transactionSplit, transferPair } from "@/db/schema";
 
 /**
  * Reads split transactions (PEN-348): a parent, its lines in order, and each
  * line's deposit. One loader backs Activity, the editor and the MCP tools.
+ * A net-pay line either makes its own deposit (`deposit`, PEN-348) or is
+ * linked to the bank's real one (`linked`, PEN-349), never both.
  */
+
+export type LinkedDepositView = { id: string; accountId: string; accountName: string; occurredOn: string; payee: string; amountCents: number; deleted: boolean };
 
 export type SplitLineView = {
   id: string;
@@ -19,6 +23,7 @@ export type SplitLineView = {
   reimbursed: boolean;
   note: string | null;
   deposit: { id: string; accountId: string; accountName: string; amountCents: number } | null;
+  linked: LinkedDepositView | null;
 };
 
 export type SplitView = {
@@ -132,6 +137,7 @@ export async function loadSplitViews(tx: AppTx, householdId: string, parentIds: 
       reimbursed: row.reimbursed,
       note: row.note,
       deposit: null,
+      linked: null,
     });
   }
   for (const row of children) {
@@ -139,9 +145,47 @@ export async function loadSplitViews(tx: AppTx, householdId: string, parentIds: 
     const line = views.get(row.parentId)?.lines.find((item) => item.id === row.lineId);
     if (line) line.deposit = { id: row.id, accountId: row.accountId, accountName: row.accountName, amountCents: row.amountCents };
   }
+  const lineOf = new Map<string, SplitLineView>();
+  for (const view of views.values()) for (const line of view.lines) lineOf.set(line.id, line);
+  for (const row of await loadLinkedDeposits(tx, householdId, [...lineOf.keys()])) {
+    const line = lineOf.get(row.lineId);
+    if (line) line.linked = row.deposit;
+  }
   for (const row of replaced) {
     if (!row.by) continue;
     views.get(row.by)?.replaced.push({ id: row.id, payee: row.payee, occurredOn: row.occurredOn, amountCents: row.amountCents });
   }
   return views;
+}
+
+/** The real deposits linked to these lines (PEN-349). */
+export async function loadLinkedDeposits(tx: AppTx, householdId: string, lineIds: readonly string[]): Promise<{ lineId: string; deposit: LinkedDepositView }[]> {
+  if (lineIds.length === 0) return [];
+  const rows = await tx
+    .select({
+      lineId: transferPair.lineId,
+      id: transaction.id,
+      accountId: transaction.accountId,
+      accountName: ledgerAccount.name,
+      occurredOn: transaction.occurredOn,
+      payee: transaction.payee,
+      amountCents: transaction.amountCents,
+      deletedAt: transaction.deletedAt,
+    })
+    .from(transferPair)
+    .innerJoin(transaction, eq(transaction.id, transferPair.depositId))
+    .innerJoin(ledgerAccount, eq(ledgerAccount.id, transaction.accountId))
+    .where(and(eq(transferPair.householdId, householdId), inArray(transferPair.lineId, [...lineIds])));
+  return rows.map((row) => ({
+    lineId: row.lineId,
+    deposit: {
+      id: row.id,
+      accountId: row.accountId,
+      accountName: row.accountName,
+      occurredOn: row.occurredOn,
+      payee: row.payee,
+      amountCents: row.amountCents,
+      deleted: row.deletedAt !== null,
+    },
+  }));
 }

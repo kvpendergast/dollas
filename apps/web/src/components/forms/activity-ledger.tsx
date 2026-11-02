@@ -1,6 +1,6 @@
 "use client";
 
-import { SPLIT_GROUP_COPY, formatCents, type CategoryMenuEntry } from "@dollas/domain";
+import { SPLIT_GROUP_COPY, TRANSFER_PAIR_COPY, formatCents, type CategoryMenuEntry } from "@dollas/domain";
 import { Repeat } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -33,6 +33,7 @@ type LedgerTransaction = {
   note?: string | null;
   splits: Array<{ categoryId: string; categoryName: string; amountCents: number }>;
   splitGroup?: ListedSplit | null;
+  linkedTo?: { lineId: string; parentId: string; parentPayee: string } | null;
   accounts: AccountChoice[];
 };
 
@@ -152,6 +153,11 @@ export function ActivityLedger({
                     </Badge>
                   ) : null}
                   {split ? <Badge variant="secondary">Split</Badge> : null}
+                  {item.linkedTo ? (
+                    <Badge variant="outline" className="border-primary/40 text-primary" title={TRANSFER_PAIR_COPY.hint} data-transfer-linked>
+                      {TRANSFER_PAIR_COPY.deposit} {item.linkedTo.parentPayee}
+                    </Badge>
+                  ) : null}
                   {parent ? (
                     <Badge variant="secondary" title={parent.kind === "income" ? SPLIT_GROUP_COPY.incomeHint : SPLIT_GROUP_COPY.allocationHint}>
                       {parent.kind === "income" ? "Income split" : "Split"}
@@ -194,6 +200,15 @@ export function ActivityLedger({
                         <span className="tabular-nums text-income">{formatCents(line.deposit.amountCents)}</span>
                       </div>
                     ) : null}
+                    {line.linked ? (
+                      <div className="flex justify-between gap-3 text-xs text-muted-foreground" data-transfer-linked>
+                        <span>
+                          {TRANSFER_PAIR_COPY.linkedTo}: {line.linked.accountName} · {line.linked.occurredOn}
+                          {line.linked.deleted ? " · Deleted" : ""}
+                        </span>
+                        <span className="tabular-nums text-income">{formatCents(line.linked.amountCents)}</span>
+                      </div>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -209,7 +224,8 @@ export function ActivityLedger({
                 item.bankMatched ? "matched" : "",
                 item.recurring?.id ?? "",
                 item.splits.map((part) => `${part.categoryId}:${part.amountCents}`).join(","),
-                parent ? parent.view.lines.map((line) => `${line.categoryId}:${line.amountCents}:${line.reimbursed}:${line.deposit?.accountId ?? ""}`).join(",") : group?.role ?? "",
+                parent ? parent.view.lines.map((line) => `${line.categoryId}:${line.amountCents}:${line.reimbursed}:${line.deposit?.accountId ?? ""}:${line.linked?.id ?? ""}`).join(",") : group?.role ?? "",
+                item.linkedTo?.lineId ?? "",
               ].join("|")}
               transaction={item}
               accounts={item.accounts}
